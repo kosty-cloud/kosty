@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.env
+.venv
+
+# Reports
+reports/
+reports/kosty_audit_*.json
+reports/kosty_audit_*.csv
+kosty_audit_*.json
+kosty_audit_*.csv
+kosty_report_*.json
+kosty_report_*.csv
+kosty-report-*.json
+kosty-report-*.csv
+checks.csv
+kosty/cli.py.backup
+
+# AWS credentials
+.aws/
+credentials
+config
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Coverage
+.coverage
+htmlcov/
+
+# Backups
+backups/
+*.backup
+*.bak

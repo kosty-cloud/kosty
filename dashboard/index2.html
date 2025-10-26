@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kosty - AWS Cost Optimization Dashboard (Demo)</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .demo-banner { background: linear-gradient(45deg, #ff6b6b, #feca57); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Demo data with comprehensive AWS infrastructure issues
+        const demoData = {
+            "scan_timestamp": "2024-01-15T14:30:22.123456",
+            "total_issues": 127,
+            "results": {
+                "123456789012": {
+                    "ec2": {
+                        "audit": {
+                            "count": 18,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "EC2",
+                                    "ResourceId": "i-0123456789abcdef0",
+                                    "ResourceName": "web-server-prod-01",
+                                    "Issue": "Oversized instance with low CPU utilization",
+                                    "Type": "Cost",
+                                    "Severity": "High",
+                                    "Description": "Instance running at 5% CPU for 30 days - potential savings $240/month",
+                                    "ARN": "arn:aws:ec2:us-east-1:123456789012:instance/i-0123456789abcdef0"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "EC2",
+                                    "ResourceId": "i-0987654321fedcba0",
+                                    "ResourceName": "api-server-dev-02",
+                                    "Issue": "Instance stopped for 45 days",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "Stopped instance still incurring EBS costs - $45/month",
+                                    "ARN": "arn:aws:ec2:us-east-1:123456789012:instance/i-0987654321fedcba0"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-west-2",
+                                    "Service": "EC2",
+                                    "ResourceId": "i-0abcdef123456789",
+                                    "ResourceName": "database-server-01",
+                                    "Issue": "Instance with public IP in private subnet",
+                                    "Type": "Security",
+                                    "Severity": "Critical",
+                                    "Description": "Database server exposed to internet - immediate security risk",
+                                    "ARN": "arn:aws:ec2:us-west-2:123456789012:instance/i-0abcdef123456789"
+                                }
+                            ]
+                        }
+                    },
+                    "rds": {
+                        "audit": {
+                            "count": 12,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "RDS",
+                                    "ResourceId": "prod-mysql-cluster",
+                                    "ResourceName": "prod-mysql-cluster",
+                                    "Issue": "Oversized RDS instance with low CPU",
+                                    "Type": "Cost",
+                                    "Severity": "High",
+                                    "Description": "db.r5.2xlarge running at 8% CPU - downsize to save $450/month",
+                                    "ARN": "arn:aws:rds:us-east-1:123456789012:db:prod-mysql-cluster"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "RDS",
+                                    "ResourceId": "analytics-read-replica",
+                                    "ResourceName": "analytics-read-replica",
+                                    "Issue": "Unused read replica with zero connections",
+                                    "Type": "Cost",
+                                    "Severity": "High",
+                                    "Description": "Read replica unused for 60 days - potential savings $320/month",
+                                    "ARN": "arn:aws:rds:us-east-1:123456789012:db:analytics-read-replica"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "eu-west-1",
+                                    "Service": "RDS",
+                                    "ResourceId": "public-database-01",
+                                    "ResourceName": "public-database-01",
+                                    "Issue": "Database publicly accessible",
+                                    "Type": "Security",
+                                    "Severity": "Critical",
+                                    "Description": "Production database accessible from internet",
+                                    "ARN": "arn:aws:rds:eu-west-1:123456789012:db:public-database-01"
+                                }
+                            ]
+                        }
+                    },
+                    "s3": {
+                        "audit": {
+                            "count": 24,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "S3",
+                                    "ResourceId": "company-logs-archive",
+                                    "ResourceName": "company-logs-archive",
+                                    "Issue": "Objects without lifecycle policy",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "2.5TB of logs older than 90 days - move to IA to save $180/month",
+                                    "ARN": "arn:aws:s3:::company-logs-archive"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "S3",
+                                    "ResourceId": "backup-bucket-dev",
+                                    "ResourceName": "backup-bucket-dev",
+                                    "Issue": "Empty bucket with no objects",
+                                    "Type": "Cost",
+                                    "Severity": "Low",
+                                    "Description": "Unused bucket created 6 months ago",
+                                    "ARN": "arn:aws:s3:::backup-bucket-dev"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "S3",
+                                    "ResourceId": "public-data-bucket",
+                                    "ResourceName": "public-data-bucket",
+                                    "Issue": "Bucket with public write access",
+                                    "Type": "Security",
+                                    "Severity": "Critical",
+                                    "Description": "Bucket allows public write - data breach risk",
+                                    "ARN": "arn:aws:s3:::public-data-bucket"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "S3",
+                                    "ResourceId": "sensitive-documents",
+                                    "ResourceName": "sensitive-documents",
+                                    "Issue": "Unencrypted bucket with sensitive data",
+                                    "Type": "Security",
+                                    "Severity": "High",
+                                    "Description": "Bucket contains PII without encryption",
+                                    "ARN": "arn:aws:s3:::sensitive-documents"
+                                }
+                            ]
+                        }
+                    },
+                    "lambda": {
+                        "audit": {
+                            "count": 15,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "Lambda",
+                                    "ResourceId": "data-processor-prod",
+                                    "ResourceName": "data-processor-prod",
+                                    "Issue": "Over-provisioned memory allocation",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "Function using 512MB but only needs 128MB - save $85/month",
+                                    "ARN": "arn:aws:lambda:us-east-1:123456789012:function:data-processor-prod"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "Lambda",
+                                    "ResourceId": "old-migration-function",
+                                    "ResourceName": "old-migration-function",
+                                    "Issue": "Function not invoked in 90 days",
+                                    "Type": "Cost",
+                                    "Severity": "Low",
+                                    "Description": "Legacy function consuming storage",
+                                    "ARN": "arn:aws:lambda:us-east-1:123456789012:function:old-migration-function"
+                                }
+                            ]
+                        }
+                    },
+                    "iam": {
+                        "audit": {
+                            "count": 22,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "IAM",
+                                    "ResourceId": "root",
+                                    "ResourceName": "root",
+                                    "Issue": "Root account has access keys",
+                                    "Type": "Security",
+                                    "Severity": "Critical",
+                                    "Description": "Root account with active access keys - immediate security risk",
+                                    "ARN": "arn:aws:iam::123456789012:root"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "IAM",
+                                    "ResourceId": "old-service-role",
+                                    "ResourceName": "old-service-role",
+                                    "Issue": "Unused role for 120 days",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "Role not used since service migration",
+                                    "ARN": "arn:aws:iam::123456789012:role/old-service-role"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "IAM",
+                                    "ResourceId": "admin-user-01",
+                                    "ResourceName": "admin-user-01",
+                                    "Issue": "User with admin access but no MFA",
+                                    "Type": "Security",
+                                    "Severity": "High",
+                                    "Description": "Administrative user without multi-factor authentication",
+                                    "ARN": "arn:aws:iam::123456789012:user/admin-user-01"
+                                }
+                            ]
+                        }
+                    },
+                    "ebs": {
+                        "audit": {
+                            "count": 8,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "EBS",
+                                    "ResourceId": "vol-0123456789abcdef0",
+                                    "ResourceName": "orphaned-volume-01",
+                                    "Issue": "Unattached EBS volume",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "500GB volume unattached for 30 days - $50/month waste",
+                                    "ARN": "arn:aws:ec2:us-east-1:123456789012:volume/vol-0123456789abcdef0"
+                                },
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-west-2",
+                                    "Service": "EBS",
+                                    "ResourceId": "vol-0987654321fedcba0",
+                                    "ResourceName": "unencrypted-volume-02",
+                                    "Issue": "Unencrypted EBS volume",
+                                    "Type": "Security",
+                                    "Severity": "High",
+                                    "Description": "Production volume without encryption",
+                                    "ARN": "arn:aws:ec2:us-west-2:123456789012:volume/vol-0987654321fedcba0"
+                                }
+                            ]
+                        }
+                    },
+                    "elasticache": {
+                        "audit": {
+                            "count": 6,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "ElastiCache",
+                                    "ResourceId": "redis-cluster-dev",
+                                    "ResourceName": "redis-cluster-dev",
+                                    "Issue": "Idle cluster with zero connections",
+                                    "Type": "Cost",
+                                    "Severity": "High",
+                                    "Description": "Development cluster unused for 45 days - $180/month",
+                                    "ARN": "arn:aws:elasticache:us-east-1:123456789012:cluster:redis-cluster-dev"
+                                }
+                            ]
+                        }
+                    },
+                    "cloudwatch": {
+                        "audit": {
+                            "count": 11,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "CloudWatch",
+                                    "ResourceId": "/aws/lambda/old-function",
+                                    "ResourceName": "/aws/lambda/old-function",
+                                    "Issue": "Log group without retention policy",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "Log group growing indefinitely - set 30-day retention",
+                                    "ARN": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/old-function"
+                                }
+                            ]
+                        }
+                    },
+                    "nat": {
+                        "audit": {
+                            "count": 3,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "NAT",
+                                    "ResourceId": "nat-0123456789abcdef0",
+                                    "ResourceName": "unused-nat-gateway",
+                                    "Issue": "NAT Gateway with minimal traffic",
+                                    "Type": "Cost",
+                                    "Severity": "High",
+                                    "Description": "NAT Gateway processing <1GB/month - $45/month waste",
+                                    "ARN": "arn:aws:ec2:us-east-1:123456789012:natgateway/nat-0123456789abcdef0"
+                                }
+                            ]
+                        }
+                    },
+                    "cloudfront": {
+                        "audit": {
+                            "count": 4,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "global",
+                                    "Service": "CloudFront",
+                                    "ResourceId": "E1234567890ABC",
+                                    "ResourceName": "old-website-distribution",
+                                    "Issue": "Distribution with zero requests",
+                                    "Type": "Cost",
+                                    "Severity": "Low",
+                                    "Description": "Distribution unused for 60 days",
+                                    "ARN": "arn:aws:cloudfront::123456789012:distribution/E1234567890ABC"
+                                }
+                            ]
+                        }
+                    },
+                    "eip": {
+                        "audit": {
+                            "count": 5,
+                            "items": [
+                                {
+                                    "AccountId": "123456789012",
+                                    "Region": "us-east-1",
+                                    "Service": "EIP",
+                                    "ResourceId": "eipalloc-0123456789abcdef0",
+                                    "ResourceName": "unattached-eip-01",
+                                    "Issue": "Unattached Elastic IP",
+                                    "Type": "Cost",
+                                    "Severity": "Medium",
+                                    "Description": "Elastic IP not attached to instance - $3.65/month",
+                                    "ARN": "arn:aws:ec2:us-east-1:123456789012:elastic-ip/eipalloc-0123456789abcdef0"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        };
+
+        const ServiceIcon = ({ service }) => {
+            const icons = {
+                ec2: 'fas fa-server', rds: 'fas fa-database', s3: 'fas fa-cloud',
+                lambda: 'fas fa-bolt', ebs: 'fas fa-hdd', vpc: 'fas fa-network-wired',
+                cloudwatch: 'fas fa-chart-line', elasticache: 'fas fa-memory',
+                iam: 'fas fa-users-cog', cloudfront: 'fas fa-globe',
+                nat: 'fas fa-route', eip: 'fas fa-map-pin',
+                default: 'fas fa-cube'
+            };
+            return <i className={`${icons[service] || icons.default} text-lg`}></i>;
+        };
+
+        const StatCard = ({ title, value, icon, color, trend, subtitle }) => (
+            <div className={`bg-white rounded-xl p-6 card-shadow border-l-4 ${color} hover:shadow-lg transition-shadow`}>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-medium text-gray-600">{title}</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+                        {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+                        {trend && <p className="text-sm text-green-600 mt-1">{trend}</p>}
+                    </div>
+                    <div>
+                        <i className={`${icon} text-3xl ${color.replace('border-l-', 'text-')}`}></i>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const IssueCard = ({ service, items, count, type, onIssueClick, severityColors }) => {
+            const typeColors = {
+                cost: 'border-orange-500 bg-orange-50',
+                security: 'border-red-500 bg-red-50',
+                Cost: 'border-orange-500 bg-orange-50',
+                Security: 'border-red-500 bg-red-50'
+            };
+
+            return (
+                <div className={`bg-white rounded-lg p-4 border-l-4 ${typeColors[type] || typeColors.cost} card-shadow hover:shadow-lg transition-shadow`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                            <ServiceIcon service={service} />
+                            <div>
+                                <h3 className="font-semibold text-gray-900 uppercase text-sm">{service}</h3>
+                                <p className="text-xs text-gray-600 capitalize">{type} Issues</p>
+                            </div>
+                        </div>
+                        <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                            {count}
+                        </span>
+                    </div>
+                    
+                    {items && items.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                            {items.slice(0, 3).map((item, idx) => (
+                                <div key={idx} className="text-sm bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onIssueClick(item)}>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-900">
+                                            {item.ResourceName || item.BucketName || item.InstanceId || item.ResourceId}
+                                        </span>
+                                        {item.Severity && (
+                                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${severityColors[item.Severity]}`}>
+                                                {item.Severity}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-600 mt-1">{item.Issue}</p>
+                                    {item.Region && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            <i className="fas fa-map-marker-alt mr-1"></i>
+                                            {item.Region}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        <i className="fas fa-info-circle mr-1"></i>
+                                        Click for details
+                                    </p>
+                                </div>
+                            ))}
+                            {items.length > 3 && (
+                                <p className="text-xs text-gray-500 text-center py-2">
+                                    +{items.length - 3} more issues
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const Dashboard = () => {
+            const [data] = useState(demoData);
+            const [selectedIssue, setSelectedIssue] = useState(null);
+            const [filters, setFilters] = useState({
+                type: 'all',
+                severity: 'all',
+                service: 'all'
+            });
+            const chartRef = useRef(null);
+            const pieChartRef = useRef(null);
+            const severityChartRef = useRef(null);
+
+            const severityColors = {
+                Critical: 'bg-red-100 text-red-800',
+                High: 'bg-orange-100 text-orange-800',
+                Medium: 'bg-yellow-100 text-yellow-800',
+                Low: 'bg-green-100 text-green-800'
+            };
+
+            useEffect(() => {
+                setTimeout(() => createCharts(), 100);
+            }, []);
+
+            const createCharts = () => {
+                // Services Chart
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    const serviceData = getServiceData();
+                    
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: serviceData.labels,
+                            datasets: [{
+                                label: 'Issues Found',
+                                data: serviceData.values,
+                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                                borderColor: 'rgba(99, 102, 241, 1)',
+                                borderWidth: 1,
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => `${context.parsed.y} issues`
+                                    }
+                                }
+                            },
+                            scales: { 
+                                y: { beginAtZero: true },
+                                x: { ticks: { maxRotation: 45 } }
+                            }
+                        }
+                    });
+                }
+
+                // Type Distribution Chart
+                if (pieChartRef.current) {
+                    const ctx = pieChartRef.current.getContext('2d');
+                    const typeData = getTypeDistribution();
+                    
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: typeData.labels,
+                            datasets: [{
+                                data: typeData.values,
+                                backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => `${context.label}: ${context.parsed} issues`
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Severity Chart
+                if (severityChartRef.current) {
+                    const ctx = severityChartRef.current.getContext('2d');
+                    const severityData = getSeverityData();
+                    
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: severityData.labels,
+                            datasets: [{
+                                label: 'Issues by Severity',
+                                data: severityData.values,
+                                backgroundColor: [
+                                    '#DC2626', // Critical - Red
+                                    '#EA580C', // High - Orange
+                                    '#D97706', // Medium - Yellow
+                                    '#059669'  // Low - Green
+                                ],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                }
+            };
+
+            const getServiceData = () => {
+                const services = {};
+                Object.values(data.results).forEach(account => {
+                    Object.entries(account).forEach(([service, commands]) => {
+                        const totalIssues = Object.values(commands).reduce((sum, cmd) => sum + cmd.count, 0);
+                        if (totalIssues > 0) {
+                            services[service.toUpperCase()] = (services[service.toUpperCase()] || 0) + totalIssues;
+                        }
+                    });
+                });
+                
+                const sorted = Object.entries(services).sort(([,a], [,b]) => b - a);
+                return {
+                    labels: sorted.map(([service]) => service),
+                    values: sorted.map(([,count]) => count)
+                };
+            };
+
+            const getTypeDistribution = () => {
+                const types = { 'Cost': 0, 'Security': 0, 'Other': 0 };
+                
+                Object.values(data.results).forEach(account => {
+                    Object.entries(account).forEach(([service, commands]) => {
+                        Object.entries(commands).forEach(([command, details]) => {
+                            if (details.items) {
+                                details.items.forEach(item => {
+                                    const type = item.Type || 'Other';
+                                    if (types.hasOwnProperty(type)) {
+                                        types[type]++;
+                                    } else {
+                                        types['Other']++;
+                                    }
+                                });
+                            }
+                        });
+                    });
+                });
+
+                return {
+                    labels: Object.keys(types).filter(key => types[key] > 0),
+                    values: Object.values(types).filter(val => val > 0)
+                };
+            };
+
+            const getSeverityData = () => {
+                const severities = { 'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0 };
+                
+                Object.values(data.results).forEach(account => {
+                    Object.entries(account).forEach(([service, commands]) => {
+                        Object.entries(commands).forEach(([command, details]) => {
+                            if (details.items) {
+                                details.items.forEach(item => {
+                                    const severity = item.Severity || 'Low';
+                                    if (severities.hasOwnProperty(severity)) {
+                                        severities[severity]++;
+                                    }
+                                });
+                            }
+                        });
+                    });
+                });
+
+                return {
+                    labels: Object.keys(severities).filter(key => severities[key] > 0),
+                    values: Object.values(severities).filter(val => val > 0)
+                };
+            };
+
+            const getGroupedIssues = () => {
+                const grouped = {};
+                
+                Object.entries(data.results).forEach(([accountId, account]) => {
+                    Object.entries(account).forEach(([service, commands]) => {
+                        Object.entries(commands).forEach(([command, details]) => {
+                            if (details.count > 0 && details.items) {
+                                // Group by service and type
+                                const costItems = details.items.filter(item => 
+                                    item.Type === 'Cost' || item.Type === 'cost'
+                                );
+                                const securityItems = details.items.filter(item => 
+                                    item.Type === 'Security' || item.Type === 'security'
+                                );
+
+                                if (costItems.length > 0) {
+                                    const key = `${service}-cost`;
+                                    if (!grouped[key]) {
+                                        grouped[key] = {
+                                            service,
+                                            type: 'Cost',
+                                            items: [],
+                                            count: 0
+                                        };
+                                    }
+                                    grouped[key].items.push(...costItems);
+                                    grouped[key].count += costItems.length;
+                                }
+
+                                if (securityItems.length > 0) {
+                                    const key = `${service}-security`;
+                                    if (!grouped[key]) {
+                                        grouped[key] = {
+                                            service,
+                                            type: 'Security',
+                                            items: [],
+                                            count: 0
+                                        };
+                                    }
+                                    grouped[key].items.push(...securityItems);
+                                    grouped[key].count += securityItems.length;
+                                }
+                            }
+                        });
+                    });
+                });
+
+                return Object.values(grouped).sort((a, b) => b.count - a.count);
+            };
+
+            const getFilteredIssues = (issues) => {
+                return issues.filter(issue => {
+                    // Type filter
+                    if (filters.type !== 'all' && issue.type.toLowerCase() !== filters.type.toLowerCase()) {
+                        return false;
+                    }
+                    
+                    // Service filter
+                    if (filters.service !== 'all' && issue.service.toLowerCase() !== filters.service.toLowerCase()) {
+                        return false;
+                    }
+                    
+                    // Severity filter
+                    if (filters.severity !== 'all') {
+                        const hasSeverity = issue.items.some(item => 
+                            item.Severity && item.Severity.toLowerCase() === filters.severity.toLowerCase()
+                        );
+                        if (!hasSeverity) return false;
+                    }
+                    
+                    return true;
+                });
+            };
+
+            const getAvailableServices = () => {
+                const services = new Set();
+                Object.values(data.results).forEach(account => {
+                    Object.keys(account).forEach(service => {
+                        if (account[service].audit && account[service].audit.count > 0) {
+                            services.add(service.toUpperCase());
+                        }
+                    });
+                });
+                return Array.from(services).sort();
+            };
+
+            const getStats = () => {
+                let costIssues = 0;
+                let securityIssues = 0;
+                let criticalIssues = 0;
+                let highIssues = 0;
+                let servicesWithIssues = new Set();
+
+                Object.values(data.results).forEach(account => {
+                    Object.entries(account).forEach(([service, commands]) => {
+                        let serviceHasIssues = false;
+                        Object.entries(commands).forEach(([command, details]) => {
+                            if (details.items) {
+                                details.items.forEach(item => {
+                                    if (item.Type === 'Cost' || item.Type === 'cost') costIssues++;
+                                    if (item.Type === 'Security' || item.Type === 'security') securityIssues++;
+                                    if (item.Severity === 'Critical') criticalIssues++;
+                                    if (item.Severity === 'High') highIssues++;
+                                    serviceHasIssues = true;
+                                });
+                            }
+                        });
+                        if (serviceHasIssues) servicesWithIssues.add(service);
+                    });
+                });
+
+                return { costIssues, securityIssues, criticalIssues, highIssues, servicesWithIssues: servicesWithIssues.size };
+            };
+
+            const formatDate = (timestamp) => {
+                return new Date(timestamp).toLocaleString();
+            };
+
+            const groupedIssues = getGroupedIssues();
+            const stats = getStats();
+            const totalAccounts = Object.keys(data.results).length;
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Demo Banner */}
+                    <div className="demo-banner text-white py-3">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-center">
+                                <i className="fas fa-flask mr-2"></i>
+                                <span className="font-medium">DEMO MODE - Sample AWS Infrastructure Analysis</span>
+                                <i className="fas fa-flask ml-2"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="gradient-bg text-white">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-4xl font-bold flex items-center">
+                                        <i className="fas fa-chart-line mr-3"></i>
+                                        💰 Kosty Dashboard
+                                    </h1>
+                                    <p className="text-blue-100 mt-2">AWS Cost Optimization Analysis - Demo</p>
+                                    <p className="text-sm text-blue-200 mt-1">
+                                        <i className="fas fa-clock mr-1"></i>
+                                        Last scan: {formatDate(data.scan_timestamp)}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium">
+                                        <i className="fas fa-info-circle mr-2"></i>
+                                        Demo Data
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                            <StatCard
+                                title="Total Issues"
+                                value={data.total_issues}
+                                icon="fas fa-exclamation-triangle"
+                                color="border-l-red-500"
+                                subtitle="Optimization opportunities"
+                            />
+                            <StatCard
+                                title="Cost Issues"
+                                value={stats.costIssues}
+                                icon="fas fa-dollar-sign"
+                                color="border-l-orange-500"
+                                subtitle="Potential savings $2,400/mo"
+                            />
+                            <StatCard
+                                title="Security Issues"
+                                value={stats.securityIssues}
+                                icon="fas fa-shield-alt"
+                                color="border-l-red-500"
+                                subtitle="Security risks"
+                            />
+                            <StatCard
+                                title="Critical Issues"
+                                value={stats.criticalIssues}
+                                icon="fas fa-fire"
+                                color="border-l-red-600"
+                                subtitle="Immediate attention"
+                            />
+                            <StatCard
+                                title="Services Affected"
+                                value={stats.servicesWithIssues}
+                                icon="fas fa-cogs"
+                                color="border-l-blue-500"
+                                subtitle={`of ${totalAccounts} accounts`}
+                            />
+                        </div>
+
+                        {/* Charts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-white rounded-xl p-6 card-shadow">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    <i className="fas fa-chart-bar mr-2"></i>
+                                    Issues by Service
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <canvas ref={chartRef}></canvas>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl p-6 card-shadow">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    <i className="fas fa-chart-pie mr-2"></i>
+                                    Issue Types
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <canvas ref={pieChartRef}></canvas>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl p-6 card-shadow">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    <i className="fas fa-exclamation-triangle mr-2"></i>
+                                    Severity Distribution
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <canvas ref={severityChartRef}></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Issues Grid */}
+                        <div className="bg-white rounded-xl card-shadow">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            <i className="fas fa-list-ul mr-2"></i>
+                                            Optimization Opportunities
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            Issues grouped by service and type - Demo data showing typical AWS infrastructure problems
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {/* Filters */}
+                                <div className="flex flex-wrap gap-4">
+                                    <div className="flex items-center space-x-2">
+                                        <label className="text-sm font-medium text-gray-700">Type:</label>
+                                        <select 
+                                            value={filters.type} 
+                                            onChange={(e) => setFilters({...filters, type: e.target.value})}
+                                            className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="all">All Types</option>
+                                            <option value="cost">Cost</option>
+                                            <option value="security">Security</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-2">
+                                        <label className="text-sm font-medium text-gray-700">Severity:</label>
+                                        <select 
+                                            value={filters.severity} 
+                                            onChange={(e) => setFilters({...filters, severity: e.target.value})}
+                                            className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="all">All Severities</option>
+                                            <option value="critical">Critical</option>
+                                            <option value="high">High</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="low">Low</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-2">
+                                        <label className="text-sm font-medium text-gray-700">Service:</label>
+                                        <select 
+                                            value={filters.service} 
+                                            onChange={(e) => setFilters({...filters, service: e.target.value})}
+                                            className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="all">All Services</option>
+                                            {getAvailableServices().map(service => (
+                                                <option key={service} value={service.toLowerCase()}>{service}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    
+                                    {(filters.type !== 'all' || filters.severity !== 'all' || filters.service !== 'all') && (
+                                        <button
+                                            onClick={() => setFilters({type: 'all', severity: 'all', service: 'all'})}
+                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                        >
+                                            <i className="fas fa-times mr-1"></i>
+                                            Clear Filters
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                {(() => {
+                                    const filteredIssues = getFilteredIssues(groupedIssues);
+                                    return filteredIssues.length > 0 ? (
+                                        <>
+                                            <div className="mb-4 text-sm text-gray-600">
+                                                Showing {filteredIssues.length} of {groupedIssues.length} issue groups
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {filteredIssues.map((issue, idx) => (
+                                                    <IssueCard key={idx} {...issue} onIssueClick={setSelectedIssue} severityColors={severityColors} />
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : groupedIssues.length > 0 ? (
+                                        <div className="text-center py-12">
+                                            <i className="fas fa-filter text-6xl text-gray-400 mb-4"></i>
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                                No Issues Match Filters
+                                            </h3>
+                                            <p className="text-gray-600 mb-4">
+                                                Try adjusting your filter criteria.
+                                            </p>
+                                            <button
+                                                onClick={() => setFilters({type: 'all', severity: 'all', service: 'all'})}
+                                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                            >
+                                                Clear All Filters
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12">
+                                            <i className="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
+                                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                                🎉 No Issues Found!
+                                            </h3>
+                                            <p className="text-gray-600">
+                                                Your AWS infrastructure is well optimized.
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+
+                        {/* Demo Info */}
+                        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+                            <div className="flex items-start">
+                                <i className="fas fa-info-circle text-blue-500 text-xl mr-3 mt-1"></i>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-blue-900 mb-2">Demo Dashboard</h3>
+                                    <p className="text-blue-800 mb-4">
+                                        This dashboard shows sample data from a typical AWS infrastructure audit. 
+                                        The demo includes common cost optimization and security issues found across 
+                                        EC2, RDS, S3, Lambda, and other AWS services.
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+                                        <div>
+                                            <h4 className="font-semibold mb-2">💰 Cost Optimizations:</h4>
+                                            <ul className="space-y-1">
+                                                <li>• Oversized EC2 instances ($240/mo savings)</li>
+                                                <li>• Unused RDS read replicas ($320/mo)</li>
+                                                <li>• S3 lifecycle policies ($180/mo)</li>
+                                                <li>• Over-provisioned Lambda ($85/mo)</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold mb-2">🔒 Security Issues:</h4>
+                                            <ul className="space-y-1">
+                                                <li>• Root account access keys</li>
+                                                <li>• Public S3 buckets</li>
+                                                <li>• Unencrypted resources</li>
+                                                <li>• Public database access</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Premium Modal for issue details */}
+                    {selectedIssue && (
+                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" onClick={() => setSelectedIssue(null)}>
+                            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                                {/* Header with gradient */}
+                                <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="bg-white bg-opacity-20 rounded-lg p-2">
+                                                <i className="fas fa-exclamation-triangle text-white text-xl"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold text-white">Issue Details</h3>
+                                                <p className="text-blue-100 text-sm">{selectedIssue.Service} • {selectedIssue.Type}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setSelectedIssue(null)} className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                                            <i className="fas fa-times text-xl"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Content */}
+                                <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                                    {/* Status Banner */}
+                                    <div className={`mb-6 p-4 rounded-xl border-l-4 ${
+                                        selectedIssue.Type === 'Security' ? 'bg-red-50 border-red-500' : 'bg-orange-50 border-orange-500'
+                                    }`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-3">
+                                                <i className={`fas ${
+                                                    selectedIssue.Type === 'Security' ? 'fa-shield-alt text-red-600' : 'fa-dollar-sign text-orange-600'
+                                                } text-2xl`}></i>
+                                                <div>
+                                                    <h4 className="font-semibold text-gray-900">{selectedIssue.Issue}</h4>
+                                                    <p className={`text-sm ${
+                                                        selectedIssue.Type === 'Security' ? 'text-red-700' : 'text-orange-700'
+                                                    }`}>{selectedIssue.Type} Issue</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-sm font-bold px-3 py-1 rounded-full ${severityColors[selectedIssue.Severity] || 'bg-gray-100 text-gray-800'}`}>
+                                                {selectedIssue.Severity}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Resource Information */}
+                                    <div className="bg-gray-50 rounded-xl p-5 mb-6">
+                                        <h5 className="font-semibold text-gray-900 mb-4 flex items-center">
+                                            <i className="fas fa-server text-blue-600 mr-2"></i>
+                                            Resource Information
+                                        </h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="bg-white rounded-lg p-3">
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Resource Name</label>
+                                                <p className="text-gray-900 font-semibold mt-1">{selectedIssue.ResourceName || selectedIssue.BucketName || selectedIssue.ResourceId || 'N/A'}</p>
+                                            </div>
+                                            <div className="bg-white rounded-lg p-3">
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Service</label>
+                                                <p className="text-gray-900 font-semibold mt-1 uppercase">{selectedIssue.Service || 'S3'}</p>
+                                            </div>
+                                            <div className="bg-white rounded-lg p-3">
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Region</label>
+                                                <p className="text-gray-900 font-semibold mt-1 flex items-center">
+                                                    <i className="fas fa-map-marker-alt text-green-600 mr-2"></i>
+                                                    {selectedIssue.Region || 'Global'}
+                                                </p>
+                                            </div>
+                                            <div className="bg-white rounded-lg p-3">
+                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Account ID</label>
+                                                <p className="text-gray-900 font-semibold mt-1 font-mono">{selectedIssue.AccountId || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Description */}
+                                    <div className="bg-blue-50 rounded-xl p-5 mb-6">
+                                        <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                            <i className="fas fa-info-circle text-blue-600 mr-2"></i>
+                                            Description
+                                        </h5>
+                                        <p className="text-gray-700 leading-relaxed">{selectedIssue.Description}</p>
+                                    </div>
+                                    
+                                    {/* Technical Details */}
+                                    {selectedIssue.ARN && (
+                                        <div className="bg-gray-900 rounded-xl p-5 mb-6">
+                                            <h5 className="font-semibold text-white mb-3 flex items-center">
+                                                <i className="fas fa-code text-green-400 mr-2"></i>
+                                                Amazon Resource Name (ARN)
+                                            </h5>
+                                            <div className="bg-gray-800 rounded-lg p-3">
+                                                <p className="text-green-400 font-mono text-sm break-all">{selectedIssue.ARN}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Additional Details */}
+                                    {selectedIssue.Details && (
+                                        <div className="bg-purple-50 rounded-xl p-5">
+                                            <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                                                <i className="fas fa-list-ul text-purple-600 mr-2"></i>
+                                                Additional Details
+                                            </h5>
+                                            <div className="text-gray-700 leading-relaxed">
+                                                {typeof selectedIssue.Details === 'object' ? (
+                                                    <div className="space-y-2">
+                                                        {Object.entries(selectedIssue.Details).map(([key, value]) => (
+                                                            <div key={key} className="flex justify-between py-1 border-b border-purple-200 last:border-b-0">
+                                                                <span className="font-medium text-purple-800">{key}:</span>
+                                                                <span className="text-gray-700">{String(value)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p>{selectedIssue.Details}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
