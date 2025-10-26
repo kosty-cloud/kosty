@@ -50,9 +50,9 @@ class SnapshotsAuditService:
                         'ResourceId': snapshot['SnapshotId'],
                         'ResourceName': snapshot['SnapshotId'],
                         'Issue': 'Old EBS snapshot',
-                        'Type': 'Cost',
+                        'type': 'cost',
                         'Risk': 'MEDIUM',
-                        'Severity': 'Medium',
+                        'severity': 'medium',
                         'Description': f"EBS snapshot {snapshot['SnapshotId']} is older than {days} days",
                         'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:snapshot/{snapshot['SnapshotId']}",
                         'Details': {

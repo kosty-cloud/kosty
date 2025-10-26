@@ -55,9 +55,9 @@ class EBSAuditService:
                     'Region': region,
                     'CreateTime': volume['CreateTime'].isoformat(),
                     'Issue': 'Volume in available state (detached)',
-                    'Type': 'cost',
+                    'type': 'cost',
                     'Risk': 'Waste $10-100/mo per volume',
-                    'Severity': 'HIGH',
+                    'severity': 'high',
                     'Service': 'EBS'
                 })
         except Exception as e:
@@ -128,9 +128,9 @@ class EBSAuditService:
                             'Region': region,
                             'IOPSPerGB': round(iops_per_gb, 2),
                             'Issue': f'Volume with low I/O (<{iops_threshold} IOPS/GB)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Oversized - can downsize',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'EBS'
                         })
                 except Exception:
@@ -164,9 +164,9 @@ class EBSAuditService:
                         'StartTime': snapshot['StartTime'].isoformat(),
                         'Age': (datetime.now() - start_time).days,
                         'Issue': f'Snapshot older than {days} days',
-                        'Type': 'cost',
+                        'type': 'cost',
                         'Risk': 'Waste $5-50/mo per snapshot',
-                        'Severity': 'LOW',
+                        'severity': 'low',
                         'Service': 'EBS'
                     })
         except Exception as e:
@@ -196,9 +196,9 @@ class EBSAuditService:
                     'Region': region,
                     'State': volume['State'],
                     'Issue': 'gp2 volumes (not gp3)',
-                    'Type': 'cost',
+                    'type': 'cost',
                     'Risk': 'Waste 20% vs gp3',
-                    'Severity': 'MEDIUM',
+                    'severity': 'medium',
                     'Service': 'EBS'
                 })
         except Exception as e:
@@ -232,9 +232,9 @@ class EBSAuditService:
                     'Region': region,
                     'Encrypted': volume['Encrypted'],
                     'Issue': 'Unencrypted orphaned volume',
-                    'Type': 'security',
+                    'type': 'security',
                     'Risk': 'Data remnants accessible',
-                    'Severity': 'CRITICAL',
+                    'severity': 'critical',
                     'Service': 'EBS'
                 })
         except Exception as e:
@@ -269,9 +269,9 @@ class EBSAuditService:
                     'Region': region,
                     'Encrypted': volume['Encrypted'],
                     'Issue': 'Unencrypted volume in use',
-                    'Type': 'security',
+                    'type': 'security',
                     'Risk': 'Data at rest not protected',
-                    'Severity': 'HIGH',
+                    'severity': 'high',
                     'Service': 'EBS'
                 })
         except Exception as e:
@@ -308,9 +308,9 @@ class EBSAuditService:
                                 'Region': region,
                                 'StartTime': snapshot['StartTime'].isoformat(),
                                 'Issue': 'Public snapshot exists',
-                                'Type': 'security',
+                                'type': 'security',
                                 'Risk': 'Anyone can copy volume data',
-                                'Severity': 'CRITICAL',
+                                'severity': 'critical',
                                 'Service': 'EBS'
                             })
                             break
@@ -359,9 +359,9 @@ class EBSAuditService:
                         'ARN': f"arn:aws:ec2:{region}:{account_id}:volume/{volume_id}",
                         'Region': region,
                         'Issue': f'No recent snapshot ({days}+ days)',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'No backup - data loss risk',
-                        'Severity': 'MEDIUM',
+                        'severity': 'medium',
                         'Service': 'EBS'
                     })
         except Exception as e:

@@ -7,10 +7,10 @@ from datetime import datetime
 from .progress import ProgressBar, SpinnerProgress
 
 class ServiceExecutor:
-    def __init__(self, service, organization: bool, region: str, max_workers: int = 5):
+    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5):
         self.service = service
         self.organization = organization
-        self.region = region
+        self.regions = regions
         self.max_workers = max_workers
         
     async def execute(self, method_name: str, output_format: str = 'console', *args, **kwargs) -> Dict[str, Any]:
@@ -55,7 +55,11 @@ class ServiceExecutor:
         
         description = descriptions.get(method_name, f'🔍 Running {method_name.replace("_", " ")}')
         scope = '🏢 Organization-wide' if self.organization else '📊 Single account'
-        region_info = f'📍 Region: {self.region}' if self.region else '🌍 All regions'
+        if isinstance(self.regions, list):
+            regions_str = ', '.join(self.regions)
+        else:
+            regions_str = str(self.regions)
+        region_info = f'📍 Regions: {regions_str}'
         
         print(f"\n{description}")
         print(f"{scope} | {region_info} | 👥 Workers: {self.max_workers}")
@@ -138,23 +142,26 @@ class ServiceExecutor:
         session = boto3.Session()
         account_id = session.client('sts').get_caller_identity()['Account']
         
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=1) as executor:  # Single thread for service execution
-            method = getattr(self.service, method_name)
-            # Pass max_workers to service method if it accepts it
-            try:
-                result = await loop.run_in_executor(
-                    executor, 
-                    lambda: method(session, self.region, max_workers=self.max_workers, *args, **kwargs)
-                )
-            except TypeError:
-                # Fallback for services that don't accept max_workers
-                result = await loop.run_in_executor(
-                    executor, 
-                    lambda: method(session, self.region, *args, **kwargs)
-                )
+        all_results = []
+        workers_per_region = max(1, self.max_workers // len(self.regions))
         
-        return {account_id: result}
+        for region in self.regions:
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                method = getattr(self.service, method_name)
+                try:
+                    result = await loop.run_in_executor(
+                        executor, 
+                        lambda r=region: method(session, r, max_workers=workers_per_region, *args, **kwargs)
+                    )
+                except TypeError:
+                    result = await loop.run_in_executor(
+                        executor, 
+                        lambda r=region: method(session, r, *args, **kwargs)
+                    )
+                all_results.extend(result)
+        
+        return {account_id: all_results}
     
     async def _execute_organization(self, method_name: str, *args, **kwargs) -> Dict[str, Any]:
         accounts = await self._get_organization_accounts()
@@ -210,22 +217,25 @@ class ServiceExecutor:
                 aws_session_token=assumed_role['Credentials']['SessionToken']
             )
             
-            with ThreadPoolExecutor(max_workers=1) as executor:  # Single thread for service execution
-                method = getattr(self.service, method_name)
-                # Pass max_workers to service method if it accepts it
-                try:
-                    result = await loop.run_in_executor(
-                        executor,
-                        lambda: method(assumed_session, self.region, max_workers=self.max_workers, *args, **kwargs)
-                    )
-                except TypeError:
-                    # Fallback for services that don't accept max_workers
-                    result = await loop.run_in_executor(
-                        executor,
-                        lambda: method(assumed_session, self.region, *args, **kwargs)
-                    )
+            all_results = []
+            workers_per_region = max(1, self.max_workers // len(self.regions))
             
-            return result
+            for region in self.regions:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    method = getattr(self.service, method_name)
+                    try:
+                        result = await loop.run_in_executor(
+                            executor,
+                            lambda r=region: method(assumed_session, r, max_workers=workers_per_region, *args, **kwargs)
+                        )
+                    except TypeError:
+                        result = await loop.run_in_executor(
+                            executor,
+                            lambda r=region: method(assumed_session, r, *args, **kwargs)
+                        )
+                    all_results.extend(result)
+            
+            return all_results
             
         except Exception as e:
             return f"Error: {str(e)}"

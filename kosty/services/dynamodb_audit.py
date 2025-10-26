@@ -83,9 +83,9 @@ class DynamoDBAuditService:
                             'ResourceId': table_name,
                             'ResourceArn': table['TableArn'],
                             'Issue': f'Table idle (0 reads/writes {days} days)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $5-50/mo per table',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Details': {
                                 'TableName': table_name,
                                 'TableStatus': table['TableStatus'],

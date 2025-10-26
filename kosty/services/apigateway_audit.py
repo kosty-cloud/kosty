@@ -66,9 +66,9 @@ class APIGatewayAuditService:
                             'ResourceId': api['id'],
                             'ResourceArn': f"arn:aws:apigateway:{region}::/restapis/{api['id']}",
                             'Issue': f'API unused (0 requests {days} days)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $3.50/mo per API',
-                            'Severity': 'LOW',
+                            'severity': 'low',
                             'Details': {
                                 'ApiId': api['id'],
                                 'ApiName': api['name'],

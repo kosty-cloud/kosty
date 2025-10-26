@@ -7,9 +7,9 @@ from .progress import ProgressBar
 from .executor import ServiceExecutor
 
 class ComprehensiveScanner:
-    def __init__(self, organization: bool, region: str, max_workers: int):
+    def __init__(self, organization: bool, regions: List[str], max_workers: int):
         self.organization = organization
-        self.region = region
+        self.regions = regions if isinstance(regions, list) else [regions]
         self.max_workers = max_workers
         self.reporter = CostOptimizationReporter()
         self.services = self._discover_audit_services()
@@ -53,7 +53,8 @@ class ComprehensiveScanner:
         print("  • Oversized instances and over-provisioned resources")
         print("")
         print(f"📊 Services to scan: {len(self.services)}")
-        print(f"🌍 Region: {self.region}")
+        regions_str = ', '.join(self.regions)
+        print(f"🌍 Regions: {regions_str}")
         print(f"🏢 Scope: {'Organization-wide' if self.organization else 'Single account'}")
         print(f"⚡ Parallel workers: {self.max_workers}")
         print("=" * 60)
@@ -84,7 +85,7 @@ class ComprehensiveScanner:
                 desc = service_descriptions.get(service_name, f'{service_name} resources')
                 progress.set_description(f"🔍 {service_name.upper()}: {desc}")
                 
-                executor = ServiceExecutor(service_instance, self.organization, self.region, self.max_workers)
+                executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers)
                 results = await executor.execute('audit')
                 
                 # Process results for each account

@@ -126,9 +126,10 @@ kosty <service> check-<specific-issue>  # Individual checks
 ### Common Options
 All commands support:
 - `--organization` - Scan entire AWS organization
-- `--region TEXT` - AWS region to scan
+- `--region TEXT` - Single AWS region to scan (default: us-east-1)
+- `--regions TEXT` - Multiple AWS regions to scan (comma-separated, e.g., us-east-1,eu-west-1)
 - `--max-workers INTEGER` - Number of parallel workers (default: 10)
-- `--output [console|json|csv]` - Output format (default: console)
+- `--output [console|json|csv|all]` - Output format (default: console)
 
 ## 🔍 Service Coverage
 
@@ -173,11 +174,14 @@ kosty iam security-audit
 kosty audit --organization --max-workers 20 --output json
 
 # Multi-region scan
-kosty ec2 audit --region eu-west-1 --organization
+kosty audit --regions us-east-1,eu-west-1,ap-southeast-1 --max-workers 15
+
+# Organization with multi-region
+kosty ec2 audit --organization --regions us-east-1,eu-west-1
 
 # Specific checks with thresholds
-kosty ec2 check-oversized-instances --cpu-threshold 15
-kosty sg check-complex-security-groups --rule-threshold 30
+kosty ec2 check-oversized-instances --cpu-threshold 15 --regions us-east-1,eu-west-1
+kosty sg check-complex-security-groups --rule-threshold 30 --regions us-east-1,eu-west-1
 ```
 
 ### Output Formats
@@ -234,6 +238,7 @@ aws sts get-caller-identity  # Verify credentials
 # Issue: Commands return no results
 # Solution: Check region and credentials
 kosty ec2 audit --region us-west-2  # Try different region
+kosty ec2 audit --regions us-east-1,us-west-2,eu-west-1  # Try multiple regions
 ```
 
 #### Organization Access Issues
@@ -251,13 +256,6 @@ kosty audit --max-workers 5  # Reduce workers
 kosty audit --max-workers 20 # Increase workers (if you have permissions)
 ```
 
-### Debug Mode
-```bash
-# Enable verbose logging
-export KOSTY_DEBUG=1
-kosty ec2 audit
-```
-
 ### Rate Limiting
 If you encounter AWS API rate limits:
 ```bash
@@ -269,32 +267,14 @@ kosty ec2 audit
 kosty rds audit
 ```
 
-## 🔧 Configuration
-
-### Environment Variables
-```bash
-export KOSTY_DEFAULT_REGION=us-east-1
-export KOSTY_DEFAULT_OUTPUT=json
-export KOSTY_MAX_WORKERS=10
-export KOSTY_DEBUG=0
-```
-
-### Config File (Optional)
-Create `~/.kosty/config.yaml`:
-```yaml
-default_region: us-east-1
-default_output: console
-max_workers: 10
-organization_mode: false
-```
-
 ## 📈 Performance Tips
 
 ### Optimization Strategies
 1. **Use appropriate worker count** - Start with 10, adjust based on your AWS limits
-2. **Target specific regions** - Use `--region` to focus on active regions
-3. **Use service-specific commands** - Instead of full audit, run individual service audits
-4. **Leverage organization mode efficiently** - Use higher worker counts for organization scans
+2. **Target specific regions** - Use `--region` for single region or `--regions` for multiple regions
+3. **Multi-region efficiency** - Workers are distributed across regions automatically
+4. **Use service-specific commands** - Instead of full audit, run individual service audits
+5. **Leverage organization mode efficiently** - Use higher worker counts for organization scans
 
 ### Best Practices
 - Run during off-peak hours to avoid API throttling

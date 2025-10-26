@@ -50,9 +50,9 @@ class IAMAuditService:
                             'ResourceId': role_name,
                             'ResourceName': role_name,
                             'Issue': 'Unused role creating resources',
-                            'Type': 'Cost',
+                            'type': 'cost',
                             'Risk': 'HIGH',
-                            'Severity': 'High',
+                            'severity': 'high',
                             'Description': f"IAM role {role_name} unused for {days}+ days",
                             'ARN': role['Arn'],
                             'Details': {
@@ -90,9 +90,9 @@ class IAMAuditService:
                     'ResourceId': 'root',
                     'ResourceName': 'root',
                     'Issue': 'Root account has access keys',
-                    'Type': 'Security',
+                    'type': 'security',
                     'Risk': 'CRITICAL',
-                    'Severity': 'Critical',
+                    'severity': 'critical',
                     'Description': 'Root account has active access keys - immediate security risk',
                     'ARN': f'arn:aws:iam::{account_id}:root',
                     'Details': {
@@ -132,9 +132,9 @@ class IAMAuditService:
                                 'ResourceId': user_name,
                                 'ResourceName': user_name,
                                 'Issue': f'Access keys older than {days} days',
-                                'Type': 'Security',
+                                'type': 'security',
                                 'Risk': 'CRITICAL',
-                                'Severity': 'Critical',
+                                'severity': 'critical',
                                 'Description': f"User {user_name} has access key aged {key_age} days",
                                 'ARN': user['Arn'],
                                 'Details': {
@@ -210,9 +210,9 @@ class IAMAuditService:
                             'ResourceId': user_name,
                             'ResourceName': user_name,
                             'Issue': f'User inactive >{days} days with active keys',
-                            'Type': 'Security',
+                            'type': 'security',
                             'Risk': 'HIGH',
-                            'Severity': 'High',
+                            'severity': 'high',
                             'Description': f"User {user_name} inactive for {days}+ days but has active access keys",
                             'ARN': user['Arn'],
                             'Details': {
@@ -257,9 +257,9 @@ class IAMAuditService:
                                 'ARN': user['Arn'],
                                 'Region': region,
                                 'Issue': 'Policy uses Action:* or Resource:*',
-                                'Type': 'security',
+                                'type': 'security',
                                 'Risk': 'Privilege escalation risk',
-                                'Severity': 'HIGH',
+                                'severity': 'high',
                                 'Service': 'IAM'
                             })
                     
@@ -285,9 +285,9 @@ class IAMAuditService:
                                     'ARN': user['Arn'],
                                     'Region': region,
                                     'Issue': 'Policy uses Action:* or Resource:*',
-                                    'Type': 'security',
+                                    'type': 'security',
                                     'Risk': 'Privilege escalation risk',
-                                    'Severity': 'HIGH',
+                                    'severity': 'high',
                                     'Service': 'IAM'
                                 })
                         except Exception:
@@ -374,9 +374,9 @@ class IAMAuditService:
                                 'CreateDate': user['CreateDate'].isoformat(),
                                 'MFADevices': len(mfa_devices['MFADevices']),
                                 'Issue': 'Admin access without MFA',
-                                'Type': 'security',
+                                'type': 'security',
                                 'Risk': 'Account takeover via phishing',
-                                'Severity': 'HIGH',
+                                'severity': 'high',
                                 'Service': 'IAM'
                             })
                 except Exception:
@@ -405,9 +405,9 @@ class IAMAuditService:
                     'ResourceId': 'password-policy',
                     'ResourceName': 'Password Policy',
                     'Issue': 'Password policy allows weak passwords',
-                    'Type': 'Security',
+                    'type': 'security',
                     'Risk': 'MEDIUM',
-                    'Severity': 'Medium',
+                    'severity': 'medium',
                     'Description': 'No password policy configured - allows weak passwords',
                     'ARN': f'arn:aws:iam::{account_id}:account-password-policy',
                     'Details': {
@@ -442,9 +442,9 @@ class IAMAuditService:
                     'ResourceId': 'password-policy',
                     'ResourceName': 'Password Policy',
                     'Issue': 'Password policy allows weak passwords',
-                    'Type': 'Security',
+                    'type': 'security',
                     'Risk': 'MEDIUM',
-                    'Severity': 'Medium',
+                    'severity': 'medium',
                     'Description': f"Password policy has weak settings: {', '.join(weak_settings)}",
                     'ARN': f'arn:aws:iam::{account_id}:account-password-policy',
                     'Details': {
@@ -476,9 +476,9 @@ class IAMAuditService:
                         'ResourceId': 'password-policy',
                         'ResourceName': 'Password Policy',
                         'Issue': 'No password rotation policy',
-                        'Type': 'Security',
+                        'type': 'security',
                         'Risk': 'MEDIUM',
-                        'Severity': 'Medium',
+                        'severity': 'medium',
                         'Description': f"Password rotation not enforced (max age: {max_age or 'Not set'})",
                         'ARN': f'arn:aws:iam::{account_id}:account-password-policy',
                         'Details': {
@@ -493,9 +493,9 @@ class IAMAuditService:
                     'ResourceId': 'password-policy',
                     'ResourceName': 'Password Policy',
                     'Issue': 'No password rotation policy',
-                    'Type': 'Security',
+                    'type': 'security',
                     'Risk': 'MEDIUM',
-                    'Severity': 'Medium',
+                    'severity': 'medium',
                     'Description': 'No password policy configured - no rotation enforced',
                     'ARN': f'arn:aws:iam::{account_id}:account-password-policy',
                     'Details': {
@@ -551,9 +551,9 @@ class IAMAuditService:
                                             'Region': region,
                                             'CrossAccountPrincipal': aws_principal,
                                             'Issue': 'Cross-account role without ExternalId',
-                                            'Type': 'security',
+                                            'type': 'security',
                                             'Risk': 'Confused deputy attack',
-                                            'Severity': 'HIGH',
+                                            'severity': 'high',
                                             'Service': 'IAM'
                                         })
                                         break

@@ -31,7 +31,7 @@ cd kosty && ./install.sh
 aws configure
 
 # Run audit
-kosty --all --output json
+kosty audit --output json
 
 # View dashboard
 open dashboard/index.html

@@ -37,9 +37,9 @@ class S3AuditService:
                             'CreationDate': bucket['CreationDate'].isoformat(),
                             'Region': bucket_region,
                             'Issue': 'Empty bucket with no objects',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $0.50-5/mo per bucket',
-                            'Severity': 'LOW',
+                            'severity': 'low',
                             'Service': 'S3'
                         })
                 except Exception as e:
@@ -74,9 +74,9 @@ class S3AuditService:
                             'Region': bucket_region,
                             'IncompleteUploads': len(uploads['Uploads']),
                             'Issue': 'Incomplete multipart uploads',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $10-100/mo per bucket',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'S3'
                         })
                 except Exception:
@@ -120,9 +120,9 @@ class S3AuditService:
                                 'Region': bucket_region,
                                 'ObjectCount': len(objects['Contents']),
                                 'Issue': 'No lifecycle policy on old data (90+ days)',
-                                'Type': 'cost',
+                                'type': 'cost',
                                 'Risk': 'Waste 50-70% storage costs',
-                                'Severity': 'HIGH',
+                                'severity': 'high',
                                 'Service': 'S3'
                             })
                 except Exception:
@@ -161,9 +161,9 @@ class S3AuditService:
                                     'ARN': f'arn:aws:s3:::{bucket_name}',
                                     'Region': bucket_region,
                                     'Issue': 'Public read access enabled',
-                                    'Type': 'security',
+                                    'type': 'security',
                                     'Risk': 'Data breach - complete bucket exposure',
-                                    'Severity': 'CRITICAL',
+                                    'severity': 'critical',
                                     'Service': 'S3',
                                     'Permission': grant['Permission']
                                 })
@@ -202,9 +202,9 @@ class S3AuditService:
                                     'ARN': f'arn:aws:s3:::{bucket_name}',
                                     'Region': bucket_region,
                                     'Issue': 'Public write access enabled',
-                                    'Type': 'security',
+                                    'type': 'security',
                                     'Risk': 'Malware injection - crypto mining',
-                                    'Severity': 'CRITICAL',
+                                    'severity': 'critical',
                                     'Service': 'S3'
                                 })
                                 break
@@ -239,9 +239,9 @@ class S3AuditService:
                         'ARN': f'arn:aws:s3:::{bucket_name}',
                         'Region': bucket_region,
                         'Issue': 'No encryption at rest',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'Data exposure if storage compromised',
-                        'Severity': 'CRITICAL',
+                        'severity': 'critical',
                         'Service': 'S3'
                     })
                 except Exception:
@@ -275,9 +275,9 @@ class S3AuditService:
                             'ARN': f'arn:aws:s3:::{bucket_name}',
                             'Region': bucket_region,
                             'Issue': 'Versioning disabled',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'No ransomware protection',
-                            'Severity': 'HIGH',
+                            'severity': 'high',
                             'Service': 'S3'
                         })
                 except Exception:
@@ -311,9 +311,9 @@ class S3AuditService:
                             'ARN': f'arn:aws:s3:::{bucket_name}',
                             'Region': bucket_region,
                             'Issue': 'No access logging',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'Cannot audit data access',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'S3'
                         })
                 except Exception:
@@ -351,9 +351,9 @@ class S3AuditService:
                                 'ARN': f'arn:aws:s3:::{bucket_name}',
                                 'Region': bucket_region,
                                 'Issue': 'Bucket policy allows wildcard principal (*)',
-                                'Type': 'security',
+                                'type': 'security',
                                 'Risk': 'Overly permissive access',
-                                'Severity': 'HIGH',
+                                'severity': 'high',
                                 'Service': 'S3'
                             })
                             break
@@ -396,9 +396,9 @@ class S3AuditService:
                             'ARN': f'arn:aws:s3:::{bucket_name}',
                             'Region': bucket_region,
                             'Issue': 'No MFA delete enabled',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'Accidental/malicious deletion',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'S3',
                             'MfaDeleteStatus': versioning.get('MfaDelete', 'Disabled')
                         })

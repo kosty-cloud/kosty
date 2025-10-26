@@ -1,209 +1,122 @@
-# 🚀 Kosty v1.0 - Release Notes
+# 🚀 Kosty Release Notes
 
-## 📅 Release Date: October 2024
+## Version 1.2.0 - Multi-Region Support & Dashboard Enhancements (2025-10-26)
 
-## 🎯 Overview
+### 🌍 New Features
+- **Multi-Region Support**: Added `--regions` parameter to scan multiple AWS regions simultaneously
+  - Example: `kosty audit --regions us-east-1,eu-west-1,ap-southeast-1`
+  - Workers are automatically distributed across regions for optimal performance
+  - Compatible with all commands (audit, cost-audit, security-audit, individual checks)
+  - Works with organization mode: `kosty audit --organization --regions us-east-1,eu-west-1`
 
-Kosty v1.0 is a comprehensive AWS cost optimization CLI tool that helps organizations identify and eliminate waste across their AWS infrastructure. This release includes 16 core AWS services with 147 total commands.
+### 📊 Dashboard Improvements
+- **Enhanced Issue Navigation**: Added "View all issues" modal for services with 3+ issues
+  - Modern, responsive design with grid layout
+  - Click-through navigation: Dashboard → View All → Issue Details → Back to View All
+  - Maintains context when navigating between issue details
+- **Improved Data Compatibility**: Fixed dashboard parsing for mixed case field names
+- **Better User Experience**: Smooth navigation flow with intuitive back buttons
 
-## ✨ Key Features
+### 🔧 Technical Improvements
+- **Standardized Output Format**: All services now output consistent lowercase field names (`type`, `severity`)
+- **Performance Optimization**: Multi-region scanning with intelligent worker distribution
+- **Code Quality**: Cleaned up field naming inconsistencies across all 16 services
 
-### 🔍 **Comprehensive Coverage**
-- **16 AWS Services**: EC2, RDS, S3, IAM, EBS, Lambda, Load Balancer, Security Groups, EIP, CloudWatch, NAT Gateway, Route53, API Gateway, DynamoDB, Backup, Snapshots
-- **147 Total Commands**: 1 global + 146 service-specific commands
-- **3 Audit Types**: Complete audit, cost-only audit, security-only audit
-- **81 Individual Checks**: Granular issue detection
+### 📖 Documentation Updates
+- Updated README.md with multi-region examples and usage patterns
+- Enhanced DOCUMENTATION.md with comprehensive multi-region guidance
+- Added troubleshooting section for multi-region scenarios
 
-### 🏢 **Enterprise Ready**
-- **Organization Support**: Multi-account scanning across AWS Organizations
-- **Parallel Processing**: Configurable worker threads for high performance
-- **Multiple Output Formats**: Console, JSON, CSV
-- **Professional Reporting**: Executive-ready dashboards and reports
-
-### 📊 **Visual Analytics**
-- **Interactive Dashboard**: Modern web interface with charts and graphs
-- **Real-time Visualization**: Upload JSON reports for instant analysis
-- **Mobile Responsive**: Access optimization data anywhere
-- **Export Capabilities**: Professional reporting for stakeholders
-
-## 📊 Service Breakdown
-
-| Service | Commands | Individual Checks | Key Features |
-|---------|----------|-------------------|--------------|
-| **EC2** | 16 | 13 | Oversized instances, stopped instances, security issues |
-| **RDS** | 17 | 14 | Idle databases, public access, encryption |
-| **S3** | 14 | 11 | Empty buckets, public access, lifecycle policies |
-| **IAM** | 13 | 10 | Root access keys, unused roles, weak policies |
-| **EBS** | 12 | 9 | Orphaned volumes, unencrypted storage |
-| **Load Balancer** | 10 | 7 | Unused LBs, security configurations |
-| **Security Groups** | 9 | 6 | Unused groups, open ports, complex rules |
-| **Lambda** | 8 | 5 | Unused functions, over-provisioned memory |
-| **EIP** | 7 | 4 | Unattached IPs, security risks |
-| **CloudWatch** | 7 | 4 | Unused alarms, log retention |
-| **Others** | 33 | 18 | NAT, Route53, API Gateway, DynamoDB, Backup, Snapshots |
-
-## 🚀 Installation
-
-### Quick Install
-```bash
-git clone https://github.com/yassirkachri/kosty.git
-cd kosty
-./install.sh
-```
-
-### Manual Install
-```bash
-pip install -r requirements.txt
-pip install -e .
-```
-
-## 💡 Quick Start Examples
-
-### Basic Usage
-```bash
-# Comprehensive scan of all services
-kosty audit
-
-# Organization-wide scan
-kosty audit --organization --max-workers 20
-
-# Service-specific audits
-kosty ec2 audit --cpu-threshold 20
-kosty s3 security-audit
-kosty rds cost-audit
-```
-
-### Individual Checks
-```bash
-# High-impact cost optimizations
-kosty ec2 check-oversized-instances --cpu-threshold 15
-kosty eip check-unattached-eips
-kosty rds check-unused-read-replicas
-
-# Critical security issues
-kosty s3 check-public-read-access
-kosty iam check-root-access-keys
-kosty sg check-ssh-rdp-open
-```
-
-## 🔧 Technical Specifications
-
-### System Requirements
-- **Python**: 3.7+
-- **AWS CLI**: Configured with appropriate credentials
-- **Memory**: 100MB-2GB depending on organization size
-- **Network**: Internet access for AWS API calls
-
-### Performance
-- **Single Account**: 10-15 workers recommended
-- **Small Organization**: 15-20 workers
-- **Large Organization**: 20-30 workers
-- **Execution Time**: 2-10 minutes depending on resources
-
-### Security
-- **Read-Only Operations**: No resource modifications
-- **IAM Integration**: Supports roles and policies
-- **Organization Support**: Cross-account role assumption
-- **Audit Trail**: Comprehensive logging
-
-## 📈 Cost Savings Potential
-
-### Typical Savings by Service
-- **EC2**: 30-60% on oversized instances
-- **RDS**: $100-1000/month on idle databases
-- **S3**: 50-70% with lifecycle policies
-- **EIP**: $43.80/month per unattached IP
-- **NAT Gateway**: $130/month per unused gateway
-- **Load Balancer**: $270-360/year per unused LB
-
-### ROI Examples
-- **Small Organization (10 accounts)**: $5,000-15,000/month savings
-- **Medium Organization (50 accounts)**: $25,000-75,000/month savings
-- **Large Organization (100+ accounts)**: $100,000+/month savings
-
-## 🔍 Issue Categories
-
-### Cost Optimization (High Impact)
-- Oversized EC2 instances
-- Stopped instances (7+ days)
-- Unattached EBS volumes
-- Unused RDS read replicas
-- Empty S3 buckets
-- Unattached Elastic IPs
-
-### Security (Critical Issues)
-- SSH/RDP open to 0.0.0.0/0
-- Public S3 buckets
-- Unencrypted storage
-- Root account access keys
-- Public RDS databases
-- Weak IAM policies
-
-### Operational (Best Practices)
-- Missing lifecycle policies
-- Disabled backups
-- Outdated AMIs/engines
-- Complex security groups
-- Missing access logging
-
-## 📊 Output Formats
-
-### Console Output
-- Color-coded severity levels
-- Formatted tables
-- Summary statistics
-- Progress indicators
-
-### JSON Output
-- Structured data format
-- Programmatic integration
-- Dashboard compatibility
-- API consumption ready
-
-### CSV Output
-- Spreadsheet analysis
-- Executive reporting
-- Data manipulation
-- Bulk processing
-
-## 🎯 What's Next
-
-### Planned Features
-- Additional AWS services
-- Custom rule engine
-- Automated remediation
-- Cost estimation
-- Trend analysis
-- Integration APIs
-
-### Community
-- Open source contributions welcome
-- Feature requests via GitHub issues
-- Documentation improvements
-- Service additions
-
-## 📞 Support
-
-### Documentation
-- [Complete Documentation](docs/DOCUMENTATION.md)
-- [CLI Reference](docs/CLI_REFERENCE.md)
-- [Dashboard Guide](dashboard/README.md)
-
-### Community Support
-- GitHub Issues for bugs
-- GitHub Discussions for features
-- Documentation contributions welcome
-
-## 🏆 Acknowledgments
-
-Special thanks to the AWS community and cost optimization practitioners who provided feedback and requirements that shaped this tool.
+### 🐛 Bug Fixes
+- Fixed dashboard chart rendering issues with mixed case JSON fields
+- Resolved severity badge color display problems
+- Corrected filter functionality for lowercase field names
 
 ---
 
-**💰 Start saving money on AWS today with Kosty v1.0!**
+## Version 1.1.0 - Dashboard & Organization Support (2025-10-25)
 
-```bash
-git clone https://github.com/yassirkachri/kosty.git
-cd kosty && ./install.sh
-kosty audit --organization
-```
+### 🎨 New Features
+- **Visual Dashboard**: Modern React-based web dashboard with interactive charts
+- **Organization Mode**: Scan entire AWS Organizations with `--organization` flag
+- **Multiple Output Formats**: Console, JSON, CSV, and combined output with `--output all`
+
+### 📊 Dashboard Features
+- Interactive charts for service distribution, issue types, and severity levels
+- Responsive design for desktop and mobile
+- Issue filtering by service, type, and severity
+- Detailed issue modals with comprehensive information
+- Professional reporting capabilities
+
+### 🏢 Organization Support
+- Multi-account scanning across entire AWS Organizations
+- Parallel processing with configurable worker counts
+- Cross-account role assumption for secure access
+- Consolidated reporting across all accounts
+
+---
+
+## Version 1.0.0 - Initial Release (2025-10-24)
+
+### 🚀 Core Features
+- **16 AWS Services**: Comprehensive coverage of core AWS infrastructure
+- **147 Total Commands**: Complete audit, targeted audits, and individual checks
+- **Cost Optimization**: Identify unused resources, oversized instances, and waste
+- **Security Analysis**: Detect misconfigurations, public access, and vulnerabilities
+
+### 🔍 Service Coverage
+- **Compute**: EC2, Lambda
+- **Storage**: S3, EBS, Snapshots  
+- **Database**: RDS, DynamoDB
+- **Network**: EIP, Load Balancer, NAT Gateway, Security Groups, Route53
+- **Security**: IAM
+- **Management**: CloudWatch, Backup
+- **Application**: API Gateway
+
+### ⚡ Performance Features
+- Parallel processing with configurable workers
+- Read-only operations for safe analysis
+- Efficient API usage with intelligent throttling
+- Comprehensive error handling and logging
+
+### 📋 Command Structure
+- Global audit command for all services
+- Service-specific audit commands
+- Individual check commands for granular analysis
+- Flexible output formats and filtering options
+
+---
+
+## 🔮 Upcoming Features
+
+### Version 1.3.0 (Planned)
+- **Cost Estimation**: Actual dollar savings calculations
+- **Remediation Scripts**: Automated fix suggestions and scripts
+- **Custom Rules**: User-defined optimization rules
+- **Integration APIs**: REST API for external tool integration
+
+### Version 1.4.0 (Planned)
+- **Additional Services**: EKS, ECS, ElastiCache, Redshift support
+- **Advanced Analytics**: Trend analysis and historical comparisons
+- **Team Collaboration**: Shared dashboards and reporting
+- **Enterprise Features**: RBAC, audit trails, compliance reporting
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on:
+- Reporting bugs and feature requests
+- Adding new service checks
+- Improving documentation
+- Code contributions and pull requests
+
+## 📞 Support
+
+- **Documentation**: [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)
+- **Issues**: [GitHub Issues](https://github.com/yassirkachri/kosty/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yassirkachri/kosty/discussions)
+
+---
+
+**💰 Happy cost optimizing with Kosty!**

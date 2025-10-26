@@ -52,7 +52,7 @@
             </div>
         );
 
-        const IssueCard = ({ service, items, count, type, onIssueClick, onViewAll, severityColors }) => {
+        const IssueCard = ({ service, items, count, type, onIssueClick, severityColors }) => {
             const typeColors = {
                 cost: 'border-orange-500',
                 security: 'border-red-500',
@@ -103,13 +103,9 @@
                                 </div>
                             ))}
                             {items.length > 3 && (
-                                <button 
-                                    onClick={() => onViewAll(service, type, items)}
-                                    className="w-full text-xs text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-blue-50 rounded transition-colors"
-                                >
-                                    <i className="fas fa-eye mr-1"></i>
-                                    View all {items.length} issues
-                                </button>
+                                <p className="text-xs text-gray-500 text-center py-2">
+                                    +{items.length - 3} more issues
+                                </p>
                             )}
                         </div>
                     )}
@@ -204,7 +200,6 @@
             };
             const [loading, setLoading] = useState(false);
             const [selectedIssue, setSelectedIssue] = useState(null);
-            const [viewAllModal, setViewAllModal] = useState(null);
             const [filters, setFilters] = useState({
                 type: 'all',
                 severity: 'all',
@@ -827,13 +822,7 @@
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                         {filteredIssues.map((issue, idx) => (
-                                                            <IssueCard 
-                                                                key={idx} 
-                                                                {...issue} 
-                                                                onIssueClick={setSelectedIssue} 
-                                                                onViewAll={(service, type, items) => setViewAllModal({service, type, items})}
-                                                                severityColors={severityColors} 
-                                                            />
+                                                            <IssueCard key={idx} {...issue} onIssueClick={setSelectedIssue} severityColors={severityColors} />
                                                         ))}
                                                     </div>
                                                 </>
@@ -871,57 +860,6 @@
                         )}
                     </div>
                     
-                    {/* View All Issues Modal */}
-                    {viewAllModal && (
-                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" onClick={() => setViewAllModal(null)}>
-                            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                                <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-3">
-                                            <ServiceIcon service={viewAllModal.service} />
-                                            <div>
-                                                <h3 className="text-xl font-bold text-white uppercase">{viewAllModal.service}</h3>
-                                                <p className="text-blue-100 text-sm capitalize">{viewAllModal.type} Issues ({viewAllModal.items.length})</p>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => setViewAllModal(null)} className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                                            <i className="fas fa-times text-xl"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {viewAllModal.items.map((item, idx) => (
-                                            <div key={idx} className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => setSelectedIssue(item)}>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="font-medium text-gray-900 text-sm">
-                                                        {item.ResourceName || item.BucketName || item.ResourceId}
-                                                    </span>
-                                                    {(item.severity || item.Severity) && (
-                                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${severityColors[item.severity || item.Severity] || 'bg-gray-100 text-gray-800'}`}>
-                                                            {item.severity || item.Severity}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-600 mb-2">{item.Issue}</p>
-                                                {item.Region && (
-                                                    <p className="text-xs text-gray-500 mb-1">
-                                                        <i className="fas fa-map-marker-alt mr-1"></i>
-                                                        {item.Region}
-                                                    </p>
-                                                )}
-                                                <p className="text-xs text-blue-600">
-                                                    <i className="fas fa-info-circle mr-1"></i>
-                                                    Click for details
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Premium Modal for issue details */}
                     {selectedIssue && (
                         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" onClick={() => setSelectedIssue(null)}>
@@ -938,11 +876,8 @@
                                                 <p className="text-blue-100 text-sm">{selectedIssue.Service} • {selectedIssue.Type}</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => {
-                                            setSelectedIssue(null);
-                                            if (!viewAllModal) setViewAllModal(null);
-                                        }} className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                                            <i className="fas fa-arrow-left text-xl"></i>
+                                        <button onClick={() => setSelectedIssue(null)} className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                                            <i className="fas fa-times text-xl"></i>
                                         </button>
                                     </div>
                                 </div>

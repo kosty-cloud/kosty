@@ -52,9 +52,9 @@ class RDSAuditService:
                                 'Region': region,
                                 'AvgCPU': round(avg_cpu, 2),
                                 'Issue': f'Instance idle (<{cpu_threshold}% CPU for {days} days)',
-                                'Type': 'cost',
+                                'type': 'cost',
                                 'Risk': 'Waste $100-1000/mo',
-                                'Severity': 'HIGH',
+                                'severity': 'high',
                                 'Service': 'RDS'
                             })
                 except Exception:
@@ -126,9 +126,9 @@ class RDSAuditService:
                             'AvgCPU': round(avg_cpu, 2),
                             'AvgConnections': round(avg_connections, 2),
                             'Issue': f'Oversized (<{cpu_threshold}% CPU and <{connection_threshold} connections)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste 30-60%',
-                            'Severity': 'HIGH',
+                            'severity': 'high',
                             'Service': 'RDS'
                         })
                 except Exception:
@@ -185,9 +185,9 @@ class RDSAuditService:
                             'Region': region,
                             'AvgReadsPerDay': round(avg_reads_per_day, 2),
                             'Issue': f'Unused read replica (<{read_threshold} reads/day)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $100-500/mo',
-                            'Severity': 'HIGH',
+                            'severity': 'high',
                             'Service': 'RDS'
                         })
                 except Exception:
@@ -225,9 +225,9 @@ class RDSAuditService:
                         'Region': region,
                         'MultiAZ': instance['MultiAZ'],
                         'Issue': 'Multi-AZ for non-production',
-                        'Type': 'cost',
+                        'type': 'cost',
                         'Risk': 'Waste 100% (double cost)',
-                        'Severity': 'MEDIUM',
+                        'severity': 'medium',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -264,9 +264,9 @@ class RDSAuditService:
                         'Region': region,
                         'BackupRetentionPeriod': backup_retention,
                         'Issue': f'Backup retention >{retention_threshold} days for dev/test',
-                        'Type': 'cost',
+                        'type': 'cost',
                         'Risk': 'Waste backup storage',
-                        'Severity': 'LOW',
+                        'severity': 'low',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -297,9 +297,9 @@ class RDSAuditService:
                         'ARN': instance['DBInstanceArn'],
                         'Region': region,
                         'Issue': 'gp2 storage (not gp3)',
-                        'Type': 'cost',
+                        'type': 'cost',
                         'Risk': 'Waste 20% storage cost',
-                        'Severity': 'MEDIUM',
+                        'severity': 'medium',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -329,9 +329,9 @@ class RDSAuditService:
                         'Region': region,
                         'PubliclyAccessible': instance['PubliclyAccessible'],
                         'Issue': 'Publicly accessible database',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'Direct internet DB access',
-                        'Severity': 'CRITICAL',
+                        'severity': 'critical',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -360,9 +360,9 @@ class RDSAuditService:
                         'Region': region,
                         'StorageEncrypted': instance.get('StorageEncrypted', False),
                         'Issue': 'Storage not encrypted',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'Data breach if storage compromised',
-                        'Severity': 'CRITICAL',
+                        'severity': 'critical',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -394,9 +394,9 @@ class RDSAuditService:
                         'ARN': instance['DBInstanceArn'],
                         'Region': region,
                         'Issue': 'Master username is default (admin/root/postgres)',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'First brute force target',
-                        'Severity': 'HIGH',
+                        'severity': 'high',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -439,9 +439,9 @@ class RDSAuditService:
                                                 'ARN': instance['DBInstanceArn'],
                                                 'Region': region,
                                                 'Issue': 'Security group allows wide CIDR (>=/16)',
-                                                'Type': 'security',
+                                                'type': 'security',
                                                 'Risk': 'Overly permissive network access',
-                                                'Severity': 'HIGH',
+                                                'severity': 'high',
                                                 'Service': 'RDS'
                                             })
                                             break
@@ -474,9 +474,9 @@ class RDSAuditService:
                         'ARN': instance['DBInstanceArn'],
                         'Region': region,
                         'Issue': 'Automated backups disabled (retention=0)',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'Data loss - no recovery',
-                        'Severity': 'HIGH',
+                        'severity': 'high',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -526,9 +526,9 @@ class RDSAuditService:
                         'ARN': instance['DBInstanceArn'],
                         'Region': region,
                         'Issue': f'Engine version outdated (>{months_threshold} months)',
-                        'Type': 'security',
+                        'type': 'security',
                         'Risk': 'Known CVEs unpatched',
-                        'Severity': 'MEDIUM',
+                        'severity': 'medium',
                         'Service': 'RDS'
                     })
         except Exception as e:
@@ -561,9 +561,9 @@ class RDSAuditService:
                     'ARN': instance['DBInstanceArn'],
                     'Region': region,
                     'Issue': 'No SSL/TLS enforcement',
-                    'Type': 'security',
+                    'type': 'security',
                     'Risk': 'Man-in-the-middle attacks',
-                    'Severity': 'MEDIUM',
+                    'severity': 'medium',
                     'Service': 'RDS'
                 })
         except Exception as e:

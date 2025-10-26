@@ -162,7 +162,10 @@ kosty audit --output all
 kosty audit --organization --max-workers 20 --output json
 
 # Multi-region comprehensive audit
-kosty audit --organization --region eu-west-1 --output csv
+kosty audit --regions us-east-1,eu-west-1,ap-southeast-1 --output csv
+
+# Single region scan
+kosty audit --region eu-west-1 --output json
 
 # Quick console summary
 kosty audit --output console
@@ -207,12 +210,15 @@ kosty rds check-public-databases
 kosty iam check-root-access-keys
 ```
 
-### 4. 🌍 **Organization-wide** - Multi-account scanning
+### 4. 🌍 **Multi-Region & Organization** - Comprehensive scanning
 ```bash
-# Any command can be run across entire organization
-kosty audit --organization --max-workers 20
-kosty ec2 audit --organization
-kosty s3 check-public-read-access --organization
+# Multi-region scanning
+kosty audit --regions us-east-1,eu-west-1,ap-southeast-1
+kosty ec2 audit --regions us-east-1,eu-west-1
+
+# Organization-wide with multi-region
+kosty audit --organization --regions us-east-1,eu-west-1 --max-workers 20
+kosty s3 check-public-read-access --organization --regions us-east-1,eu-west-1
 ```
 
 ---
@@ -311,7 +317,7 @@ kosty audit --output all
 - ✅ **16 Core AWS Services** - Essential infrastructure coverage
 - ✅ **One-Command Audit** - `kosty audit` scans everything
 - ✅ **Organization Support** - Multi-account scanning
-- ✅ **Multi-Region** - Scan across all AWS regions
+- ✅ **Multi-Region** - Scan across multiple AWS regions simultaneously with `--regions`
 
 ### ⚡ **Performance & Usability**
 - ✅ **Parallel Processing** - High-performance with configurable workers

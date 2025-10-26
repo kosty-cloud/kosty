@@ -58,9 +58,9 @@ class BackupAuditService:
                             'ResourceName': vault_name,
                             'ResourceArn': vault['BackupVaultArn'],
                             'Issue': 'Empty backup vault',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $0.10/mo per vault',
-                            'Severity': 'LOW',
+                            'severity': 'low',
                             'Details': {
                                 'BackupVaultName': vault_name,
                                 'CreationDate': vault.get('CreationDate').isoformat() if vault.get('CreationDate') else None,
@@ -113,9 +113,9 @@ class BackupAuditService:
                                         'ResourceName': plan_details['BackupPlan']['BackupPlanName'],
                                         'ResourceArn': plan_details['BackupPlanArn'],
                                         'Issue': 'Cross-region backup for dev/test',
-                                        'Type': 'cost',
+                                        'type': 'cost',
                                         'Risk': 'Waste 2x storage + transfer',
-                                        'Severity': 'MEDIUM',
+                                        'severity': 'medium',
                                         'Details': {
                                             'BackupPlanName': plan_details['BackupPlan']['BackupPlanName'],
                                             'BackupPlanId': plan_id,

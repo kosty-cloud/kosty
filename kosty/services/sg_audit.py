@@ -66,9 +66,9 @@ class SGAuditService:
                                     'ResourceId': sg['GroupId'],
                                     'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:security-group/{sg['GroupId']}",
                                     'Issue': 'Port 22/3389 open to 0.0.0.0/0',
-                                    'Type': 'security',
+                                    'type': 'security',
                                     'Risk': 'Brute force attacks',
-                                    'Severity': 'CRITICAL',
+                                    'severity': 'critical',
                                     'Details': {
                                         'GroupName': sg['GroupName'],
                                         'FromPort': from_port,
@@ -107,9 +107,9 @@ class SGAuditService:
                                     'ResourceId': sg['GroupId'],
                                     'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:security-group/{sg['GroupId']}",
                                     'Issue': 'Database ports open to 0.0.0.0/0',
-                                    'Type': 'security',
+                                    'type': 'security',
                                     'Risk': 'Unauthorized DB access',
-                                    'Severity': 'CRITICAL',
+                                    'severity': 'critical',
                                     'Details': {
                                         'GroupName': sg['GroupName'],
                                         'FromPort': from_port,
@@ -147,9 +147,9 @@ class SGAuditService:
                                     'ResourceId': sg['GroupId'],
                                     'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:security-group/{sg['GroupId']}",
                                     'Issue': 'All ports open (0-65535) to 0.0.0.0/0',
-                                    'Type': 'security',
+                                    'type': 'security',
                                     'Risk': 'Complete exposure',
-                                    'Severity': 'CRITICAL',
+                                    'severity': 'critical',
                                     'Details': {
                                         'GroupName': sg['GroupName'],
                                         'Protocol': rule.get('IpProtocol')
@@ -200,9 +200,9 @@ class SGAuditService:
                         'ResourceId': sg_id,
                         'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:security-group/{sg_id}",
                         'Issue': 'Unused security group (no attachments)',
-                        'Type': 'cost',
+                        'type': 'cost',
                         'Risk': 'Configuration drift',
-                        'Severity': 'LOW',
+                        'severity': 'low',
                         'Details': {
                             'GroupName': sg['GroupName'],
                             'Description': sg.get('Description', '')
@@ -233,9 +233,9 @@ class SGAuditService:
                         'ResourceId': sg['GroupId'],
                         'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:security-group/{sg['GroupId']}",
                         'Issue': f'Security group with >{rule_threshold} rules',
-                        'Type': 'other',
+                        'type': 'other',
                         'Risk': 'Complex troubleshooting',
-                        'Severity': 'LOW',
+                        'severity': 'low',
                         'Details': {
                             'GroupName': sg['GroupName'],
                             'RuleCount': rule_count,

@@ -61,9 +61,9 @@ class Route53AuditService:
                                 'ResourceId': zone_id,
                                 'ResourceArn': f"arn:aws:route53:::hostedzone/{zone_id}",
                                 'Issue': 'Hosted zone with only NS/SOA records',
-                                'Type': 'cost',
+                                'type': 'cost',
                                 'Risk': 'Waste $6/mo per zone',
-                                'Severity': 'LOW',
+                                'severity': 'low',
                                 'Details': {
                                     'HostedZoneId': zone_id,
                                     'Name': zone['Name'],

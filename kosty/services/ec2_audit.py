@@ -44,9 +44,9 @@ class EC2AuditService:
                                         'Region': region,
                                         'StoppedDays': (datetime.now() - transition_time).days,
                                         'Issue': f'Instance stopped for {days}+ days',
-                                        'Type': 'cost',
+                                        'type': 'cost',
                                         'Risk': 'Waste $30-500/mo per instance',
-                                        'Severity': 'HIGH',
+                                        'severity': 'high',
                                         'Service': 'EC2'
                                     })
                         except:
@@ -99,9 +99,9 @@ class EC2AuditService:
                                     'Region': region,
                                     'AvgCPU': round(avg_cpu, 2),
                                     'Issue': f'Instance idle (<{cpu_threshold}% CPU for {days} days)',
-                                    'Type': 'cost',
+                                    'type': 'cost',
                                     'Risk': 'Waste 80-95% of instance cost',
-                                    'Severity': 'HIGH',
+                                    'severity': 'high',
                                     'Service': 'EC2'
                                 })
                     except Exception:
@@ -153,9 +153,9 @@ class EC2AuditService:
                                     'Region': region,
                                     'AvgCPU': round(avg_cpu, 2),
                                     'Issue': f'Oversized instance (<{cpu_threshold}% CPU)',
-                                    'Type': 'cost',
+                                    'type': 'cost',
                                     'Risk': 'Waste 30-60% per instance',
-                                    'Severity': 'HIGH',
+                                    'severity': 'high',
                                     'Service': 'EC2'
                                 })
                     except Exception:
@@ -192,9 +192,9 @@ class EC2AuditService:
                             'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance['InstanceId']}",
                             'Region': region,
                             'Issue': 'Instance type previous generation (t2/m4/c4)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste 10-20% vs current gen',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'EC2'
                         })
         except Exception as e:
@@ -235,9 +235,9 @@ class EC2AuditService:
                             'Region': region,
                             'SecurityGroups': instance_sgs,
                             'Issue': 'SSH port 22 open to 0.0.0.0/0',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'Brute force attacks (38k/day avg)',
-                            'Severity': 'CRITICAL',
+                            'severity': 'critical',
                             'Service': 'EC2'
                         })
         except Exception as e:
@@ -275,9 +275,9 @@ class EC2AuditService:
                             'Region': region,
                             'SecurityGroups': instance_sgs,
                             'Issue': 'RDP port 3389 open to 0.0.0.0/0',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'Brute force attacks',
-                            'Severity': 'CRITICAL',
+                            'severity': 'critical',
                             'Service': 'EC2'
                         })
         except Exception as e:
@@ -319,9 +319,9 @@ class EC2AuditService:
                             'Region': region,
                             'SecurityGroups': instance_sgs,
                             'Issue': 'Database ports (3306/5432/1433/27017) open to 0.0.0.0/0',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'Unauthorized DB access',
-                            'Severity': 'CRITICAL',
+                            'severity': 'critical',
                             'Service': 'EC2'
                         })
         except Exception as e:
@@ -366,9 +366,9 @@ class EC2AuditService:
                                 'Region': region,
                                 'PublicIP': public_ip,
                                 'Issue': 'Public IP on non-web instance',
-                                'Type': 'security',
+                                'type': 'security',
                                 'Risk': 'Unnecessary attack surface',
-                                'Severity': 'HIGH',
+                                'severity': 'high',
                                 'Service': 'EC2'
                             })
         except Exception as e:
@@ -406,9 +406,9 @@ class EC2AuditService:
                                         'AMI': ami_id,
                                         'AMIAge': (datetime.now() - creation_date).days,
                                         'Issue': f'AMI older than {days} days',
-                                        'Type': 'security',
+                                        'type': 'security',
                                         'Risk': 'Unpatched CVEs accumulation',
-                                        'Severity': 'HIGH',
+                                        'severity': 'high',
                                         'Service': 'EC2'
                                     })
                         except Exception:
@@ -441,9 +441,9 @@ class EC2AuditService:
                             'Region': region,
                             'HttpTokens': http_tokens,
                             'Issue': 'Using IMDSv1 (not IMDSv2)',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'SSRF attacks (Capital One vector)',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'EC2'
                         })
         except Exception as e:
@@ -482,9 +482,9 @@ class EC2AuditService:
                             'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance['InstanceId']}",
                             'Region': region,
                             'Issue': 'EBS volumes unencrypted',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'Data exposure if compromised',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'EC2'
                         })
         except Exception as e:
@@ -531,9 +531,9 @@ class EC2AuditService:
                             'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance_id}",
                             'Region': region,
                             'Issue': f'No recent AMI backup ({days}+ days)',
-                            'Type': 'security',
+                            'type': 'security',
                             'Risk': 'No recovery point',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Service': 'EC2'
                         })
         except Exception as e:

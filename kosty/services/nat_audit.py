@@ -71,9 +71,9 @@ class NATAuditService:
                             'ResourceId': nat_gw['NatGatewayId'],
                             'ResourceArn': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:natgateway/{nat_gw['NatGatewayId']}",
                             'Issue': f'NAT Gateway with <1MB data transfer {days} days',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste $130/mo ($1,560/year)',
-                            'Severity': 'HIGH',
+                            'severity': 'high',
                             'Details': {
                                 'NatGatewayId': nat_gw['NatGatewayId'],
                                 'SubnetId': nat_gw.get('SubnetId'),
@@ -127,9 +127,9 @@ class NATAuditService:
                             'ResourceId': nat['NatGatewayId'],
                             'ResourceArn': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:natgateway/{nat['NatGatewayId']}",
                             'Issue': 'NAT Gateway per AZ (should be shared)',
-                            'Type': 'cost',
+                            'type': 'cost',
                             'Risk': 'Waste 50% (redundant)',
-                            'Severity': 'MEDIUM',
+                            'severity': 'medium',
                             'Details': {
                                 'NatGatewayId': nat['NatGatewayId'],
                                 'AvailabilityZone': az,
