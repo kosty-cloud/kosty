@@ -1,4 +1,4 @@
-# 🔧 Kosty API Reference
+# 🔧 Kosty CLI Reference
 
 ## 📋 Command Reference
 

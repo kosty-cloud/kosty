@@ -6,7 +6,7 @@ Welcome to the comprehensive documentation for Kosty v1.0 - AWS Cost Optimizatio
 
 - **[📋 DOCUMENTATION.md](DOCUMENTATION.md)** - Complete user guide and setup instructions
 - **[📋 DOCUMENTATION_V1.md](DOCUMENTATION_V1.md)** - v1.0 specific documentation
-- **[🔧 API_REFERENCE.md](API_REFERENCE.md)** - Detailed service commands and API reference
+- **[🔧 CLI_REFERENCE.md](CLI_REFERENCE.md)** - Detailed service commands and CLI reference
 
 ## 🎯 Quick Navigation
 
@@ -15,7 +15,7 @@ Welcome to the comprehensive documentation for Kosty v1.0 - AWS Cost Optimizatio
 | **Installation** | Install Kosty on your system | [📖 Installation](DOCUMENTATION.md#installation) |
 | **AWS Setup** | Configure credentials and permissions | [🔧 AWS Credentials Setup](DOCUMENTATION.md#aws-credentials-setup) |
 | **Quick Start** | Run your first cost audit | [🚀 Quick Start](DOCUMENTATION.md#quick-start) |
-| **All Commands** | Complete service command reference | [💻 API Reference](API_REFERENCE.md) |
+| **All Commands** | Complete service command reference | [💻 CLI Reference](CLI_REFERENCE.md) |
 | **Dashboard** | Visual cost analysis | [📊 Dashboard](DOCUMENTATION.md#visual-dashboard) |
 | **Organization Mode** | Multi-account setup | [🏢 Organization Setup](DOCUMENTATION.md#aws-credentials-setup) |
 | **Troubleshooting** | Common issues and solutions | [🛠️ Troubleshooting](DOCUMENTATION.md#troubleshooting) |

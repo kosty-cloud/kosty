@@ -186,7 +186,7 @@ kosty sg check-ssh-rdp-open
 
 ### Documentation
 - [Complete Documentation](docs/DOCUMENTATION.md)
-- [API Reference](docs/API_REFERENCE.md)
+- [CLI Reference](docs/CLI_REFERENCE.md)
 - [Dashboard Guide](dashboard/README.md)
 
 ### Community Support
