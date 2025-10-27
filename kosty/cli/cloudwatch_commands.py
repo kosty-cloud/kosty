@@ -1,0 +1,60 @@
+import click
+from .utils import common_options, execute_service_command
+
+@click.group()
+@click.pass_context
+def cloudwatch(ctx):
+    """CloudWatch operations"""
+    pass
+
+@cloudwatch.command('audit')
+@click.option('--days', default=30, help='Days threshold for unused resources')
+@common_options
+@click.pass_context
+def cloudwatch_audit(ctx, days, organization, region, max_workers, regions, output):
+    """Run complete CloudWatch audit"""
+    from ..services.cloudwatch_audit import CloudWatchAuditService
+    execute_service_command(ctx, CloudWatchAuditService, 'audit', output, organization, region, max_workers, regions, days=days)
+
+@cloudwatch.command('cost-audit')
+@click.option('--days', default=30, help='Days threshold for unused resources')
+@common_options
+@click.pass_context
+def cloudwatch_cost_audit(ctx, days, organization, region, max_workers, regions, output):
+    """Run CloudWatch cost optimization audit only"""
+    from ..services.cloudwatch_audit import CloudWatchAuditService
+    execute_service_command(ctx, CloudWatchAuditService, 'cost_audit', output, organization, region, max_workers, regions, days=days)
+
+@cloudwatch.command('security-audit')
+@common_options
+@click.pass_context
+def cloudwatch_security_audit(ctx, organization, region, max_workers, regions, output):
+    """Run CloudWatch security audit only"""
+    from ..services.cloudwatch_audit import CloudWatchAuditService
+    execute_service_command(ctx, CloudWatchAuditService, 'security_audit', output, organization, region, max_workers, regions)
+
+@cloudwatch.command('check-unused-alarms')
+@click.option('--days', default=30, help='Days threshold for alarm activity')
+@common_options
+@click.pass_context
+def cloudwatch_check_alarms(ctx, days, organization, region, max_workers, regions, output):
+    """Find unused CloudWatch alarms"""
+    from ..services.cloudwatch_audit import CloudWatchAuditService
+    execute_service_command(ctx, CloudWatchAuditService, 'check_unused_alarms', output, organization, region, max_workers, regions, days=days)
+
+@cloudwatch.command('check-log-retention')
+@common_options
+@click.pass_context
+def cloudwatch_check_logs(ctx, organization, region, max_workers, regions, output):
+    """Find log groups without retention policies"""
+    from ..services.cloudwatch_audit import CloudWatchAuditService
+    execute_service_command(ctx, CloudWatchAuditService, 'check_log_groups_without_retention', output, organization, region, max_workers, regions)
+
+@cloudwatch.command('check_unused_custom_metrics')
+@click.option('--days', default=30, help='Days threshold for metrics activity')
+@common_options
+@click.pass_context
+def cloudwatch_check_custom_metrics(ctx, days, organization, region, max_workers, regions, output):
+    """Find unused custom metrics (no data in X days)"""
+    from ..services.cloudwatch_audit import CloudWatchAuditService
+    execute_service_command(ctx, CloudWatchAuditService, 'check_unused_custom_metrics', output, organization, region, max_workers, regions, days=days)

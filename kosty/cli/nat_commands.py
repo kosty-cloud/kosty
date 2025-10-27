@@ -1,0 +1,51 @@
+import click
+from .utils import common_options, execute_service_command
+
+@click.group()
+@click.pass_context
+def nat(ctx):
+    """NAT Gateway operations"""
+    pass
+
+@nat.command('audit')
+@click.option('--days', default=7, help='Days threshold for data transfer analysis')
+@common_options
+@click.pass_context
+def nat_audit(ctx, days, organization, region, max_workers, regions, output):
+    """Run complete NAT Gateway audit"""
+    from ..services.nat_audit import NATAuditService
+    execute_service_command(ctx, NATAuditService, 'audit', output, organization, region, max_workers, regions, days=days)
+
+@nat.command('cost-audit')
+@click.option('--days', default=7, help='Days threshold for data transfer analysis')
+@common_options
+@click.pass_context
+def nat_cost_audit(ctx, days, organization, region, max_workers, regions, output):
+    """Run NAT Gateway cost optimization audit only"""
+    from ..services.nat_audit import NATAuditService
+    execute_service_command(ctx, NATAuditService, 'cost_audit', output, organization, region, max_workers, regions, days=days)
+
+@nat.command('security-audit')
+@common_options
+@click.pass_context
+def nat_security_audit(ctx, organization, region, max_workers, regions, output):
+    """Run NAT Gateway security audit only"""
+    from ..services.nat_audit import NATAuditService
+    execute_service_command(ctx, NATAuditService, 'security_audit', output, organization, region, max_workers, regions)
+
+@nat.command('check-unused-gateways')
+@click.option('--days', default=7, help='Days threshold for usage analysis')
+@common_options
+@click.pass_context
+def nat_check_unused(ctx, days, organization, region, max_workers, regions, output):
+    """Find unused NAT Gateways"""
+    from ..services.nat_audit import NATAuditService
+    execute_service_command(ctx, NATAuditService, 'check_unused_nat_gateways', output, organization, region, max_workers, regions, days=days)
+
+@nat.command('check-redundant-gateways')
+@common_options
+@click.pass_context
+def nat_check_redundant(ctx, organization, region, max_workers, regions, output):
+    """Find redundant NAT Gateways"""
+    from ..services.nat_audit import NATAuditService
+    execute_service_command(ctx, NATAuditService, 'check_redundant_nat_gateways', output, organization, region, max_workers, regions)

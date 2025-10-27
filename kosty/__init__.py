@@ -1,4 +1,1 @@
-"""
-Kosty - AWS Cost Optimization CLI Tool
-"""
-__version__ = "1.0.0"
+__version__ = "1.2.0"

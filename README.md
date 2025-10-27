@@ -309,6 +309,7 @@ kosty audit --output all
 ## 🚀 Features
 
 ### 💻 **CLI + Web Dashboard**
+- ✅ **Modular CLI Architecture** - Organized by AWS service for maintainability
 - ✅ **Command Line Interface** - Powerful CLI for automation and scripting
 - ✅ **Visual Web Dashboard** - Modern React-based interface with interactive charts
 - ✅ **Multiple Report Formats** - Console, JSON, CSV outputs + visual reports
@@ -331,6 +332,8 @@ kosty audit --output all
 - [🔧 AWS Credentials Setup](docs/DOCUMENTATION.md#aws-credentials-setup)
 - [🏢 Organization Mode Setup](docs/DOCUMENTATION.md#organization-mode)
 - [📊 Visual Dashboard](dashboard/README.md)
+- [🏗️ CLI Architecture](docs/CLI_ARCHITECTURE.md)
+- [📝 Release Notes](docs/RELEASE_NOTES.md)
 - [🛠️ Troubleshooting Guide](docs/DOCUMENTATION.md#troubleshooting)
 
 ## 🤝 Contributing

@@ -1,6 +1,13 @@
 # 🚀 Kosty Release Notes
 
-## Version 1.2.0 - Multi-Region Support & Dashboard Enhancements (2025-10-26)
+## Version 1.2.0 - Multi-Region Support & Modular CLI Architecture (2025-10-26)
+
+### 🏗️ Architecture Improvements
+- **Modular CLI Structure**: Refactored monolithic CLI (2000+ lines) into 19 organized files
+  - One file per AWS service (~100 lines each) for better maintainability
+  - Centralized common utilities in `utils.py` to reduce code duplication
+  - Improved extensibility for adding new services and commands
+  - Better collaboration with reduced Git conflicts
 
 ### 🌍 New Features
 - **Multi-Region Support**: Added `--regions` parameter to scan multiple AWS regions simultaneously
@@ -18,6 +25,7 @@
 - **Better User Experience**: Smooth navigation flow with intuitive back buttons
 
 ### 🔧 Technical Improvements
+- **CLI Maintainability**: Organized CLI commands by AWS service for better code organization
 - **Standardized Output Format**: All services now output consistent lowercase field names (`type`, `severity`)
 - **Performance Optimization**: Multi-region scanning with intelligent worker distribution
 - **Code Quality**: Cleaned up field naming inconsistencies across all 16 services
