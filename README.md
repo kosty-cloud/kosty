@@ -29,8 +29,8 @@
 ## 🌟 Built by a Cloud Consultant, for Cloud Engineers
 
 After years of AWS consulting , I kept finding the same costly patterns:
-- 70 Load Balancers with no targets at one client: **$25,000/year wasted**
-- Orphaned EBS volumes: **$2,500/year**  
+- Load Balancers with no targets  **10K$-30K$/year wasted**
+- Orphaned EBS volumes: **$1,000-2,500/year**  
 - Unused NAT Gateways, oversized instances, old snapshots,...
 
 **Every. Single. Time.**
