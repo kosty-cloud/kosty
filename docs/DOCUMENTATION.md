@@ -13,7 +13,7 @@ Kosty is a comprehensive AWS cost optimization CLI tool that helps you identify 
 
 ### Quick Installation
 ```bash
-git clone https://github.com/yassirkachri/kosty.git
+git clone https://github.com/kosty-cloud/kosty.git
 cd kosty
 ./install.sh
 ```
