@@ -58,7 +58,7 @@ AWS costs can spiral out of control quickly. Kosty helps you:
 
 ```bash
 # Install Kosty
-git clone https://github.com/yassirkachri/kosty.git
+git clone https://github.com/kosty-cloud/kosty.git
 cd kosty && ./install.sh
 
 # 🚀 ONE COMMAND TO RULE THEM ALL - Comprehensive scan
@@ -96,7 +96,7 @@ open dashboard/index.html
 
 ### Quick Install
 ```bash
-git clone https://github.com/yassirkachri/kosty.git
+git clone https://github.com/kosty-cloud/kosty.git
 cd kosty
 ./install.sh
 ```
@@ -340,8 +340,8 @@ kosty audit --output all
 
 We welcome contributions! Here's how you can help:
 
-1. **🐛 Report Issues** - Found a bug? [Open an issue](https://github.com/yassirkachri/kosty/issues)
-2. **💡 Feature Requests** - Have an idea? [Start a discussion](https://github.com/yassirkachri/kosty/discussions)
+1. **🐛 Report Issues** - Found a bug? [Open an issue](https://github.com/kosty-cloud/kosty/issues)
+2. **💡 Feature Requests** - Have an idea? [Start a discussion](https://github.com/kosty-cloud/kosty/discussions)
 3. **🔧 Add Services** - Implement new AWS service checks
 4. **📖 Improve Docs** - Help make documentation better
 5. **⭐ Star the Repo** - Show your support!
