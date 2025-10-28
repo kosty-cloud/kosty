@@ -5,7 +5,6 @@ Welcome to the comprehensive documentation for Kosty v1.0 - AWS Cost Optimizatio
 ## 📚 Documentation Files
 
 - **[📋 DOCUMENTATION.md](DOCUMENTATION.md)** - Complete user guide and setup instructions
-- **[📋 DOCUMENTATION_V1.md](DOCUMENTATION_V1.md)** - v1.0 specific documentation
 - **[🔧 CLI_REFERENCE.md](CLI_REFERENCE.md)** - Detailed service commands and CLI reference
 
 ## 🎯 Quick Navigation
