@@ -24,7 +24,7 @@ Welcome to the comprehensive documentation for Kosty v1.0 - AWS Cost Optimizatio
 
 ```bash
 # Install
-git clone https://github.com/yassirkachri/kosty.git
+git clone https://github.com/kosty-cloud/kosty.git
 cd kosty && ./install.sh
 
 # Configure AWS
@@ -39,8 +39,8 @@ open dashboard/index.html
 
 ## 🆘 Need Help?
 
-- 🐛 **Found a bug?** [Open an issue](https://github.com/yassirkachri/kosty/issues)
-- 💡 **Feature request?** [Start a discussion](https://github.com/yassirkachri/kosty/discussions)
+- 🐛 **Found a bug?** [Open an issue](https://github.com/kosty-cloud/kosty/issues)
+- 💡 **Feature request?** [Start a discussion](https://github.com/kosty-cloud/kosty/discussions)
 - ❓ **Questions?** Check the [troubleshooting section](DOCUMENTATION.md#troubleshooting)
 
 ---
