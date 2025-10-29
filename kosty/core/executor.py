@@ -83,19 +83,25 @@ class ServiceExecutor:
                 for item in items[:5]:  # Show first 5 items
                     if isinstance(item, dict):
                         resource_name = (item.get('ResourceName') or 
+                                       item.get('Name') or
                                        item.get('BucketName') or 
                                        item.get('InstanceId') or 
                                        item.get('DBInstanceIdentifier') or 
                                        item.get('FunctionName') or 
                                        item.get('UserName') or 
                                        item.get('RoleName') or 
+                                       item.get('VolumeId') or
+                                       item.get('ResourceId') or
                                        'Unknown')
                         issue = item.get('Issue', 'Unknown issue')
-                        severity = item.get('Severity', 'Unknown')
+                        severity = item.get('severity', item.get('Severity', 'Unknown'))
                         print(f"    • {resource_name}: {issue} [{severity}]")
                 
                 if len(items) > 5:
                     print(f"    ... and {len(items) - 5} more issues")
+            elif isinstance(items, list) and not items:
+                print(f"\n📊 Account: {account_id}")
+                print(f"  ✅ {method_name}: No issues found")
         
         print(f"\n🎯 Total issues found: {total_issues}")
         

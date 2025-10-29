@@ -75,13 +75,13 @@ class CloudWatchAuditService:
         
         try:
             paginator = cloudwatch.get_paginator('describe_alarms')
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            cutoff_date = datetime.utcnow().replace(tzinfo=None) - timedelta(days=days)
             
             for page in paginator.paginate():
                 for alarm in page['MetricAlarms']:
                     state_updated = alarm.get('StateUpdatedTimestamp')
                     
-                    if state_updated and state_updated < cutoff_date:
+                    if state_updated and state_updated.replace(tzinfo=None) < cutoff_date:
                         results.append({
                             'AccountId': session.client('sts').get_caller_identity()['Account'],
                             'Region': region,
