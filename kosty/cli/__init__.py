@@ -110,7 +110,8 @@ def audit(ctx, organization, region, regions, max_workers, output):
     
     if output == 'all':
         print(f"\\n🎉 All reports generated successfully!")
-        print(f"💰 Total potential monthly savings: ${reporter.total_potential_savings:,}")
+        total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in reporter.results.values() for svc in acc.values())
+        print(f"📊 Total issues found: {total_issues}")
 
 # Version command
 @cli.command()
