@@ -27,7 +27,8 @@ kosty-report-*.csv
 checks.csv
 kosty/cli.py.backup
 secrets.md
-
+integrations/
+tests/
 
 
 # AWS credentials
