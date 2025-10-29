@@ -126,23 +126,27 @@ class ServiceExecutor:
             
             with open(filename, 'w', newline='') as f:
                 if total_issues > 0:
-                    # Get first item to determine fieldnames
-                    first_item = None
-                    for items in results.values():
-                        if isinstance(items, list) and items:
-                            first_item = items[0]
-                            break
+                    # Collect all possible fieldnames from all items
+                    all_fieldnames = set()
+                    all_items = []
                     
-                    if first_item:
-                        fieldnames = first_item.keys()
-                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    for items in results.values():
+                        if isinstance(items, list):
+                            for item in items:
+                                if isinstance(item, dict):
+                                    all_fieldnames.update(item.keys())
+                                    all_items.append(item)
+                    
+                    if all_items:
+                        fieldnames = sorted(all_fieldnames)
+                        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
                         writer.writeheader()
-                        
-                        for items in results.values():
-                            if isinstance(items, list):
-                                writer.writerows(items)
-            
-            print(f"\n📊 CSV report saved: {filename}")
+                        writer.writerows(all_items)
+                        print(f"\n📊 CSV report saved: {filename}")
+                    else:
+                        print(f"\n📊 CSV report saved: {filename} (no issues found)")
+                else:
+                    print(f"\n📊 CSV report saved: {filename} (no issues found)")
     
     async def _execute_single_account(self, method_name: str, *args, **kwargs) -> Dict[str, Any]:
         session = boto3.Session()
