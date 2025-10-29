@@ -31,7 +31,7 @@ class NATAuditService:
         results.extend(self.security_audit(session, region, **kwargs))
         return results
 
-    def find_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7) -> List[Dict[str, Any]]:
+    def find_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
         """Find NAT Gateways with <1MB data transfer in X days"""
         ec2 = session.client('ec2', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -89,7 +89,7 @@ class NATAuditService:
         
         return results
 
-    def find_redundant_nat_gateways(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_redundant_nat_gateways(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
         """Find multiple NAT Gateways per AZ (should be shared)"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -144,8 +144,8 @@ class NATAuditService:
         return results
 
     # Individual check aliases
-    def check_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7) -> List[Dict[str, Any]]:
-        return self.find_unused_nat_gateways(session, region, days)
+    def check_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_unused_nat_gateways(session, region, days, **kwargs)
     
-    def check_redundant_nat_gateways(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
-        return self.find_redundant_nat_gateways(session, region)
+    def check_redundant_nat_gateways(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_redundant_nat_gateways(session, region, **kwargs)
