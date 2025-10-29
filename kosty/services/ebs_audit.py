@@ -7,6 +7,14 @@ class EBSAuditService:
         self.cost_checks = ['find_orphan_volumes', 'find_low_io_volumes', 'find_old_snapshots', 'find_gp2_volumes']
         self.security_checks = ['find_unencrypted_orphan', 'find_unencrypted_in_use', 'find_public_snapshots', 'find_no_recent_snapshot']
     
+    def _get_volume_name(self, volume):
+        """Extract volume name from tags or return volume ID"""
+        tags = volume.get('Tags', [])
+        for tag in tags:
+            if tag['Key'] == 'Name':
+                return tag['Value']
+        return volume['VolumeId']
+    
     # Audit Methods
     def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
@@ -46,15 +54,17 @@ class EBSAuditService:
             )
             
             for volume in volumes['Volumes']:
+                volume_name = self._get_volume_name(volume)
                 orphan_volumes.append({
                     'AccountId': account_id,
                     'VolumeId': volume['VolumeId'],
+                    'Name': volume_name,
                     'VolumeType': volume['VolumeType'],
                     'Size': volume['Size'],
                     'ARN': f"arn:aws:ec2:{region}:{account_id}:volume/{volume['VolumeId']}",
                     'Region': region,
                     'CreateTime': volume['CreateTime'].isoformat(),
-                    'Issue': 'Volume in available state (detached)',
+                    'Issue': f'Volume "{volume_name}" in available state (detached)',
                     'type': 'cost',
                     'Risk': 'Waste $10-100/mo per volume',
                     'severity': 'high',
