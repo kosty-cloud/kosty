@@ -7,10 +7,12 @@ from .progress import ProgressBar
 from .executor import ServiceExecutor
 
 class ComprehensiveScanner:
-    def __init__(self, organization: bool, regions: List[str], max_workers: int):
+    def __init__(self, organization: bool, regions: List[str], max_workers: int, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None):
         self.organization = organization
         self.regions = regions if isinstance(regions, list) else [regions]
         self.max_workers = max_workers
+        self.cross_account_role = cross_account_role
+        self.org_admin_account_id = org_admin_account_id
         self.reporter = CostOptimizationReporter()
         self.services = self._discover_audit_services()
     
@@ -42,10 +44,78 @@ class ComprehensiveScanner:
         
         return services
     
+    async def _validate_organization_access(self) -> bool:
+        """Validate organization access before starting scan"""
+        if not self.organization:
+            return True  # Single account mode, no validation needed
+        
+        try:
+            import boto3
+            from concurrent.futures import ThreadPoolExecutor
+            
+            session = boto3.Session()
+            
+            # If org admin account is specified, assume role there first
+            if self.org_admin_account_id:
+                sts_client = session.client('sts')
+                loop = asyncio.get_event_loop()
+                
+                with ThreadPoolExecutor() as executor:
+                    assumed_role = await loop.run_in_executor(
+                        executor,
+                        lambda: sts_client.assume_role(
+                            RoleArn=f'arn:aws:iam::{self.org_admin_account_id}:role/{self.cross_account_role}',
+                            RoleSessionName='kosty-org-validation'
+                        )
+                    )
+                
+                session = boto3.Session(
+                    aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+                    aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+                    aws_session_token=assumed_role['Credentials']['SessionToken']
+                )
+            
+            # Test Organizations access
+            org_client = session.client('organizations')
+            loop = asyncio.get_event_loop()
+            
+            with ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(executor, org_client.list_accounts)
+            
+            return True
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"\n❌ Organization access validation failed:")
+            
+            if "AWSOrganizationsNotInUseException" in error_msg:
+                print("   • Your account is not a member of an organization")
+                print("   • Use single account mode by removing --organization flag")
+            elif "AccessDenied" in error_msg:
+                print("   • Insufficient permissions to access Organizations API")
+                if self.org_admin_account_id:
+                    print(f"   • Check if role '{self.cross_account_role}' exists in account {self.org_admin_account_id}")
+                else:
+                    print("   • Consider using --org-admin-account-id parameter")
+            else:
+                print(f"   • {error_msg}")
+            
+            print("\n💡 Suggestions:")
+            print("   1. Run without --organization for single account scan")
+            print("   2. Ensure proper IAM permissions for Organizations API")
+            print("   3. Use --org-admin-account-id if needed")
+            return False
+    
     async def run_comprehensive_scan(self) -> CostOptimizationReporter:
         """Run all optimization scans and generate report"""
         print("🚀 KOSTY - AWS Cost Optimization Comprehensive Scan")
         print("=" * 60)
+        
+        # Validate organization access first
+        if not await self._validate_organization_access():
+            print("\n🛑 Scan aborted due to access validation failure")
+            return self.reporter
+        
         print("🔍 What will be scanned:")
         print("  • Cost optimization opportunities across all services")
         print("  • Security vulnerabilities and misconfigurations")
@@ -85,7 +155,7 @@ class ComprehensiveScanner:
                 desc = service_descriptions.get(service_name, f'{service_name} resources')
                 progress.set_description(f"🔍 {service_name.upper()}: {desc}")
                 
-                executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers)
+                executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id)
                 results = await executor.execute('audit')
                 
                 # Process results for each account

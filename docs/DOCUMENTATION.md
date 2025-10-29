@@ -106,6 +106,85 @@ kosty audit --organization --max-workers 20
 kosty ec2 audit --organization
 ```
 
+## 🔐 Cross-Account Roles
+
+### Custom Role Names
+By default, Kosty uses `OrganizationAccountAccessRole` for cross-account access. You can specify a custom role name:
+
+```bash
+# Use custom role name
+kosty audit --organization --cross-account-role MyCustomRole
+
+# Apply to specific service
+kosty ec2 audit --organization --cross-account-role MyAuditRole
+```
+
+### Separate Organizational Admin Account
+If your current account doesn't have Organizations API access, specify the admin account:
+
+```bash
+# Assume role in org admin account first
+kosty audit --organization --org-admin-account-id 123456789012
+
+# Combine with custom role
+kosty audit --organization --cross-account-role MyRole --org-admin-account-id 123456789012
+```
+
+### Setup Examples
+
+#### Scenario 1: Custom Role Name
+```bash
+# Your organization uses "AuditRole" instead of "OrganizationAccountAccessRole"
+kosty audit --organization --cross-account-role AuditRole
+```
+
+#### Scenario 2: Separate Admin Account
+```bash
+# Current account: 111111111111 (limited permissions)
+# Org admin account: 222222222222 (has Organizations access)
+# Target accounts: 333333333333, 444444444444, etc.
+
+kosty audit --organization --org-admin-account-id 222222222222
+```
+
+#### Scenario 3: Both Custom Role and Admin Account
+```bash
+# Custom role "SecurityAuditRole" in org admin account "999999999999"
+kosty audit --organization \
+  --cross-account-role SecurityAuditRole \
+  --org-admin-account-id 999999999999
+```
+
+### IAM Setup for Cross-Account Roles
+
+#### Trust Policy Example
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::MANAGEMENT-ACCOUNT-ID:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "optional-external-id"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Error Handling
+Kosty now validates Organizations access upfront and provides clear error messages:
+
+- **Not in Organization**: Suggests using single account mode
+- **Permission Denied**: Suggests using `--org-admin-account-id`
+- **Role Not Found**: Indicates the specified role doesn't exist
+
 ## 📊 Command Structure
 
 ### Global Commands
@@ -130,6 +209,8 @@ All commands support:
 - `--regions TEXT` - Multiple AWS regions to scan (comma-separated, e.g., us-east-1,eu-west-1)
 - `--max-workers INTEGER` - Number of parallel workers (default: 10)
 - `--output [console|json|csv|all]` - Output format (default: console)
+- `--cross-account-role TEXT` - Custom role name for cross-account access (default: OrganizationAccountAccessRole)
+- `--org-admin-account-id TEXT` - Organization admin account ID (if different from current account)
 
 ## 🔍 Service Coverage
 
@@ -178,6 +259,15 @@ kosty audit --regions us-east-1,eu-west-1,ap-southeast-1 --max-workers 15
 
 # Organization with multi-region
 kosty ec2 audit --organization --regions us-east-1,eu-west-1
+
+# Custom cross-account role
+kosty audit --organization --cross-account-role MyCustomRole
+
+# Separate org admin account
+kosty audit --organization --org-admin-account-id 123456789012
+
+# Combined custom role and admin account
+kosty audit --organization --cross-account-role MyRole --org-admin-account-id 123456789012
 
 # Specific checks with thresholds
 kosty ec2 check-oversized-instances --cpu-threshold 15 --regions us-east-1,eu-west-1
@@ -246,6 +336,18 @@ kosty ec2 audit --regions us-east-1,us-west-2,eu-west-1  # Try multiple regions
 # Error: Unable to assume role in member account
 # Solution: Verify cross-account role setup
 aws sts assume-role --role-arn arn:aws:iam::ACCOUNT:role/KostyRole --role-session-name test
+
+# Error: AWSOrganizationsNotInUseException
+# Solution: Use single account mode
+kosty audit  # Remove --organization flag
+
+# Error: Access denied to Organizations API
+# Solution: Use org admin account
+kosty audit --organization --org-admin-account-id 123456789012
+
+# Error: Role not found
+# Solution: Specify correct role name
+kosty audit --organization --cross-account-role YourActualRoleName
 ```
 
 #### Performance Issues

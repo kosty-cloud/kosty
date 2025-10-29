@@ -27,20 +27,24 @@ from .snapshots_commands import snapshots
 @click.option('--max-workers', default=5, help='Maximum concurrent workers')
 @click.option('--all', 'run_all', is_flag=True, help='Run comprehensive scan of all services')
 @click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv', 'all']), help='Output format')
+@click.option('--cross-account-role', default='OrganizationAccountAccessRole', help='Role name for cross-account access')
+@click.option('--org-admin-account-id', help='Organization admin account ID (if different from current account)')
 @click.version_option(version=__version__, prog_name='Kosty')
 @click.pass_context
-def cli(ctx, run_all, organization, region, max_workers, output):
+def cli(ctx, run_all, organization, region, max_workers, output, cross_account_role, org_admin_account_id):
     """Kosty - AWS Cost Optimization Tool"""
     ctx.ensure_object(dict)
     ctx.obj['organization'] = organization
     ctx.obj['region'] = region
     ctx.obj['max_workers'] = max_workers
+    ctx.obj['cross_account_role'] = cross_account_role
+    ctx.obj['org_admin_account_id'] = org_admin_account_id
     
     if run_all:
         from ..core.scanner import ComprehensiveScanner
         import asyncio
         
-        scanner = ComprehensiveScanner(organization, region, max_workers)
+        scanner = ComprehensiveScanner(organization, region, max_workers, cross_account_role, org_admin_account_id)
         reporter = asyncio.run(scanner.run_comprehensive_scan())
         
         # Generate reports based on output format
@@ -72,8 +76,10 @@ def cli(ctx, run_all, organization, region, max_workers, output):
 @click.option('--region', help='AWS region to scan')
 @click.option('--max-workers', type=int, help='Maximum concurrent workers')
 @click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv', 'all']), help='Output format')
+@click.option('--cross-account-role', help='Role name for cross-account access')
+@click.option('--org-admin-account-id', help='Organization admin account ID')
 @click.pass_context
-def audit(ctx, organization, region, regions, max_workers, output):
+def audit(ctx, organization, region, regions, max_workers, output, cross_account_role, org_admin_account_id):
     """Quick comprehensive audit (same as --all)"""
     from ..core.scanner import ComprehensiveScanner
     import asyncio
@@ -92,8 +98,10 @@ def audit(ctx, organization, region, regions, max_workers, output):
         reg_list = ['us-east-1']
     
     workers = max_workers or ctx.obj['max_workers']
+    role_name = cross_account_role or ctx.obj['cross_account_role']
+    admin_account = org_admin_account_id or ctx.obj['org_admin_account_id']
     
-    scanner = ComprehensiveScanner(org, reg_list, workers)
+    scanner = ComprehensiveScanner(org, reg_list, workers, role_name, admin_account)
     reporter = asyncio.run(scanner.run_comprehensive_scan())
     
     # Generate reports based on output format
