@@ -7,11 +7,13 @@ from datetime import datetime
 from .progress import ProgressBar, SpinnerProgress
 
 class ServiceExecutor:
-    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5):
+    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None):
         self.service = service
         self.organization = organization
         self.regions = regions
         self.max_workers = max_workers
+        self.cross_account_role = cross_account_role
+        self.org_admin_account_id = org_admin_account_id
         
     async def execute(self, method_name: str, output_format: str = 'console', *args, **kwargs) -> Dict[str, Any]:
         # Display command description before starting
@@ -195,6 +197,27 @@ class ServiceExecutor:
     
     async def _get_organization_accounts(self) -> List[str]:
         session = boto3.Session()
+        
+        # If org admin account is specified, assume role there first
+        if self.org_admin_account_id:
+            sts_client = session.client('sts')
+            loop = asyncio.get_event_loop()
+            
+            with ThreadPoolExecutor() as executor:
+                assumed_role = await loop.run_in_executor(
+                    executor,
+                    lambda: sts_client.assume_role(
+                        RoleArn=f'arn:aws:iam::{self.org_admin_account_id}:role/{self.cross_account_role}',
+                        RoleSessionName='kosty-org-admin'
+                    )
+                )
+            
+            session = boto3.Session(
+                aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+                aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+                aws_session_token=assumed_role['Credentials']['SessionToken']
+            )
+        
         org_client = session.client('organizations')
         
         loop = asyncio.get_event_loop()
@@ -216,7 +239,7 @@ class ServiceExecutor:
                 assumed_role = await loop.run_in_executor(
                     executor,
                     lambda: sts_client.assume_role(
-                        RoleArn=f'arn:aws:iam::{account_id}:role/OrganizationAccountAccessRole',
+                        RoleArn=f'arn:aws:iam::{account_id}:role/{self.cross_account_role}',
                         RoleSessionName=f'kosty-{account_id}'
                     )
                 )

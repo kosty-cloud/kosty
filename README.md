@@ -219,6 +219,15 @@ kosty ec2 audit --regions us-east-1,eu-west-1
 # Organization-wide with multi-region
 kosty audit --organization --regions us-east-1,eu-west-1 --max-workers 20
 kosty s3 check-public-read-access --organization --regions us-east-1,eu-west-1
+
+# Custom cross-account role for organization scanning
+kosty audit --organization --cross-account-role MyCustomRole
+
+# Separate organizational admin account
+kosty audit --organization --org-admin-account-id 123456789012
+
+# Combined custom role and admin account
+kosty audit --organization --cross-account-role MyRole --org-admin-account-id 123456789012
 ```
 
 ---
@@ -317,20 +326,23 @@ kosty audit --output all
 ### 🔍 **Comprehensive Analysis**
 - ✅ **16 Core AWS Services** - Essential infrastructure coverage
 - ✅ **One-Command Audit** - `kosty audit` scans everything
-- ✅ **Organization Support** - Multi-account scanning
+- ✅ **Organization Support** - Multi-account scanning with configurable roles
 - ✅ **Multi-Region** - Scan across multiple AWS regions simultaneously with `--regions`
+- ✅ **Flexible IAM** - Custom cross-account roles and separate org admin accounts
 
 ### ⚡ **Performance & Usability**
 - ✅ **Parallel Processing** - High-performance with configurable workers
 - ✅ **Issue Tracking** - Comprehensive categorization and prioritization
 - ✅ **Safe Operations** - Read-only analysis, no resource modifications
 - ✅ **Professional Reporting** - Executive-ready dashboards and reports
+- ✅ **Smart Validation** - Upfront permission checks with clear error messages
 
 ## 📖 Documentation
 
 - [📋 Complete Documentation](docs/DOCUMENTATION.md)
 - [🔧 AWS Credentials Setup](docs/DOCUMENTATION.md#aws-credentials-setup)
 - [🏢 Organization Mode Setup](docs/DOCUMENTATION.md#organization-mode)
+- [🔐 Cross-Account Role Configuration](docs/DOCUMENTATION.md#cross-account-roles)
 - [📊 Visual Dashboard](dashboard/README.md)
 - [🏗️ CLI Architecture](docs/CLI_ARCHITECTURE.md)
 - [📝 Release Notes](docs/RELEASE_NOTES.md)

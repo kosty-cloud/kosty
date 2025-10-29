@@ -1,5 +1,44 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.3.0 - Cross-Account Role Configuration & Enhanced Error Handling (2025-10-29)
+
+### 🔐 New Cross-Account Features
+- **Configurable Cross-Account Roles**: Added `--cross-account-role` parameter to specify custom role names
+  - Default remains `OrganizationAccountAccessRole` for backward compatibility
+  - Example: `kosty audit --organization --cross-account-role MyCustomRole`
+  - Addresses environments with different role naming conventions
+
+- **Separate Organizational Admin Account**: Added `--org-admin-account-id` parameter
+  - Supports scenarios where the current account lacks Organizations API access
+  - Example: `kosty audit --organization --org-admin-account-id 123456789012`
+  - Kosty first assumes a role in the specified admin account before listing organization accounts
+
+### ⚡ Enhanced Error Handling
+- **Upfront Organizations Validation**: Added pre-flight checks for Organizations API access
+  - Fails fast with clear error messages instead of letting each service fail individually
+  - Provides actionable suggestions for permission issues
+  - Detects common scenarios: not in organization, insufficient permissions, role not found
+
+### 🔧 Technical Improvements
+- **Smart Permission Validation**: Validates access before starting comprehensive scans
+- **Improved Error Messages**: Clear, actionable feedback for configuration issues
+- **Better User Experience**: Immediate feedback on access problems with suggested solutions
+- **Flexible IAM Support**: Works with various organizational structures and role configurations
+
+### 📝 Documentation Updates
+- Added comprehensive cross-account role configuration guide
+- Enhanced troubleshooting section with common scenarios
+- Updated examples for various organizational setups
+- Added IAM policy examples for cross-account access
+
+### 🐛 Bug Fixes
+- Fixed CSV export errors with varying field structures across services
+- Resolved "Unknown" resource name display issues in EBS and other services
+- Fixed CloudWatch timezone comparison errors
+- Improved resource name extraction from AWS tags
+
+---
+
 ## Version 1.2.0 - Multi-Region Support & Modular CLI Architecture (2025-10-26)
 
 ### 🏗️ Architecture Improvements
