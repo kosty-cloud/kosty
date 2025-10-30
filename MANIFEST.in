@@ -1,0 +1,10 @@
+include README.md
+include LICENSE
+include MANIFEST.in
+include pyproject.toml
+recursive-include kosty *.py
+recursive-include docs *.md
+recursive-include dashboard *.html *.css *.js *.png *.json
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
