@@ -13,7 +13,7 @@ def backup(ctx):
 def backup_audit(ctx, organization, region, max_workers, regions, output):
     """Run complete AWS Backup audit"""
     from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'audit', output, organization, region, max_workers, regions)
+    execute_service_command(ctx, BackupAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
 
 @backup.command('cost-audit')
 @common_options
@@ -21,7 +21,7 @@ def backup_audit(ctx, organization, region, max_workers, regions, output):
 def backup_cost_audit(ctx, organization, region, max_workers, regions, output):
     """Run AWS Backup cost optimization audit only"""
     from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'cost_audit', output, organization, region, max_workers, regions)
+    execute_service_command(ctx, BackupAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
 
 @backup.command('security-audit')
 @common_options
@@ -29,7 +29,7 @@ def backup_cost_audit(ctx, organization, region, max_workers, regions, output):
 def backup_security_audit(ctx, organization, region, max_workers, regions, output):
     """Run AWS Backup security audit only"""
     from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'security_audit', output, organization, region, max_workers, regions)
+    execute_service_command(ctx, BackupAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
 
 @backup.command('check-empty-vaults')
 @common_options
@@ -37,7 +37,7 @@ def backup_security_audit(ctx, organization, region, max_workers, regions, outpu
 def backup_check_empty(ctx, organization, region, max_workers, regions, output):
     """Find empty backup vaults"""
     from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'check_empty_backup_vaults', output, organization, region, max_workers, regions)
+    execute_service_command(ctx, BackupAuditService, 'check_empty_backup_vaults', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
 
 @backup.command('check-cross-region-backup')
 @common_options
@@ -45,4 +45,4 @@ def backup_check_empty(ctx, organization, region, max_workers, regions, output):
 def backup_check_cross_region(ctx, organization, region, max_workers, regions, output):
     """Find cross-region backup for dev/test"""
     from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'check_cross_region_backup_dev_test', output, organization, region, max_workers, regions)
+    execute_service_command(ctx, BackupAuditService, 'check_cross_region_backup_dev_test', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
