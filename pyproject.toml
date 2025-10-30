@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kosty"
+dynamic = ["version"]
+description = "AWS Cost Optimization & Security Audit CLI Tool - Identify cost waste, security vulnerabilities, and compliance issues across 16 core AWS services"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Yassir Kachri", email = "yassir@kosty.cloud"}
+]
+keywords = ["aws", "cost", "optimization", "security", "audit", "cloud", "infrastructure", "compliance", "finops", "devops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "click>=8.0.0",
+    "boto3>=1.26.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/kosty-cloud/kosty"
+Documentation = "https://github.com/kosty-cloud/kosty/blob/main/docs/DOCUMENTATION.md"
+Repository = "https://github.com/kosty-cloud/kosty"
+"Bug Reports" = "https://github.com/kosty-cloud/kosty/issues"
+
+[project.scripts]
+kosty = "kosty.cli:cli"
+
+[tool.setuptools.dynamic]
+version = {attr = "kosty.__version__"}
+
+

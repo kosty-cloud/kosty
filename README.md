@@ -1,4 +1,4 @@
-# 💰 Kosty - AWS Cost Optimization CLI Tool
+# 💰 Kosty - AWS Cost Optimization & Security Audit CLI Tool
 
 <div align="center">
 
@@ -7,9 +7,9 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-**🚀 Identify and eliminate AWS cost waste across 16 core services with a single command**
+**🚀 Identify AWS cost waste and security vulnerabilities across 16 core services with a single command**
 
-*Save thousands of dollars monthly by finding unused resources, oversized instances, and optimization opportunities*
+*Save thousands of dollars monthly and improve security posture by finding unused resources, oversized instances, misconfigurations, and compliance issues*
 
 [🎯 Quick Start](#-quick-start) • [📖 Documentation](docs/DOCUMENTATION.md) • [🔧 Installation](#-installation) • [💡 Examples](#-examples)
 
@@ -40,16 +40,18 @@ So I built Kosty - the tool I wish existed when I started consulting.
 
 ### What Kosty Does
 - 🔍 Scans **16 core AWS services** in one command
-- 💰 Identifies **orphaned resources** (instant savings)
+- 💰 Identifies **orphaned resources** (instant cost savings)
 - 📊 Finds **oversized instances** (EC2, RDS, Lambda)
-- 🔐 Detects **security issues** (public DBs, old IAM keys)
+- 🔐 Detects **security vulnerabilities** (public DBs, unencrypted storage, open ports)
+- 🛡️ Identifies **compliance issues** (old access keys, public snapshots, weak configurations)
 
 **One command. Full audit. Free forever.**
 
-AWS costs can spiral out of control quickly. Kosty helps you:
-- 🔍 **Discover** unused resources across 16 core AWS services
-- 🔍 **Identify** oversized and idle resources efficiently
-- ⚡ **Optimize** with prioritized recommendations
+AWS costs and security risks can spiral out of control quickly. Kosty helps you:
+- 🔍 **Discover** unused resources and security vulnerabilities across 16 core AWS services
+- 💰 **Identify** oversized and idle resources for cost optimization
+- 🔐 **Detect** security misconfigurations and compliance issues
+- ⚡ **Optimize** with prioritized recommendations for cost and security
 - 🏢 **Scale** across entire AWS Organizations with parallel processing
 - 📊 **Track** issues with comprehensive reporting
 
@@ -57,7 +59,10 @@ AWS costs can spiral out of control quickly. Kosty helps you:
 ## 🎯 Quick Start
 
 ```bash
-# Install Kosty
+# Install Kosty via pip (recommended)
+pip install kosty
+
+# Or install from source
 git clone https://github.com/kosty-cloud/kosty.git
 cd kosty && ./install.sh
 
@@ -92,18 +97,23 @@ open dashboard/index.html
 ### Prerequisites
 - Python 3.7+
 - AWS CLI configured with appropriate credentials
-- boto3 library
 
-### Quick Install
+### Quick Install (Recommended)
+```bash
+pip install kosty
+```
+
+### Install from Source
 ```bash
 git clone https://github.com/kosty-cloud/kosty.git
 cd kosty
 ./install.sh
 ```
 
-### Manual Install
+### Development Install
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/kosty-cloud/kosty.git
+cd kosty
 pip install -e .
 ```
 
@@ -128,28 +138,37 @@ kosty ebs check-orphan-volumes
 kosty eip check-unattached-eips
 ```
 
-### 🔍 Resource Discovery
+### 🔍 Resource Discovery & Security Audits
 
 ```bash
-# Storage optimization
+# Storage optimization & security
 kosty s3 check-empty-buckets
+kosty s3 check-public-read-access
+kosty s3 check-encryption-at-rest
 kosty ebs check-orphan-volumes
+kosty ebs check-unencrypted-orphan
 kosty snapshots check-old-snapshots --days 30
+kosty snapshots check-public-snapshots
 
-# Database optimization  
+# Database optimization & security
 kosty rds check-oversized-instances --cpu-threshold 20
+kosty rds check-public-databases
+kosty rds check-unencrypted-storage
 kosty dynamodb check-idle-tables
 
-# Network optimization
+# Network optimization & security
 kosty lb check-no-healthy-targets
 kosty nat check-unused-gateways
 kosty sg check-unused-groups
+kosty sg check-overly-permissive
 
-# Security checks
+# Security & compliance checks
 kosty ec2 check-ssh-open
-kosty rds check-public-databases
-kosty s3 check-public-read-access
+kosty ec2 check-imdsv1
+kosty ec2 check-unencrypted-ebs
 kosty iam check-root-access-keys
+kosty iam check-unused-roles
+kosty iam check-old-access-keys
 ```
 
 ### 🏢 Comprehensive Scanning
