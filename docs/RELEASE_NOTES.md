@@ -1,5 +1,21 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.3.1 - Organization Pagination Fix (2025-10-29)
+
+### 🐛 Critical Bug Fix
+- **Organization Account Pagination**: Fixed issue where only the first 20 accounts were scanned in large organizations
+  - Replaced direct `list_accounts()` call with `get_paginator('list_accounts')`
+  - Now properly retrieves all accounts regardless of organization size
+  - Maintains filtering of suspended accounts (`Status == 'ACTIVE'`)
+  - Ensures complete coverage for organizations with 20+ accounts
+
+### 🏢 Impact
+- Organizations with more than 20 accounts now get full audit coverage
+- No performance impact for smaller organizations
+- Maintains existing async execution and error handling
+
+---
+
 ## Version 1.3.0 - Cross-Account Role Configuration & Enhanced Error Handling (2025-10-29)
 
 ### 🔐 New Cross-Account Features
