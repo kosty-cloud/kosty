@@ -2,25 +2,35 @@
 
 ## 🎯 Overview
 
-Kosty is a comprehensive AWS cost optimization CLI tool that helps you identify and eliminate waste across 16 core AWS services. With 147 total commands, Kosty provides both high-level audits and granular individual checks.
+Kosty is a comprehensive AWS cost optimization and security audit CLI tool that helps you identify cost waste, security vulnerabilities, and compliance issues across 16 core AWS services. With 147 total commands, Kosty provides both high-level audits and granular individual checks for cost optimization and security hardening.
+
+### 🎯 What Kosty Audits
+- **💰 Cost Optimization**: Unused resources, oversized instances, idle services
+- **🔐 Security Vulnerabilities**: Public access, unencrypted storage, open ports
+- **🛡️ Compliance Issues**: Old access keys, weak configurations, policy violations
 
 ## 🔧 Installation
 
 ### Prerequisites
 - Python 3.7 or higher
 - AWS CLI configured with appropriate credentials
-- boto3 library
 
-### Quick Installation
+### Quick Installation (Recommended)
+```bash
+pip install kosty
+```
+
+### Install from Source
 ```bash
 git clone https://github.com/kosty-cloud/kosty.git
 cd kosty
 ./install.sh
 ```
 
-### Manual Installation
+### Development Installation
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/kosty-cloud/kosty.git
+cd kosty
 pip install -e .
 ```
 
@@ -236,10 +246,10 @@ All commands support:
 
 ### Basic Usage
 ```bash
-# Quick scan of all services
+# Quick scan of all services (cost + security)
 kosty audit
 
-# Scan specific service
+# Scan specific service (cost + security)
 kosty ec2 audit
 
 # Cost-only analysis
@@ -247,6 +257,8 @@ kosty s3 cost-audit
 
 # Security-only analysis
 kosty iam security-audit
+kosty rds security-audit
+kosty s3 security-audit
 ```
 
 ### Advanced Usage
@@ -269,9 +281,14 @@ kosty audit --organization --org-admin-account-id 123456789012
 # Combined custom role and admin account
 kosty audit --organization --cross-account-role MyRole --org-admin-account-id 123456789012
 
-# Specific checks with thresholds
+# Cost optimization checks
 kosty ec2 check-oversized-instances --cpu-threshold 15 --regions us-east-1,eu-west-1
-kosty sg check-complex-security-groups --rule-threshold 30 --regions us-east-1,eu-west-1
+kosty s3 check-empty-buckets --organization
+
+# Security audit checks
+kosty iam check-root-access-keys --organization
+kosty s3 check-public-read-access --regions us-east-1,eu-west-1
+kosty ec2 check-ssh-open --organization --regions us-east-1,eu-west-1
 ```
 
 ### Output Formats

@@ -1,5 +1,28 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.3.3 - PyPI Distribution & Individual Service Cross-Account Support (2025-10-29)
+
+### 📦 PyPI Distribution
+- **Official PyPI Package**: Kosty is now available on PyPI for easy installation
+  - Install with: `pip install kosty`
+  - Automatic dependency management
+  - No need to clone repository for basic usage
+  - Simplified installation process for end users
+
+### 🔧 Cross-Account Role Support for Individual Services
+- **Fixed Individual Service Commands**: All service commands now support cross-account parameters
+  - `--cross-account-role` and `--org-admin-account-id` work with all services
+  - Enables independent service scanning in large organizations
+  - Perfect for splitting long-running organization scans into smaller chunks
+  - Example: `kosty ec2 audit --organization --cross-account-role MyRole`
+
+### 📚 Documentation Updates
+- Updated installation instructions to prioritize pip installation
+- Enhanced examples with pip-based workflow
+- Improved getting started guide for new users
+
+---
+
 ## Version 1.3.1 - Organization Pagination Fix (2025-10-29)
 
 ### 🐛 Critical Bug Fix
