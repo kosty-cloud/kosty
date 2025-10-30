@@ -222,12 +222,16 @@ class ServiceExecutor:
         
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
-            response = await loop.run_in_executor(
-                executor,
-                org_client.list_accounts
-            )
+            def get_all_accounts():
+                accounts = []
+                paginator = org_client.get_paginator('list_accounts')
+                for page in paginator.paginate():
+                    accounts.extend(page['Accounts'])
+                return accounts
+            
+            all_accounts = await loop.run_in_executor(executor, get_all_accounts)
         
-        return [acc['Id'] for acc in response['Accounts'] if acc['Status'] == 'ACTIVE']
+        return [account['Id'] for account in all_accounts if account['Status'] == 'ACTIVE']
     
     async def _execute_for_account(self, account_id: str, method_name: str, *args, **kwargs):
         try:
