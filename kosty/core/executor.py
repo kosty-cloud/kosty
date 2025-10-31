@@ -31,6 +31,11 @@ class ServiceExecutor:
             # Display results based on output format
             self._display_results(results, method_name, output_format)
             return results
+        except ValueError as e:
+            spinner.stop()
+            print(f"\n{str(e)}")
+            print("\n💡 Try running without --organization flag for single account scan.")
+            return {}
         finally:
             spinner.stop()
     
@@ -223,11 +228,16 @@ class ServiceExecutor:
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
             def get_all_accounts():
-                accounts = []
-                paginator = org_client.get_paginator('list_accounts')
-                for page in paginator.paginate():
-                    accounts.extend(page['Accounts'])
-                return accounts
+                try:
+                    accounts = []
+                    paginator = org_client.get_paginator('list_accounts')
+                    for page in paginator.paginate():
+                        accounts.extend(page['Accounts'])
+                    return accounts
+                except org_client.exceptions.AWSOrganizationsNotInUseException:
+                    raise ValueError("❌ Account is not part of an AWS Organization. Use single account mode instead.")
+                except Exception as e:
+                    raise ValueError(f"❌ Failed to access organization: {str(e)}")
             
             all_accounts = await loop.run_in_executor(executor, get_all_accounts)
         
