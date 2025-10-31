@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
 from datetime import datetime
 from .progress import ProgressBar, SpinnerProgress
+import boto3
 
 class ServiceExecutor:
     def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None):
@@ -14,6 +15,76 @@ class ServiceExecutor:
         self.max_workers = max_workers
         self.cross_account_role = cross_account_role
         self.org_admin_account_id = org_admin_account_id
+        
+    def _generate_filename(self, method_name: str, results: Dict[str, Any], file_format: str) -> str:
+        """Generate descriptive filename based on scan parameters"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        # Determine service name from class name
+        service_name = getattr(self.service, '__class__', type(self.service)).__name__.lower()
+        if 'auditservice' in service_name:
+            service_name = service_name.replace('auditservice', '')
+        
+        # Determine scope
+        if self.organization:
+            if self.org_admin_account_id:
+                scope = f"org_{self.org_admin_account_id}"
+            else:
+                scope = "org"
+        else:
+            # Single account - get account ID from results
+            account_id = list(results.keys())[0] if results else "unknown"
+            scope = account_id
+        
+        # Build filename components
+        parts = ['kosty']
+        
+        # Add service or "full" for comprehensive scans
+        if service_name and service_name != 'comprehensive':
+            parts.append(service_name)
+        else:
+            parts.append('full')
+        
+        # Add method if not standard audit
+        if method_name != 'audit':
+            parts.append(method_name)
+        
+        # Add scope
+        parts.append(scope)
+        
+        # Add timestamp
+        parts.append(timestamp)
+        
+        return f"{'_'.join(parts)}.{file_format}"
+    
+    def _standardize_results_format(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """Standardize results format for dashboard compatibility"""
+        standardized = {}
+        
+        for account_id, items in results.items():
+            if isinstance(items, list):
+                # Ensure all items have required fields for dashboard
+                standardized_items = []
+                for item in items:
+                    if isinstance(item, dict):
+                        # Ensure Service field exists
+                        if 'Service' not in item:
+                            service_name = getattr(self.service, '__class__', type(self.service)).__name__.lower()
+                            if 'auditservice' in service_name:
+                                service_name = service_name.replace('auditservice', '').upper()
+                            item['Service'] = service_name
+                        
+                        # Ensure AccountId field exists
+                        if 'AccountId' not in item:
+                            item['AccountId'] = account_id
+                        
+                        standardized_items.append(item)
+                
+                standardized[account_id] = standardized_items
+            else:
+                standardized[account_id] = items
+        
+        return standardized
         
     async def execute(self, method_name: str, output_format: str = 'console', *args, **kwargs) -> Dict[str, Any]:
         # Display command description before starting
@@ -114,14 +185,15 @@ class ServiceExecutor:
         
         # Handle output format
         if output_format == 'json':
+            # Create standardized output format for dashboard compatibility
             json_output = {
                 "scan_timestamp": datetime.now().isoformat(),
                 "method": method_name,
                 "total_issues": total_issues,
-                "results": results
+                "results": self._standardize_results_format(results)
             }
             
-            filename = f"kosty_audit_{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            filename = self._generate_filename(method_name, results, 'json')
             with open(filename, 'w') as f:
                 json.dump(json_output, f, indent=2, default=str)
             
@@ -129,7 +201,7 @@ class ServiceExecutor:
         
         elif output_format == 'csv':
             import csv
-            filename = f"kosty_audit_{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            filename = self._generate_filename(method_name, results, 'csv')
             
             with open(filename, 'w', newline='') as f:
                 if total_issues > 0:
