@@ -61,26 +61,35 @@ class ServiceExecutor:
         """Standardize results format for dashboard compatibility"""
         standardized = {}
         
+        # Get service name from class
+        service_name = getattr(self.service, '__class__', type(self.service)).__name__.lower()
+        if 'auditservice' in service_name:
+            service_name = service_name.replace('auditservice', '')
+        
         for account_id, items in results.items():
             if isinstance(items, list):
+                # Create dashboard-compatible structure: account -> service -> command -> {count, items}
+                standardized[account_id] = {
+                    service_name: {
+                        'audit': {
+                            'count': len(items),
+                            'items': []
+                        }
+                    }
+                }
+                
                 # Ensure all items have required fields for dashboard
-                standardized_items = []
                 for item in items:
                     if isinstance(item, dict):
                         # Ensure Service field exists
                         if 'Service' not in item:
-                            service_name = getattr(self.service, '__class__', type(self.service)).__name__.lower()
-                            if 'auditservice' in service_name:
-                                service_name = service_name.replace('auditservice', '').upper()
-                            item['Service'] = service_name
+                            item['Service'] = service_name.upper()
                         
                         # Ensure AccountId field exists
                         if 'AccountId' not in item:
                             item['AccountId'] = account_id
                         
-                        standardized_items.append(item)
-                
-                standardized[account_id] = standardized_items
+                        standardized[account_id][service_name]['audit']['items'].append(item)
             else:
                 standardized[account_id] = items
         
