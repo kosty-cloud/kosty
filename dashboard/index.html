@@ -348,10 +348,43 @@
                 }
             };
 
+            // Helper function to normalize data format
+            const normalizeData = (currentData) => {
+                if (!currentData || !currentData.results) return { results: {} };
+                
+                const normalized = { ...currentData, results: {} };
+                
+                Object.entries(currentData.results).forEach(([accountId, account]) => {
+                    // Check if it's flat format (array) or nested format (object)
+                    if (Array.isArray(account)) {
+                        // Flat format - convert to nested
+                        normalized.results[accountId] = {};
+                        account.forEach(item => {
+                            const service = (item.Service || 'unknown').toLowerCase();
+                            if (!normalized.results[accountId][service]) {
+                                normalized.results[accountId][service] = {
+                                    audit: { count: 0, items: [] }
+                                };
+                            }
+                            normalized.results[accountId][service].audit.items.push(item);
+                            normalized.results[accountId][service].audit.count++;
+                        });
+                    } else {
+                        // Already nested format
+                        normalized.results[accountId] = account;
+                    }
+                });
+                
+                return normalized;
+            };
+
             const getServiceData = (currentData) => {
                 const services = {};
                 if (!currentData) return { labels: [], values: [] };
-                Object.values(currentData.results).forEach(account => {
+                
+                const normalizedData = normalizeData(currentData);
+                
+                Object.values(normalizedData.results).forEach(account => {
                     Object.entries(account).forEach(([service, commands]) => {
                         const totalIssues = Object.values(commands).reduce((sum, cmd) => sum + cmd.count, 0);
                         if (totalIssues > 0) {
@@ -370,7 +403,10 @@
             const getTypeDistribution = (currentData) => {
                 const types = { 'Cost': 0, 'Security': 0, 'Other': 0 };
                 if (!currentData) return { labels: [], values: [] };
-                Object.values(currentData.results).forEach(account => {
+                
+                const normalizedData = normalizeData(currentData);
+                
+                Object.values(normalizedData.results).forEach(account => {
                     Object.entries(account).forEach(([service, commands]) => {
                         Object.entries(commands).forEach(([command, details]) => {
                             if (details.items) {
@@ -399,7 +435,10 @@
             const getSeverityData = (currentData) => {
                 const severities = { 'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0 };
                 if (!currentData) return { labels: [], values: [] };
-                Object.values(currentData.results).forEach(account => {
+                
+                const normalizedData = normalizeData(currentData);
+                
+                Object.values(normalizedData.results).forEach(account => {
                     Object.entries(account).forEach(([service, commands]) => {
                         Object.entries(commands).forEach(([command, details]) => {
                             if (details.items) {
@@ -432,7 +471,10 @@
                 const grouped = {};
                 const dataToUse = data || (showDemo ? demoData : null);
                 if (!dataToUse) return [];
-                Object.entries(dataToUse.results).forEach(([accountId, account]) => {
+                
+                const normalizedData = normalizeData(dataToUse);
+                
+                Object.entries(normalizedData.results).forEach(([accountId, account]) => {
                     Object.entries(account).forEach(([service, commands]) => {
                         Object.entries(commands).forEach(([command, details]) => {
                             if (details.count > 0 && details.items) {
@@ -510,7 +552,10 @@
                 const services = new Set();
                 const dataToUse = data || (showDemo ? demoData : null);
                 if (!dataToUse) return [];
-                Object.values(dataToUse.results).forEach(account => {
+                
+                const normalizedData = normalizeData(dataToUse);
+                
+                Object.values(normalizedData.results).forEach(account => {
                     Object.keys(account).forEach(service => {
                         if (account[service].audit && account[service].audit.count > 0) {
                             services.add(service.toUpperCase());
@@ -528,7 +573,10 @@
                 let servicesWithIssues = new Set();
                 const dataToUse = data || (showDemo ? demoData : null);
                 if (!dataToUse) return { costIssues: 0, securityIssues: 0, criticalIssues: 0, highIssues: 0, servicesWithIssues: 0 };
-                Object.values(dataToUse.results).forEach(account => {
+                
+                const normalizedData = normalizeData(dataToUse);
+                
+                Object.values(normalizedData.results).forEach(account => {
                     Object.entries(account).forEach(([service, commands]) => {
                         let serviceHasIssues = false;
                         Object.entries(commands).forEach(([command, details]) => {
