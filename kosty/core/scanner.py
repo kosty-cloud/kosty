@@ -14,6 +14,7 @@ class ComprehensiveScanner:
         self.cross_account_role = cross_account_role
         self.org_admin_account_id = org_admin_account_id
         self.reporter = CostOptimizationReporter()
+        self.reporter.set_scan_context(organization, org_admin_account_id)
         self.services = self._discover_audit_services()
     
     def _discover_audit_services(self) -> List[Tuple[str, Any]]:
