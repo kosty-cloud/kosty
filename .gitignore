@@ -25,6 +25,8 @@ kosty_report_*.csv
 kosty-report-*.json
 kosty-report-*.csv
 checks.csv
+kosty_*.json
+kosty_*.csv
 kosty/cli.py.backup
 secrets.md
 integrations/
