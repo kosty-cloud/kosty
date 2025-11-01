@@ -52,11 +52,11 @@ def cli(ctx, run_all, organization, region, max_workers, output, cross_account_r
             print(reporter.generate_summary_report())
         
         if output in ['json', 'all']:
-            json_file = reporter.save_json_report()
+            json_file = reporter.save_json_report(organization=organization, org_admin_account_id=org_admin_account_id)
             print(f"\\n📄 Detailed JSON report saved: {json_file}")
         
         if output in ['csv', 'all']:
-            csv_file = reporter.save_csv_report()
+            csv_file = reporter.save_csv_report(organization=organization, org_admin_account_id=org_admin_account_id)
             print(f"📊 CSV report saved: {csv_file}")
         
         if output == 'all':
@@ -109,11 +109,11 @@ def audit(ctx, organization, region, regions, max_workers, output, cross_account
         print("\\n" + reporter.generate_summary_report())
     
     if output in ['json', 'all']:
-        json_file = reporter.save_json_report()
+        json_file = reporter.save_json_report(organization=org, org_admin_account_id=admin_account)
         print(f"\\n📄 Detailed JSON report saved: {json_file}")
     
     if output in ['csv', 'all']:
-        csv_file = reporter.save_csv_report()
+        csv_file = reporter.save_csv_report(organization=org, org_admin_account_id=admin_account)
         print(f"📊 CSV report saved: {csv_file}")
     
     if output == 'all':

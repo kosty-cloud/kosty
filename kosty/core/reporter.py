@@ -8,6 +8,13 @@ class CostOptimizationReporter:
     def __init__(self):
         self.results = {}
         self.scan_timestamp = datetime.now()
+        self.organization = False
+        self.org_admin_account_id = None
+    
+    def set_scan_context(self, organization: bool = False, org_admin_account_id: str = None):
+        """Set scan context for proper filename generation"""
+        self.organization = organization
+        self.org_admin_account_id = org_admin_account_id
         
     def add_results(self, service: str, command: str, data: List[Dict[str, Any]], account_id: str = "current"):
         """Add scan results for a service"""
@@ -88,15 +95,43 @@ class CostOptimizationReporter:
         
         return "\n".join(report)
     
-    def save_json_report(self, filename: str = None):
+    def save_json_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None):
         """Save detailed JSON report"""
         if not filename:
-            filename = f"kosty-report-{self.scan_timestamp.strftime('%Y%m%d-%H%M%S')}.json"
+            timestamp = self.scan_timestamp.strftime('%Y%m%d_%H%M%S')
+            
+            # Determine scope for filename
+            if organization:
+                if org_admin_account_id:
+                    scope = f"org_{org_admin_account_id}"
+                else:
+                    scope = "org"
+            else:
+                # Single account - get first account ID
+                account_id = list(self.results.keys())[0] if self.results else "unknown"
+                scope = account_id
+            
+            filename = f"kosty_full_{scope}_{timestamp}.json"
+        
+        # Standardize results format for dashboard compatibility
+        standardized_results = {}
+        for account_id, account_data in self.results.items():
+            standardized_results[account_id] = []
+            for service, service_data in account_data.items():
+                for command, command_data in service_data.items():
+                    for item in command_data['items']:
+                        if isinstance(item, dict):
+                            # Ensure required fields for dashboard
+                            if 'Service' not in item:
+                                item['Service'] = service.upper()
+                            if 'AccountId' not in item:
+                                item['AccountId'] = account_id
+                            standardized_results[account_id].append(item)
         
         report_data = {
             'scan_timestamp': self.scan_timestamp.isoformat(),
             'total_issues': sum(sum(cmd['count'] for cmd in svc.values()) for acc in self.results.values() for svc in acc.values()),
-            'results': self.results,
+            'results': standardized_results,
             'summary': {
                 'total_accounts': len(self.results),
                 'total_issues': sum(
@@ -112,10 +147,23 @@ class CostOptimizationReporter:
         
         return filename
     
-    def save_csv_report(self, filename: str = None):
+    def save_csv_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None):
         """Save CSV report for spreadsheet analysis"""
         if not filename:
-            filename = f"kosty-report-{self.scan_timestamp.strftime('%Y%m%d-%H%M%S')}.csv"
+            timestamp = self.scan_timestamp.strftime('%Y%m%d_%H%M%S')
+            
+            # Determine scope for filename
+            if organization:
+                if org_admin_account_id:
+                    scope = f"org_{org_admin_account_id}"
+                else:
+                    scope = "org"
+            else:
+                # Single account - get first account ID
+                account_id = list(self.results.keys())[0] if self.results else "unknown"
+                scope = account_id
+            
+            filename = f"kosty_full_{scope}_{timestamp}.csv"
         
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)

@@ -1,0 +1,15 @@
+{
+  "scan_timestamp": "2025-10-31T16:23:34.127674",
+  "method": "audit",
+  "total_issues": 0,
+  "results": {
+    "209479307498": {
+      "ec2": {
+        "audit": {
+          "count": 0,
+          "items": []
+        }
+      }
+    }
+  }
+}
