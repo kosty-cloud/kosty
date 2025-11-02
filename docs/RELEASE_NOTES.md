@@ -1,5 +1,77 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.3.7 - Enterprise Storage Support with Network Share Compatibility (2025-01-XX)
+
+### 🌐 Enterprise Storage Features
+- **Universal Storage Support**: Added `--save-to` parameter supporting multiple storage types
+  - **S3 Buckets**: `kosty audit --save-to s3://my-bucket/reports/`
+  - **Local Paths**: `kosty audit --save-to /home/user/reports/`
+  - **Network Shares**: `kosty audit --save-to \\server\share\reports\` (Windows UNC)
+  - **Network Mounts**: `kosty audit --save-to /mnt/nas/reports/` (Linux/macOS)
+
+### 🔒 Advanced Storage Features
+- **S3 Integration**: Full S3 support with enterprise-grade security
+  - Automatic AES256 server-side encryption
+  - Proper IAM permission validation
+  - Clear error messages for access issues
+  - Support for custom S3 paths and prefixes
+
+- **Network Share Support**: Robust handling of enterprise network storage
+  - Windows UNC path detection (`\\server\share` and `//server/share`)
+  - Linux/macOS mount point detection (`/mnt/`, `/media/`, `/Volumes/`)
+  - Network connectivity validation with timeouts
+  - Automatic directory creation for network paths
+
+### ⚡ Performance & Reliability
+- **Upfront Validation**: Storage access validated before starting scans
+  - Prevents wasted time on failed scans
+  - Clear error messages with actionable suggestions
+  - Test write operations to verify permissions
+
+- **Timeout Management**: Smart timeout handling for network operations
+  - 10-second timeout for connectivity validation
+  - 30-second timeout for file write operations
+  - Prevents hanging on unreachable network shares
+
+### 🏢 Enterprise Workflow Integration
+- **All 147 Commands**: Every service command supports `--save-to`
+  - Individual services: `kosty ec2 check-oversized-instances --save-to \\nas\reports\`
+  - Complete audits: `kosty audit --organization --save-to s3://audit-bucket/`
+  - Targeted audits: `kosty s3 security-audit --save-to /mnt/shared/s3/`
+
+- **Flexible File Management**: Intelligent file handling
+  - Automatic directory creation for local and network paths
+  - Descriptive filenames with timestamps
+  - Support for both directory and specific file paths
+
+### 🔧 Technical Improvements
+- **StorageManager Class**: New centralized storage management
+  - Async operations for better performance
+  - Unified interface for all storage types
+  - Comprehensive error handling and validation
+
+- **Enhanced Reporter**: Updated reporting system
+  - Async save methods for custom storage locations
+  - Integration with StorageManager for all output formats
+  - Maintains backward compatibility with existing workflows
+
+### 📝 Usage Examples
+```bash
+# S3 storage with organization scan
+kosty audit --organization --save-to s3://company-audits/2025/
+
+# Network share for individual service
+kosty ec2 audit --save-to \\fileserver\aws-reports\ec2\
+
+# Linux NAS mount for security audit
+kosty iam security-audit --save-to /mnt/nas/security/iam/
+
+# macOS network volume
+kosty s3 check-public-buckets --save-to /Volumes/SharedDrive/s3-audit/
+```
+
+---
+
 ## Version 1.3.3 - PyPI Distribution & Individual Service Cross-Account Support (2025-10-29)
 
 ### 📦 PyPI Distribution
