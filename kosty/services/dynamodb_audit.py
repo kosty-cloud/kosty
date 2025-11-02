@@ -76,23 +76,38 @@ class DynamoDBAuditService:
                         table_detail = dynamodb.describe_table(TableName=table_name)
                         table = table_detail['Table']
                         
+                        # Get provisioned capacity for cost calculation
+                        provisioned_throughput = table.get('ProvisionedThroughput', {})
+                        read_capacity = provisioned_throughput.get('ReadCapacityUnits', 0)
+                        write_capacity = provisioned_throughput.get('WriteCapacityUnits', 0)
+                        
                         results.append({
                             'AccountId': account_id,
                             'Region': region,
+                            'region': region,
                             'Service': self.service_name,
+                            'service': 'DynamoDB',
                             'ResourceId': table_name,
+                            'ResourceName': table_name,
                             'ResourceArn': table['TableArn'],
                             'Issue': f'Table idle (0 reads/writes {days} days)',
                             'type': 'cost',
                             'Risk': 'Waste $5-50/mo per table',
                             'severity': 'medium',
+                            'check': 'idle_tables',
+                            'read_capacity_units': read_capacity,
+                            'write_capacity_units': write_capacity,
+                            'resource_id': table_name,
+                            'resource_name': table_name,
                             'Details': {
                                 'TableName': table_name,
                                 'TableStatus': table['TableStatus'],
                                 'CreationDateTime': table['CreationDateTime'].isoformat(),
                                 'ItemCount': table['ItemCount'],
                                 'TableSizeBytes': table['TableSizeBytes'],
-                                'BillingMode': table.get('BillingModeSummary', {}).get('BillingMode', 'PROVISIONED')
+                                'BillingMode': table.get('BillingModeSummary', {}).get('BillingMode', 'PROVISIONED'),
+                                'ReadCapacityUnits': read_capacity,
+                                'WriteCapacityUnits': write_capacity
                             }
                         })
                 except Exception:

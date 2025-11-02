@@ -63,12 +63,19 @@ class EBSAuditService:
                     'Size': volume['Size'],
                     'ARN': f"arn:aws:ec2:{region}:{account_id}:volume/{volume['VolumeId']}",
                     'Region': region,
+                    'region': region,
                     'CreateTime': volume['CreateTime'].isoformat(),
                     'Issue': f'Volume "{volume_name}" in available state (detached)',
                     'type': 'cost',
                     'Risk': 'Waste $10-100/mo per volume',
                     'severity': 'high',
-                    'Service': 'EBS'
+                    'Service': 'EBS',
+                    'service': 'EBS',
+                    'check': 'orphan_volumes',
+                    'size_gb': volume['Size'],
+                    'volume_type': volume['VolumeType'].lower(),
+                    'resource_id': volume['VolumeId'],
+                    'resource_name': volume_name
                 })
         except Exception as e:
             print(f"Error checking orphan volumes: {e}")
@@ -171,13 +178,20 @@ class EBSAuditService:
                         'VolumeSize': snapshot['VolumeSize'],
                         'ARN': f"arn:aws:ec2:{region}:{account_id}:snapshot/{snapshot['SnapshotId']}",
                         'Region': region,
+                        'region': region,
                         'StartTime': snapshot['StartTime'].isoformat(),
                         'Age': (datetime.now() - start_time).days,
                         'Issue': f'Snapshot older than {days} days',
                         'type': 'cost',
                         'Risk': 'Waste $5-50/mo per snapshot',
                         'severity': 'low',
-                        'Service': 'EBS'
+                        'Service': 'EBS',
+                        'service': 'EBS',
+                        'check': 'old_snapshots',
+                        'size_gb': snapshot['VolumeSize'],
+                        'volume_size_gb': snapshot['VolumeSize'],
+                        'resource_id': snapshot['SnapshotId'],
+                        'resource_name': snapshot['SnapshotId']
                     })
         except Exception as e:
             print(f"Error checking old snapshots: {e}")

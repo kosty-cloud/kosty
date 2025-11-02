@@ -123,13 +123,20 @@ class RDSAuditService:
                             'Engine': instance['Engine'],
                             'ARN': instance['DBInstanceArn'],
                             'Region': region,
+                            'region': region,
                             'AvgCPU': round(avg_cpu, 2),
                             'AvgConnections': round(avg_connections, 2),
                             'Issue': f'Oversized (<{cpu_threshold}% CPU and <{connection_threshold} connections)',
                             'type': 'cost',
                             'Risk': 'Waste 30-60%',
                             'severity': 'high',
-                            'Service': 'RDS'
+                            'Service': 'RDS',
+                            'service': 'RDS',
+                            'check': 'oversized_instances',
+                            'instance_class': instance['DBInstanceClass'],
+                            'avg_cpu': round(avg_cpu, 2),
+                            'resource_id': db_instance_id,
+                            'resource_name': db_instance_id
                         })
                 except Exception:
                     continue
