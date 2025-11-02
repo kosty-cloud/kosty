@@ -2,10 +2,10 @@ import asyncio
 import boto3
 import json
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from .progress import ProgressBar, SpinnerProgress
-import boto3
+from .storage import StorageManager
 
 class ServiceExecutor:
     def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None):
@@ -15,6 +15,7 @@ class ServiceExecutor:
         self.max_workers = max_workers
         self.cross_account_role = cross_account_role
         self.org_admin_account_id = org_admin_account_id
+        self.storage_manager = StorageManager()
         
     def _generate_filename(self, method_name: str, results: Dict[str, Any], file_format: str) -> str:
         """Generate descriptive filename based on scan parameters"""
@@ -95,7 +96,15 @@ class ServiceExecutor:
         
         return standardized
         
-    async def execute(self, method_name: str, output_format: str = 'console', *args, **kwargs) -> Dict[str, Any]:
+    async def execute(self, method_name: str, output_format: str = 'console', save_to: Optional[str] = None, *args, **kwargs) -> Dict[str, Any]:
+        # Validate save location upfront if specified
+        if save_to and output_format in ['json', 'csv']:
+            print(f"\n🔍 Validating save location: {save_to}")
+            if not await self.storage_manager.validate_save_location(save_to):
+                print("\n🛑 Save location validation failed. Aborting scan.")
+                return {}
+            print("✅ Save location validated successfully")
+        
         # Display command description before starting
         self._display_command_description(method_name)
         
@@ -109,7 +118,7 @@ class ServiceExecutor:
                 results = await self._execute_single_account(method_name, *args, **kwargs)
             
             # Display results based on output format
-            self._display_results(results, method_name, output_format)
+            await self._display_results(results, method_name, output_format, save_to)
             return results
         except ValueError as e:
             spinner.stop()
@@ -152,7 +161,7 @@ class ServiceExecutor:
         print(f"{scope} | {region_info} | 👥 Workers: {self.max_workers}")
         print("─" * 60)
     
-    def _display_results(self, results: Dict[str, Any], method_name: str, output_format: str = 'console'):
+    async def _display_results(self, results: Dict[str, Any], method_name: str, output_format: str = 'console', save_to: Optional[str] = None):
         """Display results based on output format"""
         total_issues = 0
         
@@ -203,38 +212,52 @@ class ServiceExecutor:
             }
             
             filename = self._generate_filename(method_name, results, 'json')
-            with open(filename, 'w') as f:
-                json.dump(json_output, f, indent=2, default=str)
+            content = json.dumps(json_output, indent=2, default=str)
             
-            print(f"\n📄 JSON report saved: {filename}")
+            if save_to:
+                saved_location = await self.storage_manager.save_file(content, filename, save_to, 'json')
+                print(f"\n📄 JSON report saved: {saved_location}")
+            else:
+                with open(filename, 'w') as f:
+                    f.write(content)
+                print(f"\n📄 JSON report saved: {filename}")
         
         elif output_format == 'csv':
             import csv
+            from io import StringIO
+            
             filename = self._generate_filename(method_name, results, 'csv')
             
-            with open(filename, 'w', newline='') as f:
-                if total_issues > 0:
-                    # Collect all possible fieldnames from all items
-                    all_fieldnames = set()
-                    all_items = []
-                    
-                    for items in results.values():
-                        if isinstance(items, list):
-                            for item in items:
-                                if isinstance(item, dict):
-                                    all_fieldnames.update(item.keys())
-                                    all_items.append(item)
-                    
-                    if all_items:
-                        fieldnames = sorted(all_fieldnames)
-                        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
-                        writer.writeheader()
-                        writer.writerows(all_items)
-                        print(f"\n📊 CSV report saved: {filename}")
-                    else:
-                        print(f"\n📊 CSV report saved: {filename} (no issues found)")
-                else:
-                    print(f"\n📊 CSV report saved: {filename} (no issues found)")
+            # Generate CSV content
+            csv_content = ""
+            if total_issues > 0:
+                # Collect all possible fieldnames from all items
+                all_fieldnames = set()
+                all_items = []
+                
+                for items in results.values():
+                    if isinstance(items, list):
+                        for item in items:
+                            if isinstance(item, dict):
+                                all_fieldnames.update(item.keys())
+                                all_items.append(item)
+                
+                if all_items:
+                    output = StringIO()
+                    fieldnames = sorted(all_fieldnames)
+                    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
+                    writer.writeheader()
+                    writer.writerows(all_items)
+                    csv_content = output.getvalue()
+                    output.close()
+            
+            if save_to:
+                saved_location = await self.storage_manager.save_file(csv_content, filename, save_to, 'csv')
+                print(f"\n📊 CSV report saved: {saved_location}")
+            else:
+                with open(filename, 'w', newline='') as f:
+                    f.write(csv_content)
+                print(f"\n📊 CSV report saved: {filename}")
     
     async def _execute_single_account(self, method_name: str, *args, **kwargs) -> Dict[str, Any]:
         session = boto3.Session()

@@ -11,28 +11,28 @@ def lambda_func(ctx):
 @click.option('--days', default=30, help='Days threshold for unused functions')
 @common_options
 @click.pass_context
-def lambda_audit(ctx, days, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def lambda_audit(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run complete Lambda audit"""
     from ..services.lambda_audit import LambdaAuditService
-    execute_service_command(ctx, LambdaAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days)
+    execute_service_command(ctx, LambdaAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
 
 @lambda_func.command('cost-audit')
 @click.option('--days', default=30, help='Days threshold for unused functions')
 @common_options
 @click.pass_context
-def lambda_cost_audit(ctx, days, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def lambda_cost_audit(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run Lambda cost optimization audit only"""
     from ..services.lambda_audit import LambdaAuditService
-    execute_service_command(ctx, LambdaAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days)
+    execute_service_command(ctx, LambdaAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
 
 @lambda_func.command('check-unused-functions')
 @click.option('--days', default=30, help='Days threshold for unused functions')
 @common_options
 @click.pass_context
-def lambda_check_unused(ctx, days, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def lambda_check_unused(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find unused Lambda functions"""
     from ..services.lambda_audit import LambdaAuditService
-    execute_service_command(ctx, LambdaAuditService, 'check_unused_functions', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days)
+    execute_service_command(ctx, LambdaAuditService, 'check_unused_functions', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
 
 @lambda_func.command('security-audit')
 @common_options
