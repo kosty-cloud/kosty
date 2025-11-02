@@ -1,6 +1,6 @@
 # 🚀 Kosty Release Notes
 
-## Version 1.3.7 - Enterprise Storage Support with Network Share Compatibility (2025-01-XX)
+## Version 1.3.8 - Enterprise Storage Support with Network Share Compatibility (2025-01-XX)
 
 ### 🌐 Enterprise Storage Features
 - **Universal Storage Support**: Added `--save-to` parameter supporting multiple storage types

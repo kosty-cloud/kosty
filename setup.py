@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='kosty',
-    version='1.3.7',
+    version='1.3.8',
     author='Yassir Kachri',
     author_email='yassir@kosty.cloud',
     description='AWS Cost Optimization & Security Audit CLI Tool - Identify cost waste, security vulnerabilities, and compliance issues across 16 core AWS services',
