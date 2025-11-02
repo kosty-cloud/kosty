@@ -76,10 +76,11 @@ def cli(ctx, run_all, organization, region, max_workers, output, cross_account_r
 @click.option('--region', help='AWS region to scan')
 @click.option('--max-workers', type=int, help='Maximum concurrent workers')
 @click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv', 'all']), help='Output format')
+@click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')
 @click.option('--cross-account-role', help='Role name for cross-account access')
 @click.option('--org-admin-account-id', help='Organization admin account ID')
 @click.pass_context
-def audit(ctx, organization, region, regions, max_workers, output, cross_account_role, org_admin_account_id):
+def audit(ctx, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id):
     """Quick comprehensive audit (same as --all)"""
     from ..core.scanner import ComprehensiveScanner
     import asyncio
@@ -101,6 +102,16 @@ def audit(ctx, organization, region, regions, max_workers, output, cross_account
     role_name = cross_account_role or ctx.obj['cross_account_role']
     admin_account = org_admin_account_id or ctx.obj['org_admin_account_id']
     
+    # Validate save location upfront if specified
+    if save_to and output in ['json', 'csv', 'all']:
+        from ..core.storage import StorageManager
+        storage_manager = StorageManager()
+        print(f"\n🔍 Validating save location: {save_to}")
+        if not asyncio.run(storage_manager.validate_save_location(save_to)):
+            print("\n🛑 Save location validation failed. Aborting scan.")
+            return
+        print("✅ Save location validated successfully")
+    
     scanner = ComprehensiveScanner(org, reg_list, workers, role_name, admin_account)
     reporter = asyncio.run(scanner.run_comprehensive_scan())
     
@@ -109,11 +120,11 @@ def audit(ctx, organization, region, regions, max_workers, output, cross_account
         print("\\n" + reporter.generate_summary_report())
     
     if output in ['json', 'all']:
-        json_file = reporter.save_json_report(organization=org, org_admin_account_id=admin_account)
+        json_file = asyncio.run(reporter.save_json_report(organization=org, org_admin_account_id=admin_account, save_to=save_to))
         print(f"\\n📄 Detailed JSON report saved: {json_file}")
     
     if output in ['csv', 'all']:
-        csv_file = reporter.save_csv_report(organization=org, org_admin_account_id=admin_account)
+        csv_file = asyncio.run(reporter.save_csv_report(organization=org, org_admin_account_id=admin_account, save_to=save_to))
         print(f"📊 CSV report saved: {csv_file}")
     
     if output == 'all':

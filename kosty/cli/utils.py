@@ -5,6 +5,7 @@ from ..core.executor import ServiceExecutor
 def common_options(f):
     """Decorator to add common options to all service commands"""
     f = click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv']), help='Output format')(f)
+    f = click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')(f)
     f = click.option('--regions', help='Comma-separated list of regions (e.g., us-east-1,eu-west-1)')(f)
     f = click.option('--max-workers', default=10, help='Maximum number of worker threads')(f)
     f = click.option('--region', help='AWS region to scan')(f)
@@ -34,9 +35,9 @@ def get_effective_params(ctx, organization, region, max_workers, regions=None, c
         org_admin_account_id
     )
 
-def execute_service_command(ctx, service_class, method, output, organization, region, max_workers, regions, cross_account_role=None, org_admin_account_id=None, **kwargs):
+def execute_service_command(ctx, service_class, method, output, organization, region, max_workers, regions, cross_account_role=None, org_admin_account_id=None, save_to=None, **kwargs):
     """Execute a service command with common parameters"""
     org, reg_list, workers, role_name, admin_account = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
     service = service_class()
     executor = ServiceExecutor(service, org, reg_list, workers, role_name, admin_account)
-    asyncio.run(executor.execute(method, output, **kwargs))
+    asyncio.run(executor.execute(method, output, save_to=save_to, **kwargs))

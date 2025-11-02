@@ -67,7 +67,7 @@ def sg_check_all_ports(ctx, organization, region, max_workers, regions, output):
 @click.option('--rule-threshold', default=50, help='Rule count threshold for complex security groups')
 @common_options
 @click.pass_context
-def sg_check_complex(ctx, rule_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def sg_check_complex(ctx, rule_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find security groups with >rule_threshold rules"""
     from ..services.sg_audit import SGAuditService
-    execute_service_command(ctx, SGAuditService, 'check_complex_security_groups', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, rule_threshold=rule_threshold)
+    execute_service_command(ctx, SGAuditService, 'check_complex_security_groups', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, rule_threshold=rule_threshold)

@@ -95,8 +95,10 @@ class CostOptimizationReporter:
         
         return "\n".join(report)
     
-    def save_json_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None):
+    async def save_json_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None, save_to: str = None):
         """Save detailed JSON report"""
+        from .storage import StorageManager
+        
         if not filename:
             timestamp = self.scan_timestamp.strftime('%Y%m%d_%H%M%S')
             
@@ -142,13 +144,22 @@ class CostOptimizationReporter:
             }
         }
         
-        with open(filename, 'w') as f:
-            json.dump(report_data, f, indent=2, default=str)
+        content = json.dumps(report_data, indent=2, default=str)
         
-        return filename
+        if save_to:
+            storage_manager = StorageManager()
+            saved_location = await storage_manager.save_file(content, filename, save_to, 'json')
+            return saved_location
+        else:
+            with open(filename, 'w') as f:
+                f.write(content)
+            return filename
     
-    def save_csv_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None):
+    async def save_csv_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None, save_to: str = None):
         """Save CSV report for spreadsheet analysis"""
+        from .storage import StorageManager
+        from io import StringIO
+        
         if not filename:
             timestamp = self.scan_timestamp.strftime('%Y%m%d_%H%M%S')
             
@@ -165,26 +176,37 @@ class CostOptimizationReporter:
             
             filename = f"kosty_full_{scope}_{timestamp}.csv"
         
-        with open(filename, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Account', 'Service', 'Command', 'Resource Count', 'Cost Estimate', 'Details'])
-            
-            for account_id, account_data in self.results.items():
-                for service, service_data in account_data.items():
-                    for command, command_data in service_data.items():
-                        if command_data['count'] > 0:
-                            details = '; '.join([
-                                f"{item.get('InstanceId', item.get('VolumeId', item.get('FunctionName', item.get('ClusterName', 'Resource'))))}"
-                                for item in command_data['items'][:5]  # First 5 items
-                            ])
-                            
-                            writer.writerow([
-                                account_id,
-                                service,
-                                command,
-                                command_data['count'],
-                                'N/A',  # No cost calculation
-                                details
-                            ])
+        # Generate CSV content
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Account', 'Service', 'Command', 'Resource Count', 'Cost Estimate', 'Details'])
         
-        return filename
+        for account_id, account_data in self.results.items():
+            for service, service_data in account_data.items():
+                for command, command_data in service_data.items():
+                    if command_data['count'] > 0:
+                        details = '; '.join([
+                            f"{item.get('InstanceId', item.get('VolumeId', item.get('FunctionName', item.get('ClusterName', 'Resource'))))}"
+                            for item in command_data['items'][:5]  # First 5 items
+                        ])
+                        
+                        writer.writerow([
+                            account_id,
+                            service,
+                            command,
+                            command_data['count'],
+                            'N/A',  # No cost calculation
+                            details
+                        ])
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        if save_to:
+            storage_manager = StorageManager()
+            saved_location = await storage_manager.save_file(csv_content, filename, save_to, 'csv')
+            return saved_location
+        else:
+            with open(filename, 'w', newline='') as f:
+                f.write(csv_content)
+            return filename
