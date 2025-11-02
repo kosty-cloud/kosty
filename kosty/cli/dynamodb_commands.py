@@ -28,10 +28,10 @@ def dynamodb_cost_audit(ctx, days, organization, region, max_workers, regions, o
 @dynamodb.command('security-audit')
 @common_options
 @click.pass_context
-def dynamodb_security_audit(ctx, organization, region, max_workers, regions, output):
+def dynamodb_security_audit(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run DynamoDB security audit only"""
     from ..services.dynamodb_audit import DynamoDBAuditService
-    execute_service_command(ctx, DynamoDBAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, DynamoDBAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @dynamodb.command('find-idle-tables')
 @click.option('--days', default=7, help='Days threshold for table activity')

@@ -28,10 +28,10 @@ def snapshots_cost_audit(ctx, days, organization, region, max_workers, regions, 
 @snapshots.command('security-audit')
 @common_options
 @click.pass_context
-def snapshots_security_audit(ctx, organization, region, max_workers, regions, output):
+def snapshots_security_audit(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run EBS Snapshots security audit only"""
     from ..services.snapshots_audit import SnapshotsAuditService
-    execute_service_command(ctx, SnapshotsAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, SnapshotsAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @snapshots.command('check-old-snapshots')
 @click.option('--days', default=30, help='Days threshold for old snapshots')

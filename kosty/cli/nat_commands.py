@@ -28,10 +28,10 @@ def nat_cost_audit(ctx, days, organization, region, max_workers, regions, output
 @nat.command('security-audit')
 @common_options
 @click.pass_context
-def nat_security_audit(ctx, organization, region, max_workers, regions, output):
+def nat_security_audit(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run NAT Gateway security audit only"""
     from ..services.nat_audit import NATAuditService
-    execute_service_command(ctx, NATAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, NATAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @nat.command('check-unused-gateways')
 @click.option('--days', default=7, help='Days threshold for usage analysis')
@@ -45,7 +45,7 @@ def nat_check_unused(ctx, days, organization, region, max_workers, regions, outp
 @nat.command('check-redundant-gateways')
 @common_options
 @click.pass_context
-def nat_check_redundant(ctx, organization, region, max_workers, regions, output):
+def nat_check_redundant(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find redundant NAT Gateways"""
     from ..services.nat_audit import NATAuditService
-    execute_service_command(ctx, NATAuditService, 'check_redundant_nat_gateways', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, NATAuditService, 'check_redundant_nat_gateways', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
