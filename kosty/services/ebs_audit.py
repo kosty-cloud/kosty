@@ -178,13 +178,20 @@ class EBSAuditService:
                         'VolumeSize': snapshot['VolumeSize'],
                         'ARN': f"arn:aws:ec2:{region}:{account_id}:snapshot/{snapshot['SnapshotId']}",
                         'Region': region,
+                        'region': region,
                         'StartTime': snapshot['StartTime'].isoformat(),
                         'Age': (datetime.now() - start_time).days,
                         'Issue': f'Snapshot older than {days} days',
                         'type': 'cost',
                         'Risk': 'Waste $5-50/mo per snapshot',
                         'severity': 'low',
-                        'Service': 'EBS'
+                        'Service': 'EBS',
+                        'service': 'EBS',
+                        'check': 'old_snapshots',
+                        'size_gb': snapshot['VolumeSize'],
+                        'volume_size_gb': snapshot['VolumeSize'],
+                        'resource_id': snapshot['SnapshotId'],
+                        'resource_name': snapshot['SnapshotId']
                     })
         except Exception as e:
             print(f"Error checking old snapshots: {e}")

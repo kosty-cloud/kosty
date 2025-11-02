@@ -72,33 +72,67 @@ class PricingService:
         return None
     
     def get_eip_price(self, region: str) -> Optional[float]:
-        """Get EIP price per hour (unattached)"""
-        cache_key = f'eip_{region}'
-        if cache_key in self.cache:
-            return self.cache[cache_key]
+        """Get EIP price per hour (unattached)
         
-        try:
-            response = self.client.get_products(
-                ServiceCode='AmazonEC2',
-                Filters=[
-                    {'Type': 'TERM_MATCH', 'Field': 'location', 'Value': self._get_location_name(region)},
-                    {'Type': 'TERM_MATCH', 'Field': 'productFamily', 'Value': 'IP Address'},
-                    {'Type': 'TERM_MATCH', 'Field': 'group', 'Value': 'ElasticIP:IdleAddress'}
-                ],
-                MaxResults=1
-            )
-            
-            if response['PriceList']:
-                price_item = json.loads(response['PriceList'][0])
-                on_demand = price_item['terms']['OnDemand']
-                price_dimensions = list(on_demand.values())[0]['priceDimensions']
-                price = float(list(price_dimensions.values())[0]['pricePerUnit']['USD'])
-                self.cache[cache_key] = price
-                return price
-        except Exception as e:
-            print(f"Warning: Could not fetch EIP price for {region}: {e}")
+        AWS Pricing API does not reliably return EIP prices, so we use the official
+        fixed price from AWS documentation. EIP pricing is consistent across all regions.
         
-        return None
+        Official AWS Pricing:
+        - Unattached EIP: $0.005/hour ($3.60/month)
+        - Additional EIP: $0.005/hour ($3.60/month)
+        
+        Source: https://aws.amazon.com/ec2/pricing/on-demand/#Elastic_IP_Addresses
+        Last verified: November 2024
+        """
+        return 0.005  # $0.005 per hour for unattached EIP (all regions)
+    
+    def get_s3_standard_price(self, region: str) -> Optional[float]:
+        """Get S3 Standard storage price per GB-month
+        
+        AWS S3 Standard pricing (first 50 TB tier):
+        - us-east-1: $0.023/GB/month
+        - Most regions: $0.023-0.025/GB/month
+        
+        Source: https://aws.amazon.com/s3/pricing/
+        Last verified: November 2024
+        """
+        # Regional pricing variations are minimal for S3 Standard
+        regional_prices = {
+            'us-east-1': 0.023,
+            'us-east-2': 0.023,
+            'us-west-1': 0.025,
+            'us-west-2': 0.023,
+            'eu-west-1': 0.023,
+            'eu-central-1': 0.024,
+            'ap-southeast-1': 0.025,
+            'ap-northeast-1': 0.025
+        }
+        return regional_prices.get(region, 0.023)  # Default to us-east-1 price
+    
+    def get_ebs_snapshot_price(self, region: str) -> Optional[float]:
+        """Get EBS Snapshot price per GB-month
+        
+        AWS EBS Snapshot pricing:
+        - Standard snapshots: $0.05/GB/month (all regions)
+        
+        Source: https://aws.amazon.com/ebs/pricing/
+        Last verified: November 2024
+        """
+        return 0.05  # $0.05 per GB-month for EBS snapshots (all regions)
+    
+    def get_backup_storage_price(self, region: str) -> Optional[float]:
+        """Get AWS Backup storage price per GB-month
+        
+        AWS Backup pricing:
+        - Warm storage: $0.05/GB/month
+        - Cold storage: $0.01/GB/month
+        
+        Using warm storage price as default.
+        
+        Source: https://aws.amazon.com/backup/pricing/
+        Last verified: November 2024
+        """
+        return 0.05  # $0.05 per GB-month for backup warm storage
     
     def get_nat_gateway_price(self, region: str) -> Optional[float]:
         """Get NAT Gateway price per hour"""

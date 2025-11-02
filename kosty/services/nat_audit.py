@@ -67,11 +67,16 @@ class NATAuditService:
                         results.append({
                             'AccountId': session.client('sts').get_caller_identity()['Account'],
                             'Region': region,
+                            'region': region,
                             'Service': self.service_name,
+                            'service': 'NAT',
                             'ResourceId': nat_gw['NatGatewayId'],
+                            'resource_id': nat_gw['NatGatewayId'],
+                            'resource_name': nat_gw['NatGatewayId'],
                             'ResourceArn': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:natgateway/{nat_gw['NatGatewayId']}",
                             'Issue': f'NAT Gateway with <1MB data transfer {days} days',
                             'type': 'cost',
+                            'check': 'unused_nat_gateways',
                             'Risk': 'Waste $130/mo ($1,560/year)',
                             'severity': 'high',
                             'Details': {

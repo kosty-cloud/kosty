@@ -64,11 +64,16 @@ class LBAuditService:
                     results.append({
                         'AccountId': session.client('sts').get_caller_identity()['Account'],
                         'Region': region,
+                        'region': region,
                         'Service': self.service_name,
+                        'service': 'LoadBalancer',
                         'ResourceId': lb['LoadBalancerName'],
+                        'resource_id': lb['LoadBalancerName'],
+                        'resource_name': lb['LoadBalancerName'],
                         'ResourceArn': lb_arn,
                         'Issue': 'Load balancer with no healthy targets',
                         'type': 'cost',
+                        'check': 'no_healthy_targets',
                         'Risk': 'Waste $270-360/year per LB',
                         'severity': 'high',
                         'Details': {

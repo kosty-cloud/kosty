@@ -42,12 +42,18 @@ class EC2AuditService:
                                         'InstanceType': instance['InstanceType'],
                                         'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance['InstanceId']}",
                                         'Region': region,
+                                        'region': region,
                                         'StoppedDays': (datetime.now() - transition_time).days,
                                         'Issue': f'Instance stopped for {days}+ days',
                                         'type': 'cost',
                                         'Risk': 'Waste $30-500/mo per instance',
                                         'severity': 'high',
-                                        'Service': 'EC2'
+                                        'Service': 'EC2',
+                                        'service': 'EC2',
+                                        'check': 'stopped_instances',
+                                        'instance_type': instance['InstanceType'],
+                                        'resource_id': instance['InstanceId'],
+                                        'resource_name': instance['InstanceId']
                                     })
                         except:
                             continue
