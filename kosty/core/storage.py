@@ -219,7 +219,8 @@ class StorageManager:
         path = Path(file_path)
         is_network_path = self._is_network_path(file_path)
         
-        if file_path.endswith('/') or file_path.endswith('\\'):
+        # Check if path is a directory or file
+        if path.is_dir() or file_path.endswith('/') or file_path.endswith('\\') or not path.suffix:
             # Directory path - use generated filename
             final_path = path / filename
         else:
