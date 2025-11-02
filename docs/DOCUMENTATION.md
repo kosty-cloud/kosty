@@ -116,6 +116,133 @@ kosty audit --organization --max-workers 20
 kosty ec2 audit --organization
 ```
 
+## 💾 Custom Storage Locations
+
+### Overview
+Kosty supports saving reports to multiple storage types with the `--save-to` parameter:
+- **S3 Buckets**: Enterprise cloud storage with encryption
+- **Local Paths**: Local file system directories
+- **Network Shares**: Windows UNC paths and Linux/macOS network mounts
+
+### S3 Storage
+```bash
+# Save to S3 bucket root
+kosty audit --save-to s3://my-audit-bucket/
+
+# Save to S3 with custom path
+kosty audit --save-to s3://company-reports/aws-audits/2025/
+
+# Organization scan to S3
+kosty audit --organization --save-to s3://org-audits/monthly/
+
+# Individual service to S3
+kosty ec2 check-oversized-instances --save-to s3://cost-reports/ec2/
+```
+
+#### S3 Features
+- **Automatic Encryption**: AES256 server-side encryption applied automatically
+- **Access Validation**: Upfront validation of S3 bucket permissions
+- **Path Flexibility**: Support for bucket root or custom prefixes
+- **Error Handling**: Clear error messages for permission or bucket issues
+
+#### Required S3 Permissions
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:PutObjectAcl"
+            ],
+            "Resource": "arn:aws:s3:::your-bucket-name/*"
+        }
+    ]
+}
+```
+
+### Local Storage
+```bash
+# Save to local directory
+kosty audit --save-to /home/user/aws-reports/
+
+# Save to specific file
+kosty ec2 audit --save-to /home/user/ec2-audit.json
+
+# Windows local path
+kosty audit --save-to C:\\Reports\\AWS\\
+
+# Relative path
+kosty s3 audit --save-to ./reports/s3/
+```
+
+#### Local Storage Features
+- **Automatic Directory Creation**: Creates directories if they don't exist
+- **Permission Validation**: Tests write access before starting scans
+- **Cross-Platform**: Works on Linux, macOS, and Windows
+- **Flexible Paths**: Support for both directory and specific file paths
+
+### Network Share Storage
+```bash
+# Windows UNC paths
+kosty audit --save-to \\\\fileserver\\shared\\aws-reports\\
+kosty ec2 audit --save-to \\\\nas\\audits\\ec2\\
+
+# Alternative Windows format
+kosty audit --save-to //fileserver/shared/aws-reports/
+
+# Linux/macOS network mounts
+kosty audit --save-to /mnt/nas/aws-reports/
+kosty rds audit --save-to /media/shared/rds-audit/
+
+# macOS network volumes
+kosty audit --save-to /Volumes/SharedDrive/aws-audits/
+```
+
+#### Network Share Features
+- **Automatic Detection**: Detects network paths automatically
+- **Connectivity Validation**: Tests network connectivity with timeouts
+- **Timeout Management**: 10s validation, 30s write timeouts
+- **Cross-Platform**: Windows UNC, Linux/macOS mounts
+- **Error Handling**: Clear messages for network connectivity issues
+
+### Storage Validation
+Kosty validates storage access before starting scans:
+
+```bash
+# Example validation output
+$ kosty audit --save-to s3://non-existent-bucket/
+❌ S3 access validation failed:
+   • Bucket 'non-existent-bucket' does not exist
+💡 S3 path format: s3://bucket-name/optional/path/
+
+$ kosty audit --save-to \\\\offline-server\\share\\
+🌐 Detected network path: \\\\offline-server\\share\\
+   • Testing network connectivity...
+❌ Network path access timeout:
+   • Network path '\\\\offline-server\\share\\' is not accessible
+   • Check network connectivity and share availability
+```
+
+### Usage Examples
+```bash
+# Enterprise workflow: Organization scan to S3
+kosty audit --organization --max-workers 20 --save-to s3://company-audits/monthly/
+
+# Development: Local testing
+kosty ec2 check-oversized-instances --save-to ./test-reports/
+
+# Team sharing: Network share
+kosty iam security-audit --save-to \\\\teamnas\\security\\iam\\
+
+# Multi-region to network mount
+kosty audit --regions us-east-1,eu-west-1 --save-to /mnt/reports/multi-region/
+
+# All output formats to S3
+kosty audit --output all --save-to s3://reports/comprehensive/
+```
+
 ## 🔐 Cross-Account Roles
 
 ### Custom Role Names
@@ -219,6 +346,7 @@ All commands support:
 - `--regions TEXT` - Multiple AWS regions to scan (comma-separated, e.g., us-east-1,eu-west-1)
 - `--max-workers INTEGER` - Number of parallel workers (default: 10)
 - `--output [console|json|csv|all]` - Output format (default: console)
+- `--save-to TEXT` - Custom storage location (S3 bucket, local path, or network share)
 - `--cross-account-role TEXT` - Custom role name for cross-account access (default: OrganizationAccountAccessRole)
 - `--org-admin-account-id TEXT` - Organization admin account ID (if different from current account)
 
@@ -281,14 +409,19 @@ kosty audit --organization --org-admin-account-id 123456789012
 # Combined custom role and admin account
 kosty audit --organization --cross-account-role MyRole --org-admin-account-id 123456789012
 
+# Enterprise storage workflows
+kosty audit --organization --save-to s3://company-audits/monthly/
+kosty ec2 audit --regions us-east-1,eu-west-1 --save-to \\\\nas\\aws-reports\\
+kosty iam security-audit --organization --save-to /mnt/security/iam/
+
 # Cost optimization checks
-kosty ec2 check-oversized-instances --cpu-threshold 15 --regions us-east-1,eu-west-1
-kosty s3 check-empty-buckets --organization
+kosty ec2 check-oversized-instances --cpu-threshold 15 --regions us-east-1,eu-west-1 --save-to s3://cost-reports/
+kosty s3 check-empty-buckets --organization --save-to /Volumes/shared/s3-audit/
 
 # Security audit checks
-kosty iam check-root-access-keys --organization
-kosty s3 check-public-read-access --regions us-east-1,eu-west-1
-kosty ec2 check-ssh-open --organization --regions us-east-1,eu-west-1
+kosty iam check-root-access-keys --organization --save-to \\\\security\\iam\\
+kosty s3 check-public-read-access --regions us-east-1,eu-west-1 --save-to /mnt/reports/
+kosty ec2 check-ssh-open --organization --regions us-east-1,eu-west-1 --save-to s3://security-audits/
 ```
 
 ### Output Formats
