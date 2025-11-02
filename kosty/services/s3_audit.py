@@ -112,18 +112,28 @@ class S3AuditService:
                         # Check for old objects
                         objects = s3.list_objects_v2(Bucket=bucket_name, MaxKeys=10)
                         if 'Contents' in objects:
+                            # Calculate approximate size (simplified)
+                            total_size_bytes = sum(obj.get('Size', 0) for obj in objects['Contents'])
+                            size_gb = round(total_size_bytes / (1024**3), 2) if total_size_bytes > 0 else 0.1
+                            
                             lifecycle_candidates.append({
                                 'AccountId': account_id,
                                 'ResourceName': bucket_name,
                                 'BucketName': bucket_name,
                                 'ARN': f'arn:aws:s3:::{bucket_name}',
                                 'Region': bucket_region,
+                                'region': bucket_region,
                                 'ObjectCount': len(objects['Contents']),
                                 'Issue': 'No lifecycle policy on old data (90+ days)',
                                 'type': 'cost',
                                 'Risk': 'Waste 50-70% storage costs',
                                 'severity': 'high',
-                                'Service': 'S3'
+                                'Service': 'S3',
+                                'service': 'S3',
+                                'check': 'lifecycle_candidates',
+                                'size_gb': size_gb,
+                                'resource_id': bucket_name,
+                                'resource_name': bucket_name
                             })
                 except Exception:
                     continue

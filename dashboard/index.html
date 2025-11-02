@@ -96,6 +96,12 @@
                                             {item.Region}
                                         </p>
                                     )}
+                                    {item.monthly_cost && (
+                                        <p className="text-xs text-green-600 font-semibold mt-1">
+                                            <i className="fas fa-dollar-sign mr-1"></i>
+                                            ${item.monthly_cost.toFixed(2)}/month
+                                        </p>
+                                    )}
                                     <p className="text-xs text-blue-600 mt-1">
                                         <i className="fas fa-info-circle mr-1"></i>
                                         Click for details
@@ -570,9 +576,10 @@
                 let securityIssues = 0;
                 let criticalIssues = 0;
                 let highIssues = 0;
+                let totalMonthlySavings = 0;
                 let servicesWithIssues = new Set();
                 const dataToUse = data || (showDemo ? demoData : null);
-                if (!dataToUse) return { costIssues: 0, securityIssues: 0, criticalIssues: 0, highIssues: 0, servicesWithIssues: 0 };
+                if (!dataToUse) return { costIssues: 0, securityIssues: 0, criticalIssues: 0, highIssues: 0, servicesWithIssues: 0, totalMonthlySavings: 0 };
                 
                 const normalizedData = normalizeData(dataToUse);
                 
@@ -585,7 +592,12 @@
                                     const type = (item.Type || item.type || '').toLowerCase();
                                     const severity = (item.severity || item.Severity || '').toLowerCase();
                                     
-                                    if (type === 'cost') costIssues++;
+                                    if (type === 'cost') {
+                                        costIssues++;
+                                        if (item.monthly_cost) {
+                                            totalMonthlySavings += item.monthly_cost;
+                                        }
+                                    }
                                     if (type === 'security') securityIssues++;
                                     if (severity === 'critical') criticalIssues++;
                                     if (severity === 'high') highIssues++;
@@ -597,7 +609,7 @@
                     });
                 });
 
-                return { costIssues, securityIssues, criticalIssues, highIssues, servicesWithIssues: servicesWithIssues.size };
+                return { costIssues, securityIssues, criticalIssues, highIssues, servicesWithIssues: servicesWithIssues.size, totalMonthlySavings };
             };
 
             const loadJsonFile = (event) => {
@@ -721,7 +733,7 @@
                         {!loading && (
                             <>
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
                                     <StatCard
                                         title="Total Issues"
                                         value={currentData.total_issues}
@@ -729,6 +741,15 @@
                                         color="border-l-red-500"
                                         subtitle="Optimization opportunities"
                                     />
+                                    {stats.totalMonthlySavings > 0 && (
+                                        <StatCard
+                                            title="Monthly Savings"
+                                            value={`$${stats.totalMonthlySavings.toFixed(2)}`}
+                                            icon="fas fa-piggy-bank"
+                                            color="border-l-green-500"
+                                            subtitle={`$${(stats.totalMonthlySavings * 12).toFixed(2)}/year`}
+                                        />
+                                    )}
                                     <StatCard
                                         title="Cost Issues"
                                         value={stats.costIssues}
@@ -958,6 +979,12 @@
                                                         {item.Region}
                                                     </p>
                                                 )}
+                                                {item.monthly_cost && (
+                                                    <p className="text-xs text-green-600 font-semibold mb-1">
+                                                        <i className="fas fa-dollar-sign mr-1"></i>
+                                                        ${item.monthly_cost.toFixed(2)}/month
+                                                    </p>
+                                                )}
                                                 <p className="text-xs text-blue-600">
                                                     <i className="fas fa-info-circle mr-1"></i>
                                                     Click for details
@@ -1055,6 +1082,18 @@
                                             Description
                                         </h5>
                                         <p className="text-gray-700 leading-relaxed">{selectedIssue.Description}</p>
+                                        {selectedIssue.monthly_cost && (
+                                            <div className="mt-4 bg-green-100 border-l-4 border-green-500 p-4 rounded">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-green-900">💰 Potential Monthly Savings</p>
+                                                        <p className="text-2xl font-bold text-green-700 mt-1">${selectedIssue.monthly_cost.toFixed(2)}</p>
+                                                        <p className="text-xs text-green-600 mt-1">Annual: ${(selectedIssue.monthly_cost * 12).toFixed(2)}</p>
+                                                    </div>
+                                                    <i className="fas fa-piggy-bank text-4xl text-green-600"></i>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     {/* Technical Details */}
