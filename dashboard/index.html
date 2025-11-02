@@ -732,8 +732,47 @@
 
                         {!loading && (
                             <>
+                                {/* Cost Summary Card - Full Width */}
+                                {stats.totalMonthlySavings > 0 && (
+                                    <div className="mb-8">
+                                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-8 card-shadow text-white">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-6">
+                                                    <div className="bg-white bg-opacity-20 rounded-full p-4">
+                                                        <i className="fas fa-piggy-bank text-4xl"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="text-3xl font-bold mb-2">💰 Total Estimated Savings</h2>
+                                                        <div className="flex items-center space-x-8">
+                                                            <div>
+                                                                <p className="text-green-100 text-sm font-medium">Monthly Savings</p>
+                                                                <p className="text-4xl font-bold">${stats.totalMonthlySavings.toFixed(2)}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-green-100 text-sm font-medium">Annual Savings</p>
+                                                                <p className="text-4xl font-bold">${(stats.totalMonthlySavings * 12).toFixed(2)}</p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-green-100 text-sm mt-2">
+                                                            <i className="fas fa-chart-line mr-1"></i>
+                                                            Based on {stats.costIssues} cost optimization opportunities
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="bg-white bg-opacity-20 rounded-lg p-4">
+                                                        <i className="fas fa-calculator text-3xl mb-2"></i>
+                                                        <p className="text-sm font-medium">ROI Calculator</p>
+                                                        <p className="text-xs text-green-100">Immediate impact</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                                     <StatCard
                                         title="Total Issues"
                                         value={currentData.total_issues}
@@ -741,15 +780,6 @@
                                         color="border-l-red-500"
                                         subtitle="Optimization opportunities"
                                     />
-                                    {stats.totalMonthlySavings > 0 && (
-                                        <StatCard
-                                            title="Monthly Savings"
-                                            value={`$${stats.totalMonthlySavings.toFixed(2)}`}
-                                            icon="fas fa-piggy-bank"
-                                            color="border-l-green-500"
-                                            subtitle={`$${(stats.totalMonthlySavings * 12).toFixed(2)}/year`}
-                                        />
-                                    )}
                                     <StatCard
                                         title="Cost Issues"
                                         value={stats.costIssues}

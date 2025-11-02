@@ -1,5 +1,83 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.4.0 - Cost Quantification Engine & Phase 2 Services (2025-11-02)
+
+### 💰 Major Feature: Cost Quantification Engine
+- **Financial ROI Calculations**: Transform Kosty from "linter" to "FinOps ROI tool"
+  - Real monthly and annual savings calculations in USD
+  - AWS Pricing API integration with intelligent fallbacks
+  - 11 services now provide quantified cost savings
+  - Dashboard displays total estimated savings prominently
+
+### 🚀 Phase 2 Services - Complex Cost Analysis
+- **RDS Cost Optimization**: Oversized database instance detection
+  - CPU utilization analysis (<20% = oversized)
+  - 50% savings estimation for rightsizing
+  - Support for 10+ common instance types (db.t3.micro → db.r5.8xlarge)
+  - Fallback pricing for API reliability
+
+- **Lambda Cost Optimization**: Over-provisioned memory detection
+  - Memory optimization analysis (>512MB threshold)
+  - Free tier calculations (1M requests + 400K GB-seconds/month)
+  - Request and duration cost components
+  - 50% memory reduction savings estimation
+
+- **DynamoDB Cost Optimization**: Idle table detection
+  - Provisioned capacity analysis (RCU/WCU)
+  - Free tier support (25 RCU + 25 WCU + 25 GB/month)
+  - On-demand optimization recommendations (80% savings)
+  - Low utilization threshold detection
+
+### 💵 Enhanced Cost Calculation Coverage
+**11 Services with Cost Quantification:**
+- **Phase 1**: EBS, EC2, EIP, NAT Gateway, Load Balancer, S3, Snapshots, Backup
+- **Phase 2**: RDS, Lambda, DynamoDB
+
+**Services with Audit Only** (no cost calculation):
+- IAM, CloudWatch, Route53, API Gateway, Security Groups
+
+### 🎨 Dashboard Cost Integration
+- **Total Estimated Savings Card**: Prominent green card showing monthly/annual savings
+- **Individual Cost Display**: Each cost issue shows "$X.XX/month" in green
+- **Cost Aggregation**: Service-level cost summaries and totals
+- **ROI Calculator**: Visual impact representation with piggy bank icons
+
+### 📊 Enhanced Reporting
+- **Console Reports**: Cost savings included in summary with top issues by savings
+- **JSON Reports**: `monthly_cost` and `cost_currency` fields added to cost findings
+- **CSV Reports**: "Monthly Cost (USD)" and "Annual Cost (USD)" columns
+- **All Formats**: Backward compatible with existing workflows
+
+### ⚠️ Cost Calculation Disclaimer
+**Important**: Cost estimates are based on AWS Pricing API and standard rates. Actual costs may vary due to:
+- Reserved Instance discounts
+- Savings Plans
+- Volume discounts
+- Regional pricing variations
+- Custom enterprise agreements
+- Spot instance pricing
+
+Use estimates for relative comparison and optimization prioritization.
+
+### 🔧 Technical Implementation
+- **PricingService Class**: AWS Pricing API wrapper with intelligent caching
+- **CostCalculator Class**: Service-specific cost calculation logic
+- **Fallback Pricing**: Fixed prices for unreliable API services (EIP, S3, Snapshots)
+- **Free Tier Support**: Accurate calculations for AWS Free Tier limits
+- **Regional Pricing**: Support for 16+ AWS regions with location mapping
+
+### 📈 Example Cost Savings
+```bash
+# Real examples from cost calculations:
+RDS db.r5.4xlarge (5% CPU): $700.80/month savings
+EC2 m5.2xlarge stopped: $280.32/month savings  
+Lambda 3008MB→1024MB: $0.68/month savings
+EBS 100GB orphaned: $10.00/month savings
+EIP unattached: $3.60/month savings
+```
+
+---
+
 ## Version 1.3.8 - Enterprise Storage Support with Network Share Compatibility (2025-01-XX)
 
 ### 🌐 Enterprise Storage Features

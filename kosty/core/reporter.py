@@ -30,12 +30,12 @@ class CostOptimizationReporter:
         enriched_data = [self.cost_calculator.add_cost_to_finding(item) for item in data]
         
         # Calculate total monthly savings
-        monthly_savings = sum(item.get('monthly_cost', 0) for item in enriched_data if item.get('monthly_cost'))
+        monthly_savings = sum(item.get('monthly_cost', 0) for item in enriched_data if item.get('monthly_cost') is not None)
             
         self.results[account_id][service][command] = {
             'count': len(enriched_data),
             'items': enriched_data,
-            'monthly_savings': round(monthly_savings, 2)
+            'monthly_savings': round(monthly_savings, 2) if monthly_savings > 0 else 0
         }
     
 
@@ -198,23 +198,27 @@ class CostOptimizationReporter:
         # Generate CSV content
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(['Account', 'Service', 'Command', 'Resource Count', 'Cost Estimate', 'Details'])
+        writer.writerow(['Account', 'Service', 'Command', 'Resource Count', 'Monthly Cost (USD)', 'Annual Cost (USD)', 'Details'])
         
         for account_id, account_data in self.results.items():
             for service, service_data in account_data.items():
                 for command, command_data in service_data.items():
                     if command_data['count'] > 0:
                         details = '; '.join([
-                            f"{item.get('InstanceId', item.get('VolumeId', item.get('FunctionName', item.get('ClusterName', 'Resource'))))}"
+                            f"{item.get('InstanceId', item.get('VolumeId', item.get('FunctionName', item.get('ClusterName', item.get('resource_id', 'Resource')))))}"
                             for item in command_data['items'][:5]  # First 5 items
                         ])
+                        
+                        monthly_savings = command_data.get('monthly_savings', 0)
+                        annual_savings = monthly_savings * 12 if monthly_savings > 0 else 0
                         
                         writer.writerow([
                             account_id,
                             service,
                             command,
                             command_data['count'],
-                            'N/A',  # No cost calculation
+                            f"${monthly_savings:,.2f}" if monthly_savings > 0 else "N/A",
+                            f"${annual_savings:,.2f}" if annual_savings > 0 else "N/A",
                             details
                         ])
         

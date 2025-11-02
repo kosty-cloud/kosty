@@ -125,25 +125,49 @@ class LambdaAuditService:
                         memory_size = function.get('MemorySize', 128)
                         timeout = function.get('Timeout', 3)
                         
+                        # Get invocation count for cost calculation
+                        invocation_metrics = cloudwatch.get_metric_statistics(
+                            Namespace='AWS/Lambda',
+                            MetricName='Invocations',
+                            Dimensions=[
+                                {'Name': 'FunctionName', 'Value': function['FunctionName']}
+                            ],
+                            StartTime=start_time,
+                            EndTime=end_time,
+                            Period=86400,
+                            Statistics=['Sum']
+                        )
+                        
+                        total_invocations = sum(point['Sum'] for point in invocation_metrics['Datapoints']) if invocation_metrics['Datapoints'] else 0
+                        
                         # If duration is very low compared to timeout, memory might be over-provisioned
-                        if avg_duration < (timeout * 1000 * 0.2):  # Less than 20% of timeout used
+                        if avg_duration < (timeout * 1000 * 0.2) and memory_size > 512:  # Less than 20% of timeout used and >512MB
                             results.append({
                                 'AccountId': session.client('sts').get_caller_identity()['Account'],
                                 'Region': region,
+                                'region': region,
                                 'Service': self.service_name,
+                                'service': 'Lambda',
                                 'ResourceId': function['FunctionName'],
                                 'ResourceName': function['FunctionName'],
                                 'Issue': 'Over-provisioned Lambda memory',
                                 'type': 'cost',
                                 'Risk': 'MEDIUM',
                                 'severity': 'medium',
+                                'check': 'over_provisioned_memory',
+                                'memory_mb': memory_size,
+                                'invocations': int(total_invocations),
+                                'avg_duration_ms': int(avg_duration),
+                                'resource_id': function['FunctionName'],
+                                'resource_name': function['FunctionName'],
                                 'Description': f"Lambda function {function['FunctionName']} may have over-provisioned memory",
                                 'ARN': function['FunctionArn'],
                                 'Details': {
                                     'FunctionName': function['FunctionName'],
                                     'MemorySize': memory_size,
                                     'AvgDuration': round(avg_duration, 2),
-                                    'Timeout': timeout
+                                    'Timeout': timeout,
+                                    'TotalInvocations': int(total_invocations)
                                 }
                             })
                 except Exception as e:

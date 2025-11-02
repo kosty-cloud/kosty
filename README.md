@@ -40,20 +40,20 @@ So I built Kosty - the tool I wish existed when I started consulting.
 
 ### What Kosty Does
 - 🔍 Scans **16 core AWS services** in one command
-- 💰 Identifies **orphaned resources** (instant cost savings)
+- 💰 **Quantifies cost savings** with real dollar amounts (11 services)
 - 📊 Finds **oversized instances** (EC2, RDS, Lambda)
 - 🔐 Detects **security vulnerabilities** (public DBs, unencrypted storage, open ports)
 - 🛡️ Identifies **compliance issues** (old access keys, public snapshots, weak configurations)
 
-**One command. Full audit. Free forever.**
+**One command. Full audit. Real savings. Free forever.**
 
 AWS costs and security risks can spiral out of control quickly. Kosty helps you:
 - 🔍 **Discover** unused resources and security vulnerabilities across 16 core AWS services
-- 💰 **Identify** oversized and idle resources for cost optimization
+- 💰 **Quantify** cost savings with real dollar amounts ($X/month calculations)
 - 🔐 **Detect** security misconfigurations and compliance issues
-- ⚡ **Optimize** with prioritized recommendations for cost and security
+- ⚡ **Optimize** with prioritized recommendations by financial impact
 - 🏢 **Scale** across entire AWS Organizations with parallel processing
-- 📊 **Track** issues with comprehensive reporting
+- 📊 **Track** ROI with comprehensive cost reporting
 
 
 ## 🎯 Quick Start
@@ -119,23 +119,26 @@ pip install -e .
 
 ## 💡 Examples
 
-### 🏆 High-Impact Optimizations
+### 🏆 High-Impact Optimizations with Cost Savings
 
 ```bash
-# Find oversized EC2 instances
+# Find oversized EC2 instances (potential $280/month per m5.2xlarge)
 kosty ec2 check-oversized-instances --cpu-threshold 20
 
-# Find unused RDS read replicas
-kosty rds check-unused-read-replicas
+# Find oversized RDS instances (potential $700/month per db.r5.4xlarge)
+kosty rds check-oversized-instances --cpu-threshold 20
 
-# Find over-provisioned Lambda functions
+# Find over-provisioned Lambda functions (memory optimization savings)
 kosty lambda check-over-provisioned-memory
 
-# Find orphaned EBS volumes
+# Find orphaned EBS volumes (potential $10/month per 100GB)
 kosty ebs check-orphan-volumes
 
-# Find unattached Elastic IPs
+# Find unattached Elastic IPs (potential $3.60/month each)
 kosty eip check-unattached-eips
+
+# 💰 View total potential savings in dashboard
+kosty audit --output json && open dashboard/index.html
 ```
 
 ### 🔍 Resource Discovery & Security Audits
@@ -251,6 +254,57 @@ kosty audit --organization --cross-account-role MyRole --org-admin-account-id 12
 
 ---
 
+## 💰 Cost Quantification Engine
+
+### 💵 Services with Cost Calculations (11 Services)
+
+Kosty provides **real monthly and annual savings estimates** for these services:
+
+| Service | Cost Calculation | Example Savings |
+|---------|------------------|----------------|
+| **EBS** | Orphaned volumes by size & type | $10.00/month (100GB gp2) |
+| **EC2** | Stopped instances by type | $280.32/month (m5.2xlarge) |
+| **EIP** | Unattached Elastic IPs | $3.60/month (fixed rate) |
+| **NAT Gateway** | Unused gateways | $32.85/month (per gateway) |
+| **Load Balancer** | ALBs with no targets | $16.43/month (per ALB) |
+| **S3** | Lifecycle optimization candidates | $2.30/month (100GB) |
+| **Snapshots** | Old EBS snapshots | $5.00/month (100GB) |
+| **Backup** | Empty AWS Backup vaults | $0.00/month (no storage) |
+| **RDS** | Oversized instances (<20% CPU) | $700.80/month (db.r5.4xlarge) |
+| **Lambda** | Over-provisioned memory (>512MB) | $0.68/month (optimization) |
+| **DynamoDB** | Idle tables (low RCU/WCU) | Variable (on-demand savings) |
+
+### 📈 Services with Audit Only (5 Services)
+
+These services provide security and compliance audits without cost quantification:
+- **IAM**: Security policies, unused roles, compliance
+- **CloudWatch**: Log retention, unused alarms
+- **Route53**: Unused hosted zones, DNS configuration
+- **API Gateway**: Unused APIs, security configuration
+- **Security Groups**: Unused groups, overly permissive rules
+
+### ⚠️ Cost Calculation Disclaimer
+
+**Important**: Cost estimates are based on AWS Pricing API and standard on-demand rates. **Actual costs may vary** due to:
+
+- 💰 **Reserved Instance discounts** (up to 75% off)
+- 💰 **Savings Plans** (up to 72% off)
+- 💰 **Volume discounts** for high usage
+- 🌍 **Regional pricing variations**
+- 🏢 **Enterprise agreements** and custom pricing
+- 📈 **Spot instance pricing** (up to 90% off)
+- 🔄 **Free tier limits** and credits
+
+**Use estimates for**:
+- ✅ Relative comparison between issues
+- ✅ Optimization prioritization
+- ✅ Business case development
+- ✅ ROI trend analysis
+
+**Verify actual costs** in your AWS billing dashboard before making decisions.
+
+---
+
 ## 📊 Complete Service Coverage (16 Services)
 
 ### 🎯 Service Overview
@@ -344,6 +398,7 @@ kosty audit --output all
 
 ### 🔍 **Comprehensive Analysis**
 - ✅ **16 Core AWS Services** - Essential infrastructure coverage
+- ✅ **Cost Quantification** - Real dollar savings for 11 services
 - ✅ **One-Command Audit** - `kosty audit` scans everything
 - ✅ **Organization Support** - Multi-account scanning with configurable roles
 - ✅ **Multi-Region** - Scan across multiple AWS regions simultaneously with `--regions`
@@ -351,9 +406,9 @@ kosty audit --output all
 
 ### ⚡ **Performance & Usability**
 - ✅ **Parallel Processing** - High-performance with configurable workers
-- ✅ **Issue Tracking** - Comprehensive categorization and prioritization
+- ✅ **ROI Prioritization** - Issues ranked by financial impact
 - ✅ **Safe Operations** - Read-only analysis, no resource modifications
-- ✅ **Professional Reporting** - Executive-ready dashboards and reports
+- ✅ **Professional Reporting** - Executive-ready dashboards with cost totals
 - ✅ **Smart Validation** - Upfront permission checks with clear error messages
 
 ## 📖 Documentation
