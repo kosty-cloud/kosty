@@ -12,20 +12,20 @@ def rds(ctx):
 @click.option('--cpu-threshold', default=20, help='CPU utilization threshold')
 @common_options
 @click.pass_context
-def rds_audit(ctx, days, cpu_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_audit(ctx, days, cpu_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run complete RDS audit (cost + security)"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days, cpu_threshold=cpu_threshold)
+    execute_service_command(ctx, RDSAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days, cpu_threshold=cpu_threshold)
 
 @rds.command('cost-audit')
 @click.option('--days', default=7, help='Days threshold for idle/oversized analysis')
 @click.option('--cpu-threshold', default=20, help='CPU utilization threshold')
 @common_options
 @click.pass_context
-def rds_cost_audit(ctx, days, cpu_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_cost_audit(ctx, days, cpu_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run RDS cost optimization audit only"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days, cpu_threshold=cpu_threshold)
+    execute_service_command(ctx, RDSAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days, cpu_threshold=cpu_threshold)
 
 @rds.command('security-audit')
 @common_options
@@ -40,10 +40,10 @@ def rds_security_audit(ctx, organization, region, max_workers, regions, output):
 @click.option('--days', default=7, help='Days to analyze')
 @common_options
 @click.pass_context
-def rds_check_oversized(ctx, cpu_threshold, days, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_check_oversized(ctx, cpu_threshold, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find oversized RDS instances"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'check_oversized_instances', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, cpu_threshold=cpu_threshold, days=days)
+    execute_service_command(ctx, RDSAuditService, 'check_oversized_instances', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, cpu_threshold=cpu_threshold, days=days)
 
 # Cost optimization checks
 @rds.command('check-idle-instances')
@@ -51,20 +51,20 @@ def rds_check_oversized(ctx, cpu_threshold, days, organization, region, max_work
 @click.option('--cpu-threshold', default=5, help='CPU utilization threshold')
 @common_options
 @click.pass_context
-def rds_check_idle(ctx, days, cpu_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_check_idle(ctx, days, cpu_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find idle RDS instances (<5% CPU for 7 days)"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'check_idle_instances', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days, cpu_threshold=cpu_threshold)
+    execute_service_command(ctx, RDSAuditService, 'check_idle_instances', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days, cpu_threshold=cpu_threshold)
 
 @rds.command('check-unused-read-replicas')
 @click.option('--days', default=7, help='Days threshold for read analysis')
 @click.option('--read-threshold', default=100, help='Read operations per day threshold')
 @common_options
 @click.pass_context
-def rds_check_unused_replicas(ctx, days, read_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_check_unused_replicas(ctx, days, read_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find unused read replicas (<100 reads/day)"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'check_unused_read_replicas', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days, read_threshold=read_threshold)
+    execute_service_command(ctx, RDSAuditService, 'check_unused_read_replicas', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days, read_threshold=read_threshold)
 
 @rds.command('check-multi-az-non-prod')
 @common_options
@@ -78,10 +78,10 @@ def rds_check_multi_az(ctx, organization, region, max_workers, regions, output):
 @click.option('--retention-threshold', default=7, help='Backup retention days threshold')
 @common_options
 @click.pass_context
-def rds_check_backup_retention(ctx, retention_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_check_backup_retention(ctx, retention_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find backup retention >7 days for dev/test"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'check_long_backup_retention', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, retention_threshold=retention_threshold)
+    execute_service_command(ctx, RDSAuditService, 'check_long_backup_retention', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, retention_threshold=retention_threshold)
 
 @rds.command('check-gp2-storage')
 @common_options
@@ -136,10 +136,10 @@ def rds_check_disabled_backups(ctx, organization, region, max_workers, regions, 
 @click.option('--months-threshold', default=12, help='Engine version age threshold in months')
 @common_options
 @click.pass_context
-def rds_check_outdated_engine(ctx, months_threshold, organization, region, max_workers, regions, output, cross_account_role, org_admin_account_id):
+def rds_check_outdated_engine(ctx, months_threshold, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find engine version outdated (>12 months)"""
     from ..services.rds_audit import RDSAuditService
-    execute_service_command(ctx, RDSAuditService, 'check_outdated_engine', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, months_threshold=months_threshold)
+    execute_service_command(ctx, RDSAuditService, 'check_outdated_engine', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, months_threshold=months_threshold)
 
 @rds.command('check-no-ssl-enforcement')
 @common_options
