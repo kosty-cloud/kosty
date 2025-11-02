@@ -3,6 +3,7 @@ import csv
 from datetime import datetime
 from typing import Dict, List, Any
 from pathlib import Path
+from .cost_calculator import CostCalculator
 
 class CostOptimizationReporter:
     def __init__(self):
@@ -10,6 +11,7 @@ class CostOptimizationReporter:
         self.scan_timestamp = datetime.now()
         self.organization = False
         self.org_admin_account_id = None
+        self.cost_calculator = CostCalculator()
     
     def set_scan_context(self, organization: bool = False, org_admin_account_id: str = None):
         """Set scan context for proper filename generation"""
@@ -23,29 +25,36 @@ class CostOptimizationReporter:
         
         if service not in self.results[account_id]:
             self.results[account_id][service] = {}
+        
+        # Add cost information to findings
+        enriched_data = [self.cost_calculator.add_cost_to_finding(item) for item in data]
+        
+        # Calculate total monthly savings
+        monthly_savings = sum(item.get('monthly_cost', 0) for item in enriched_data if item.get('monthly_cost'))
             
         self.results[account_id][service][command] = {
-            'count': len(data),
-            'items': data,
-            'potential_savings': self._calculate_savings(service, command, data)
+            'count': len(enriched_data),
+            'items': enriched_data,
+            'monthly_savings': round(monthly_savings, 2)
         }
-        
-        # No cost calculation
-    
-    def _calculate_savings(self, service: str, command: str, data: List[Dict[str, Any]]) -> int:
-        """No cost calculation - just count issues"""
-        return len(data)
     
 
     
     def generate_summary_report(self) -> str:
-        """Generate a summary report"""
+        """Generate a summary report with cost savings"""
         report = []
         report.append("\n" + "=" * 80)
         report.append("🏆 KOSTY - AWS COST OPTIMIZATION REPORT")
         report.append("=" * 80)
         report.append(f"📅 Scan Date: {self.scan_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-        report.append(f"📊 Total Issues Found: {sum(sum(cmd['count'] for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())}")
+        
+        total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())
+        total_savings = sum(sum(cmd.get('monthly_savings', 0) for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())
+        
+        report.append(f"📊 Total Issues Found: {total_issues}")
+        if total_savings > 0:
+            report.append(f"💰 Total Potential Monthly Savings: ${total_savings:,.2f}")
+            report.append(f"💰 Total Potential Annual Savings: ${total_savings * 12:,.2f}")
         report.append("")
         
         # Summary by account
@@ -54,43 +63,53 @@ class CostOptimizationReporter:
             report.append("-" * 50)
             
             account_issues = 0
-            total_issues = 0
+            account_savings = 0
             
             for service, service_data in account_data.items():
                 for command, command_data in service_data.items():
                     count = command_data['count']
-                    savings = command_data['potential_savings']
+                    savings = command_data.get('monthly_savings', 0)
                     
                     if count > 0:
-                        report.append(f"  🔍 {service.upper()} {command}: {count} issues")
+                        if savings > 0:
+                            report.append(f"  🔍 {service.upper()} {command}: {count} issues (${savings:,.2f}/mo)")
+                        else:
+                            report.append(f"  🔍 {service.upper()} {command}: {count} issues")
                         account_issues += count
-                        total_issues += count
+                        account_savings += savings
             
-            report.append(f"  💡 Account Total: {account_issues} issues found")
+            if account_savings > 0:
+                report.append(f"  💡 Account Total: {account_issues} issues, ${account_savings:,.2f}/mo potential savings")
+            else:
+                report.append(f"  💡 Account Total: {account_issues} issues found")
             report.append("")
         
-        # Top issues by count
-        report.append("🎯 TOP ISSUES BY COUNT")
-        report.append("-" * 30)
+        # Top issues by savings
+        if total_savings > 0:
+            report.append("💰 TOP ISSUES BY MONTHLY SAVINGS")
+            report.append("-" * 40)
+            
+            all_issues = []
+            for account_id, account_data in self.results.items():
+                for service, service_data in account_data.items():
+                    for command, command_data in service_data.items():
+                        savings = command_data.get('monthly_savings', 0)
+                        if savings > 0:
+                            all_issues.append({
+                                'service': service,
+                                'command': command,
+                                'count': command_data['count'],
+                                'savings': savings
+                            })
+            
+            # Sort by savings
+            all_issues.sort(key=lambda x: x['savings'], reverse=True)
+            
+            for i, issue in enumerate(all_issues[:10], 1):
+                report.append(f"  {i:2d}. {issue['service'].upper()} {issue['command']}: ${issue['savings']:,.2f}/mo ({issue['count']} issues)")
+            
+            report.append("")
         
-        all_issues = []
-        for account_id, account_data in self.results.items():
-            for service, service_data in account_data.items():
-                for command, command_data in service_data.items():
-                    if command_data['count'] > 0:
-                        all_issues.append({
-                            'service': service,
-                            'command': command,
-                            'count': command_data['count']
-                        })
-        
-        # Sort by issue count
-        all_issues.sort(key=lambda x: x['count'], reverse=True)
-        
-        for i, issue in enumerate(all_issues[:10], 1):
-            report.append(f"  {i:2d}. {issue['service'].upper()} {issue['command']}: {issue['count']} issues")
-        
-        report.append("")
         report.append("=" * 80)
         
         return "\n".join(report)
