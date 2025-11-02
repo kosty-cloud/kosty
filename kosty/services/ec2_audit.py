@@ -42,12 +42,18 @@ class EC2AuditService:
                                         'InstanceType': instance['InstanceType'],
                                         'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance['InstanceId']}",
                                         'Region': region,
+                                        'region': region,
                                         'StoppedDays': (datetime.now() - transition_time).days,
                                         'Issue': f'Instance stopped for {days}+ days',
                                         'type': 'cost',
                                         'Risk': 'Waste $30-500/mo per instance',
                                         'severity': 'high',
-                                        'Service': 'EC2'
+                                        'Service': 'EC2',
+                                        'service': 'EC2',
+                                        'check': 'stopped_instances',
+                                        'instance_type': instance['InstanceType'],
+                                        'resource_id': instance['InstanceId'],
+                                        'resource_name': instance['InstanceId']
                                     })
                         except:
                             continue
@@ -97,12 +103,18 @@ class EC2AuditService:
                                     'InstanceType': instance['InstanceType'],
                                     'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance_id}",
                                     'Region': region,
+                                    'region': region,
                                     'AvgCPU': round(avg_cpu, 2),
                                     'Issue': f'Instance idle (<{cpu_threshold}% CPU for {days} days)',
                                     'type': 'cost',
                                     'Risk': 'Waste 80-95% of instance cost',
                                     'severity': 'high',
-                                    'Service': 'EC2'
+                                    'Service': 'EC2',
+                                    'service': 'EC2',
+                                    'check': 'idle_instances',
+                                    'instance_type': instance['InstanceType'],
+                                    'resource_id': instance_id,
+                                    'resource_name': instance_id
                                 })
                     except Exception:
                         continue
@@ -151,12 +163,18 @@ class EC2AuditService:
                                     'InstanceType': instance['InstanceType'],
                                     'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance_id}",
                                     'Region': region,
+                                    'region': region,
                                     'AvgCPU': round(avg_cpu, 2),
                                     'Issue': f'Oversized instance (<{cpu_threshold}% CPU)',
                                     'type': 'cost',
                                     'Risk': 'Waste 30-60% per instance',
                                     'severity': 'high',
-                                    'Service': 'EC2'
+                                    'Service': 'EC2',
+                                    'service': 'EC2',
+                                    'check': 'oversized_instances',
+                                    'instance_type': instance['InstanceType'],
+                                    'resource_id': instance_id,
+                                    'resource_name': instance_id
                                 })
                     except Exception:
                         continue
