@@ -28,19 +28,19 @@ def ebs_cost_audit(ctx, days, organization, region, max_workers, regions, output
 @ebs.command('security-audit')
 @common_options
 @click.pass_context
-def ebs_security_audit(ctx, organization, region, max_workers, regions, output):
+def ebs_security_audit(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run EBS security audit only"""
     from ..services.ebs_audit import EBSAuditService
-    execute_service_command(ctx, EBSAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, EBSAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 # Cost optimization checks
 @ebs.command('check-orphan-volumes')
 @common_options
 @click.pass_context
-def ebs_check_orphan(ctx, organization, region, max_workers, regions, output):
+def ebs_check_orphan(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find orphaned EBS volumes"""
     from ..services.ebs_audit import EBSAuditService
-    execute_service_command(ctx, EBSAuditService, 'check_orphan_volumes', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, EBSAuditService, 'check_orphan_volumes', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @ebs.command('check-low-io-volumes')
 @click.option('--iops-threshold', default=10, help='IOPS per GB threshold')
@@ -64,35 +64,35 @@ def ebs_check_old_snapshots(ctx, days, organization, region, max_workers, region
 @ebs.command('check-gp2-volumes')
 @common_options
 @click.pass_context
-def ebs_check_gp2(ctx, organization, region, max_workers, regions, output):
+def ebs_check_gp2(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find gp2 volumes (should be gp3)"""
     from ..services.ebs_audit import EBSAuditService
-    execute_service_command(ctx, EBSAuditService, 'check_gp2_volumes', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, EBSAuditService, 'check_gp2_volumes', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 # Security checks
 @ebs.command('check-unencrypted-orphan')
 @common_options
 @click.pass_context
-def ebs_check_unencrypted_orphan(ctx, organization, region, max_workers, regions, output):
+def ebs_check_unencrypted_orphan(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find unencrypted orphaned volumes"""
     from ..services.ebs_audit import EBSAuditService
-    execute_service_command(ctx, EBSAuditService, 'check_unencrypted_orphan', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, EBSAuditService, 'check_unencrypted_orphan', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @ebs.command('check-unencrypted-in-use')
 @common_options
 @click.pass_context
-def ebs_check_unencrypted_in_use(ctx, organization, region, max_workers, regions, output):
+def ebs_check_unencrypted_in_use(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find unencrypted volumes in use"""
     from ..services.ebs_audit import EBSAuditService
-    execute_service_command(ctx, EBSAuditService, 'check_unencrypted_in_use', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, EBSAuditService, 'check_unencrypted_in_use', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @ebs.command('check-public-snapshots')
 @common_options
 @click.pass_context
-def ebs_check_public_snapshots(ctx, organization, region, max_workers, regions, output):
+def ebs_check_public_snapshots(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find public snapshots"""
     from ..services.ebs_audit import EBSAuditService
-    execute_service_command(ctx, EBSAuditService, 'check_public_snapshots', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, EBSAuditService, 'check_public_snapshots', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @ebs.command('check-no-recent-snapshot')
 @click.option('--days', default=7, help='Days threshold for recent snapshots')

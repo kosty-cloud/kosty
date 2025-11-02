@@ -28,10 +28,10 @@ def apigateway_cost_audit(ctx, days, organization, region, max_workers, regions,
 @apigateway.command('security-audit')
 @common_options
 @click.pass_context
-def apigateway_security_audit(ctx, organization, region, max_workers, regions, output):
+def apigateway_security_audit(ctx, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run API Gateway security audit only"""
     from ..services.apigateway_audit import APIGatewayAuditService
-    execute_service_command(ctx, APIGatewayAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+    execute_service_command(ctx, APIGatewayAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to)
 
 @apigateway.command('check-unused-apis')
 @click.option('--days', default=30, help='Days threshold for API usage')
