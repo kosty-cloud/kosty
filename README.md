@@ -472,10 +472,10 @@ Kosty is free and open-source for self-service optimization. For teams who prefe
 - Implementation guidance and team training
 
 **Typical Results:**
-- €10K-30K/year in cost savings (most clients)
+- €1K-30K/year in cost savings (most clients)
 - Critical security gaps identified and resolved
 - 2-7 day delivery depending on complexity
-- Money-back guarantee if savings don't exceed 3x audit cost
+- Money-back guarantee if savings don't exceed the audit cost
 
 ### Pricing
 
@@ -488,8 +488,7 @@ Kosty is free and open-source for self-service optimization. For teams who prefe
 ### Why Work With Me?
 
 - Built Kosty after 9 years of AWS consulting (seen the same waste patterns repeatedly)
-- AWS Certified Solutions Architect specialized in cost optimization and FinOps
-- Helped clients save €500K+ combined
+- AWS specialist and FinOps
 - Engineer-to-engineer approach: honest technical advice, no sales BS
 
 ### Get Started
