@@ -7,6 +7,8 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
+> 💡 Need expert help optimizing your AWS infrastructure? [Professional consulting services available →](https://kosty.cloud?utm_source=github&utm_medium=readme-header)
+
 **🚀 Identify AWS cost waste and security vulnerabilities across 16 core services with a single command**
 
 *Save thousands of dollars monthly and improve security posture by finding unused resources, oversized instances, misconfigurations, and compliance issues*
@@ -454,6 +456,51 @@ class NewServiceAuditService:
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 💼 Professional Services
+
+Kosty is free and open-source for self-service optimization. For teams who prefer expert guidance to maximize results and ensure safe implementation, I offer professional audits.
+
+### What's Included
+
+**Comprehensive AWS Cost & Security Audit**
+- Full Kosty scan across all accounts and regions + manual architecture review
+- Prioritized optimization roadmap ranked by ROI, effort, and risk
+- Security vulnerability assessment (public databases, old IAM keys, overly permissive security groups)
+- Implementation guidance and team training
+
+**Typical Results:**
+- €10K-30K/year in cost savings (most clients)
+- Critical security gaps identified and resolved
+- 2-7 day delivery depending on complexity
+- Money-back guarantee if savings don't exceed 3x audit cost
+
+### Pricing
+
+| Tier | AWS Spend | Price | Timeline | What's Included |
+|------|-----------|-------|----------|------------------|
+| **Startup** | <€2K/mo | €500 | 2-3 days | Full scan, action plan, 30-min call, 2 weeks email support |
+| **Growth** | €2-10K/mo | €1,500 | 3-5 days | Multi-account analysis, detailed roadmap, security report, 1-hour call, Slack support, 30-day follow-up |
+| **Scale** | €10K+/mo | Custom | Custom | Everything in Growth + architecture deep-dive, team training, implementation support, quarterly check-ins |
+
+### Why Work With Me?
+
+- Built Kosty after 9 years of AWS consulting (seen the same waste patterns repeatedly)
+- AWS Certified Solutions Architect specialized in cost optimization and FinOps
+- Helped clients save €500K+ combined
+- Engineer-to-engineer approach: honest technical advice, no sales BS
+
+### Get Started
+
+**Free 30-minute assessment:** Book a no-commitment call to discuss your AWS setup and whether an audit makes sense.
+
+📅 **Calendar:** https://calendly.com/consulting-kosty/30min  
+📧 **Email:** yassir@kosty.cloud  
+🌐 **Website:** https://kosty.cloud?utm_source=github&utm_medium=readme-section
+
+---
 
 ## ⭐ Show Your Support
 
