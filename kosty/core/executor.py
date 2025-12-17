@@ -8,7 +8,7 @@ from .progress import ProgressBar, SpinnerProgress
 from .storage import StorageManager
 
 class ServiceExecutor:
-    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None):
+    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None, config_manager=None):
         self.service = service
         self.organization = organization
         self.regions = regions
@@ -16,6 +16,12 @@ class ServiceExecutor:
         self.cross_account_role = cross_account_role
         self.org_admin_account_id = org_admin_account_id
         self.storage_manager = StorageManager()
+        
+        # Config manager for exclusions
+        if config_manager is None:
+            from .config import ConfigManager
+            config_manager = ConfigManager()
+        self.config_manager = config_manager
         
     def _generate_filename(self, method_name: str, results: Dict[str, Any], file_format: str) -> str:
         """Generate descriptive filename based on scan parameters"""
@@ -264,9 +270,20 @@ class ServiceExecutor:
         account_id = session.client('sts').get_caller_identity()['Account']
         
         all_results = []
-        workers_per_region = max(1, self.max_workers // len(self.regions))
         
-        for region in self.regions:
+        # Filter excluded regions
+        filtered_regions = [
+            r for r in self.regions
+            if not self.config_manager.should_exclude_region(r)
+        ]
+        
+        if len(filtered_regions) < len(self.regions):
+            excluded = len(self.regions) - len(filtered_regions)
+            print(f"⚠️  {excluded} region(s) excluded by config")
+        
+        workers_per_region = max(1, self.max_workers // len(filtered_regions)) if filtered_regions else 1
+        
+        for region in filtered_regions:
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor(max_workers=1) as executor:
                 method = getattr(self.service, method_name)
@@ -345,7 +362,19 @@ class ServiceExecutor:
             
             all_accounts = await loop.run_in_executor(executor, get_all_accounts)
         
-        return [account['Id'] for account in all_accounts if account['Status'] == 'ACTIVE']
+        active_accounts = [account['Id'] for account in all_accounts if account['Status'] == 'ACTIVE']
+        
+        # Filter excluded accounts
+        filtered_accounts = [
+            acc for acc in active_accounts
+            if not self.config_manager.should_exclude_account(acc)
+        ]
+        
+        excluded_count = len(active_accounts) - len(filtered_accounts)
+        if excluded_count > 0:
+            print(f"⚠️  {excluded_count} account(s) excluded by config")
+        
+        return filtered_accounts
     
     async def _execute_for_account(self, account_id: str, method_name: str, *args, **kwargs):
         try:
