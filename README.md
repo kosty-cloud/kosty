@@ -413,9 +413,77 @@ kosty audit --output all
 - ✅ **Professional Reporting** - Executive-ready dashboards with cost totals
 - ✅ **Smart Validation** - Upfront permission checks with clear error messages
 
+## 🔧 Configuration
+
+Kosty supports YAML configuration files for persistent settings, profiles, and exclusions:
+
+```bash
+# Create config file from example
+cp kosty.yaml.example kosty.yaml
+
+# Use default profile
+kosty audit
+
+# Use specific profile
+kosty audit --profile customer01
+
+# Use custom config file
+kosty audit --config-file /path/to/config.yaml
+
+# Override config with CLI args
+kosty audit --profile customer01 --regions eu-west-1 --max-workers 30
+```
+
+### Configuration Features
+
+- **📁 Multiple Profiles** - Switch between environments (dev/staging/prod)
+- **🚫 Exclusions** - Skip specific accounts, regions, services, or ARNs
+- **🎯 Thresholds** - Customize CPU, memory, and age thresholds per profile
+- **🔐 AWS Auth** - AssumeRole with MFA support
+- **🔄 Priority** - CLI args override config values
+
+### Example Configuration
+
+```yaml
+# Global exclusions
+exclude:
+  accounts:
+    - "123456789012"  # Sandbox
+  services:
+    - "route53"
+  arns:
+    - "arn:aws:ec2:*:*:instance/i-protected*"
+
+# Global thresholds
+thresholds:
+  ec2_cpu: 20
+  rds_cpu: 20
+  stopped_days: 7
+
+# Default profile
+default:
+  organization: true
+  regions:
+    - us-east-1
+    - eu-west-1
+  max_workers: 20
+
+# Customer profiles
+profiles:
+  customer01:
+    regions: [us-east-1]
+    role_arn: "arn:aws:iam::123456789012:role/MyRole"
+    mfa_serial: "arn:aws:iam::123456789012:mfa/device"
+```
+
+See [Configuration Guide](docs/CONFIGURATION.md) for complete documentation.
+
+---
+
 ## 📖 Documentation
 
 - [📋 Complete Documentation](docs/DOCUMENTATION.md)
+- [🔧 Configuration Guide](docs/CONFIGURATION.md) ⭐ NEW
 - [🔧 AWS Credentials Setup](docs/DOCUMENTATION.md#aws-credentials-setup)
 - [🏢 Organization Mode Setup](docs/DOCUMENTATION.md#organization-mode)
 - [🔐 Cross-Account Role Configuration](docs/DOCUMENTATION.md#cross-account-roles)
