@@ -22,6 +22,8 @@ from .backup_commands import backup
 from .snapshots_commands import snapshots
 
 @click.group(invoke_without_command=True)
+@click.option('--config-file', help='Path to configuration file (default: ./kosty.yaml or ~/.kosty/config.yaml)')
+@click.option('--profile', default='default', help='Configuration profile to use')
 @click.option('--organization', is_flag=True, help='Run across organization accounts')
 @click.option('--region', default='us-east-1', help='AWS region')
 @click.option('--max-workers', default=5, help='Maximum concurrent workers')
@@ -31,9 +33,11 @@ from .snapshots_commands import snapshots
 @click.option('--org-admin-account-id', help='Organization admin account ID (if different from current account)')
 @click.version_option(version=__version__, prog_name='Kosty')
 @click.pass_context
-def cli(ctx, run_all, organization, region, max_workers, output, cross_account_role, org_admin_account_id):
+def cli(ctx, config_file, profile, run_all, organization, region, max_workers, output, cross_account_role, org_admin_account_id):
     """Kosty - AWS Cost Optimization Tool"""
     ctx.ensure_object(dict)
+    ctx.obj['config_file'] = config_file
+    ctx.obj['profile'] = profile
     ctx.obj['organization'] = organization
     ctx.obj['region'] = region
     ctx.obj['max_workers'] = max_workers
@@ -83,36 +87,64 @@ def cli(ctx, run_all, organization, region, max_workers, output, cross_account_r
 def audit(ctx, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id):
     """Quick comprehensive audit (same as --all)"""
     from ..core.scanner import ComprehensiveScanner
+    from ..core.config import ConfigManager
     import asyncio
     
-    # Use command-level options if provided, otherwise fall back to global options
-    org = organization or ctx.obj['organization']
+    # Load configuration
+    try:
+        config_manager = ConfigManager(
+            config_file=ctx.obj.get('config_file'),
+            profile=ctx.obj.get('profile', 'default')
+        )
+    except Exception as e:
+        print(f"\n❌ Configuration error: {e}")
+        return
+    
+    # Merge config with CLI args (CLI takes priority)
+    final_config = config_manager.merge_with_cli_args({
+        'organization': organization,
+        'region': region,
+        'regions': regions,
+        'max_workers': max_workers,
+        'output': output,
+        'save_to': save_to,
+        'cross_account_role': cross_account_role,
+        'org_admin_account_id': org_admin_account_id
+    })
     
     # Handle regions priority
-    if regions:
-        reg_list = [r.strip() for r in regions.split(',')]
-    elif region:
-        reg_list = [region]
-    elif ctx.obj['region']:
-        reg_list = [ctx.obj['region']]
+    if final_config.get('regions'):
+        if isinstance(final_config['regions'], str):
+            reg_list = [r.strip() for r in final_config['regions'].split(',')]
+        else:
+            reg_list = final_config['regions']
+    elif final_config.get('region'):
+        reg_list = [final_config['region']]
     else:
         reg_list = ['us-east-1']
     
-    workers = max_workers or ctx.obj['max_workers']
-    role_name = cross_account_role or ctx.obj['cross_account_role']
-    admin_account = org_admin_account_id or ctx.obj['org_admin_account_id']
+    # Get AWS session (with AssumeRole/MFA if configured)
+    session = config_manager.get_aws_session()
     
     # Validate save location upfront if specified
-    if save_to and output in ['json', 'csv', 'all']:
+    if final_config.get('save_to') and final_config.get('output') in ['json', 'csv', 'all']:
         from ..core.storage import StorageManager
         storage_manager = StorageManager()
-        print(f"\n🔍 Validating save location: {save_to}")
-        if not asyncio.run(storage_manager.validate_save_location(save_to)):
+        print(f"\n🔍 Validating save location: {final_config['save_to']}")
+        if not asyncio.run(storage_manager.validate_save_location(final_config['save_to'])):
             print("\n🛑 Save location validation failed. Aborting scan.")
             return
         print("✅ Save location validated successfully")
     
-    scanner = ComprehensiveScanner(org, reg_list, workers, role_name, admin_account)
+    scanner = ComprehensiveScanner(
+        final_config.get('organization', False),
+        reg_list,
+        final_config.get('max_workers', 5),
+        final_config.get('cross_account_role', 'OrganizationAccountAccessRole'),
+        final_config.get('org_admin_account_id'),
+        config_manager=config_manager,
+        session=session
+    )
     reporter = asyncio.run(scanner.run_comprehensive_scan())
     
     # Generate reports based on output format

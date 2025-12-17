@@ -1,0 +1,113 @@
+# Kosty Configuration Example
+# Copy to kosty.yaml and customize
+#
+# File priority: --config-file > ./kosty.yaml > ~/.kosty/config.yaml
+#
+# Usage:
+#   kosty audit                      # default profile
+#   kosty audit --profile customer01
+#   kosty audit --config-file prod.yaml
+
+# Global exclusions (all profiles)
+exclude:
+  accounts:
+    - "123456789012"  # sandbox
+    - "987654321098"  # legacy
+  
+  regions:
+    - "ap-south-1"
+    - "sa-east-1"
+  
+  services:
+    - "route53"
+    - "apigateway"
+  
+  arns:
+    - "arn:aws:ec2:*:123456789012:instance/i-protected*"
+    - "arn:aws:s3:::my-protected-bucket"
+    - "arn:aws:rds:us-east-1:*:db:production-*"
+
+# Global thresholds
+thresholds:
+  ec2_cpu: 20
+  rds_cpu: 20
+  lambda_memory: 512
+  stopped_days: 7
+  idle_days: 7
+  old_snapshot_days: 30
+
+# Default profile
+default:
+  organization: true
+  cross_account_role: "OrganizationAccountAccessRole"
+  org_admin_account_id: null
+  regions:
+    - us-east-1
+    - eu-west-1
+  max_workers: 20
+  output: json
+  save_to: s3://my-bucket/kosty-reports/
+
+# Additional profiles
+profiles:
+  customer01:
+    organization: false
+    regions:
+      - us-east-1
+    role_arn: "arn:aws:iam::488123456789:role/AllowDogsbody"
+    mfa_serial: "arn:aws:iam::532123456789:mfa/device"
+    duration_seconds: 28800
+    max_workers: 10
+    output: json
+    exclude:
+      services:
+        - "dynamodb"
+  
+  customer02:
+    organization: false
+    regions:
+      - us-east-1
+    role_arn: "arn:aws:iam::741923456789:role/AllowDogsbody"
+    mfa_serial: "arn:aws:iam::532123456789:mfa/device"
+    max_workers: 5
+    thresholds:
+      ec2_cpu: 15
+      stopped_days: 30
+  
+  customer03:
+    organization: false
+    regions:
+      - eu-west-1
+    role_arn: "arn:aws:iam::976123456789:role/AllowDogsbody"
+    max_workers: 10
+  
+  production:
+    organization: true
+    cross_account_role: "ProductionAuditRole"
+    regions:
+      - us-east-1
+      - us-west-2
+      - eu-west-1
+    max_workers: 30
+    output: all
+    save_to: s3://prod-audit-reports/kosty/
+    exclude:
+      arns:
+        - "arn:aws:rds:*:*:db:prod-*"
+  
+  development:
+    organization: false
+    regions:
+      - us-east-1
+    max_workers: 5
+    output: console
+    thresholds:
+      ec2_cpu: 10
+      stopped_days: 14
+
+# Notes:
+# - Exclusions: profile adds to global (cumulative)
+# - Thresholds: profile overrides global (only specified ones)
+# - Priority: CLI args > profile > default > hardcoded
+# - AssumeRole: set role_arn to assume, mfa_serial for MFA prompt
+# - ARN wildcards: use * for pattern matching
