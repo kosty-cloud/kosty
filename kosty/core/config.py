@@ -223,6 +223,13 @@ class ConfigManager:
                 merged[key] = value
         return merged
     
+    def get_all_profiles(self) -> List[str]:
+        """Get list of all profile names from config"""
+        profiles = ['default']
+        if 'profiles' in self.raw_config:
+            profiles.extend(self.raw_config['profiles'].keys())
+        return profiles
+    
     def get_aws_session(self) -> boto3.Session:
         """Create AWS session with AssumeRole/MFA if configured"""
         role_arn = self.get('role_arn')
