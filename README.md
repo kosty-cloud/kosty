@@ -254,6 +254,29 @@ kosty audit --organization --org-admin-account-id 123456789012
 kosty audit --organization --cross-account-role MyRole --org-admin-account-id 123456789012
 ```
 
+### 5. 🔄 **Multi-Profile Audits** - Run across all profiles in parallel
+```bash
+# Run audit on all profiles from config file
+kosty audit --profiles --output all
+
+# Control parallel execution (default: 3 profiles at once)
+kosty audit --profiles --max-parallel-profiles 5
+
+# Multi-profile with custom config file
+kosty audit --config-file /path/to/config.yaml --profiles --output json
+
+# Override settings for all profiles
+kosty audit --profiles --max-workers 10 --output csv
+```
+
+**What happens:**
+- Reads all profiles from your config file
+- Runs audits in parallel (default: 3 at a time)
+- Generates separate reports per profile: `output/kosty_audit_<profile>_<timestamp>.json`
+- Creates summary report: `output/kosty_summary_<timestamp>.json`
+- Continues on errors (failed profiles don't stop others)
+- Shows aggregated totals across all profiles
+
 ---
 
 ## 💰 Cost Quantification Engine
@@ -404,6 +427,7 @@ kosty audit --output all
 - ✅ **One-Command Audit** - `kosty audit` scans everything
 - ✅ **Organization Support** - Multi-account scanning with configurable roles
 - ✅ **Multi-Region** - Scan across multiple AWS regions simultaneously with `--regions`
+- ✅ **Multi-Profile** - Run audits across all profiles in parallel with `--profiles`
 - ✅ **Flexible IAM** - Custom cross-account roles and separate org admin accounts
 
 ### ⚡ **Performance & Usability**
@@ -426,6 +450,9 @@ kosty audit
 
 # Use specific profile
 kosty audit --profile customer01
+
+# Run all profiles in parallel
+kosty audit --profiles --output all
 
 # Use custom config file
 kosty audit --config-file /path/to/config.yaml
