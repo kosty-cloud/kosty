@@ -434,33 +434,30 @@ kosty audit --config-file /path/to/config.yaml
 kosty audit --profile customer01 --regions eu-west-1 --max-workers 30
 ```
 
-### Configuration Features
+### Features
 
-- **📁 Multiple Profiles** - Switch between environments (dev/staging/prod)
-- **🚫 Exclusions** - Skip specific accounts, regions, services, or ARNs
-- **🎯 Thresholds** - Customize CPU, memory, and age thresholds per profile
-- **🔐 AWS Auth** - AssumeRole with MFA support
-- **🔄 Priority** - CLI args override config values
+- Multiple profiles for different environments
+- Exclude specific accounts, regions, services, or ARNs
+- Customize thresholds per profile
+- AssumeRole with MFA support
+- CLI args override config values
 
 ### Example Configuration
 
 ```yaml
-# Global exclusions
 exclude:
   accounts:
-    - "123456789012"  # Sandbox
+    - "123456789012"
   services:
     - "route53"
   arns:
     - "arn:aws:ec2:*:*:instance/i-protected*"
 
-# Global thresholds
 thresholds:
   ec2_cpu: 20
   rds_cpu: 20
   stopped_days: 7
 
-# Default profile
 default:
   organization: true
   regions:
@@ -468,7 +465,6 @@ default:
     - eu-west-1
   max_workers: 20
 
-# Customer profiles
 profiles:
   customer01:
     regions: [us-east-1]
@@ -482,15 +478,15 @@ See [Configuration Guide](docs/CONFIGURATION.md) for complete documentation.
 
 ## 📖 Documentation
 
-- [📋 Complete Documentation](docs/DOCUMENTATION.md)
-- [🔧 Configuration Guide](docs/CONFIGURATION.md) ⭐ NEW
-- [🔧 AWS Credentials Setup](docs/DOCUMENTATION.md#aws-credentials-setup)
-- [🏢 Organization Mode Setup](docs/DOCUMENTATION.md#organization-mode)
-- [🔐 Cross-Account Role Configuration](docs/DOCUMENTATION.md#cross-account-roles)
-- [📊 Visual Dashboard](dashboard/README.md)
-- [🏗️ CLI Architecture](docs/CLI_ARCHITECTURE.md)
-- [📝 Release Notes](docs/RELEASE_NOTES.md)
-- [🛠️ Troubleshooting Guide](docs/DOCUMENTATION.md#troubleshooting)
+- [Complete Documentation](docs/DOCUMENTATION.md)
+- [Configuration Guide](docs/CONFIGURATION.md) - NEW
+- [AWS Credentials Setup](docs/DOCUMENTATION.md#aws-credentials-setup)
+- [Organization Mode Setup](docs/DOCUMENTATION.md#organization-mode)
+- [Cross-Account Role Configuration](docs/DOCUMENTATION.md#cross-account-roles)
+- [Visual Dashboard](dashboard/README.md)
+- [CLI Architecture](docs/CLI_ARCHITECTURE.md)
+- [Release Notes](docs/RELEASE_NOTES.md)
+- [Troubleshooting Guide](docs/DOCUMENTATION.md#troubleshooting)
 
 ## 🤝 Contributing
 
