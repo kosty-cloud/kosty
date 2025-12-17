@@ -7,7 +7,7 @@ from .progress import ProgressBar
 from .executor import ServiceExecutor
 
 class ComprehensiveScanner:
-    def __init__(self, organization: bool, regions: List[str], max_workers: int, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None):
+    def __init__(self, organization: bool, regions: List[str], max_workers: int, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None, config_manager=None, session=None):
         self.organization = organization
         self.regions = regions if isinstance(regions, list) else [regions]
         self.max_workers = max_workers
@@ -15,6 +15,16 @@ class ComprehensiveScanner:
         self.org_admin_account_id = org_admin_account_id
         self.reporter = CostOptimizationReporter()
         self.reporter.set_scan_context(organization, org_admin_account_id)
+        
+        # Config manager for exclusions and thresholds
+        if config_manager is None:
+            from .config import ConfigManager
+            config_manager = ConfigManager()
+        self.config_manager = config_manager
+        
+        # AWS session (with AssumeRole if configured)
+        self.session = session
+        
         self.services = self._discover_audit_services()
     
     def _discover_audit_services(self) -> List[Tuple[str, Any]]:
@@ -26,6 +36,11 @@ class ComprehensiveScanner:
             if filename.endswith('_audit.py') and not filename.startswith('__'):
                 module_name = filename[:-3]  # Remove .py
                 service_name = module_name.replace('_audit', '')
+                
+                # Check if service is excluded
+                if self.config_manager.should_exclude_service(service_name):
+                    print(f"⚠️  {service_name.upper()} service excluded by config")
+                    continue
                 
                 try:
                     # Import the module
