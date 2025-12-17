@@ -83,14 +83,42 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')
 @click.option('--cross-account-role', help='Role name for cross-account access')
 @click.option('--org-admin-account-id', help='Organization admin account ID')
+@click.option('--profiles', is_flag=True, help='Run audit on all profiles from config file')
+@click.option('--max-parallel-profiles', type=int, default=3, help='Max profiles to run in parallel (default: 3)')
 @click.pass_context
-def audit(ctx, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id):
+def audit(ctx, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles):
     """Quick comprehensive audit (same as --all)"""
     from ..core.scanner import ComprehensiveScanner
     from ..core.config import ConfigManager
+    from ..core.multi_profile_runner import MultiProfileRunner
     import asyncio
     
-    # Load configuration
+    # Multi-profile mode
+    if profiles:
+        runner = MultiProfileRunner(config_file=ctx.obj.get('config_file'))
+        
+        cli_args = {
+            'organization': organization,
+            'region': region,
+            'regions': regions,
+            'max_workers': max_workers,
+            'output': output,
+            'save_to': save_to,
+            'cross_account_role': cross_account_role,
+            'org_admin_account_id': org_admin_account_id
+        }
+        
+        runner.run_parallel(cli_args, max_parallel=max_parallel_profiles)
+        
+        if output in ['console', 'all']:
+            runner.print_summary()
+        
+        if output in ['json', 'csv', 'all']:
+            runner.save_reports(output_format=output)
+        
+        return
+    
+    # Single profile mode (existing logic)
     try:
         config_manager = ConfigManager(
             config_file=ctx.obj.get('config_file'),
