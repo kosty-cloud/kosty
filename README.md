@@ -506,7 +506,8 @@ See [Configuration Guide](docs/CONFIGURATION.md) for complete documentation.
 ## 📖 Documentation
 
 - [Complete Documentation](docs/DOCUMENTATION.md)
-- [Configuration Guide](docs/CONFIGURATION.md) - NEW
+- [Configuration Guide](docs/CONFIGURATION.md)
+- [Multi-Profile Guide](docs/MULTI_PROFILE_GUIDE.md) - NEW
 - [AWS Credentials Setup](docs/DOCUMENTATION.md#aws-credentials-setup)
 - [Organization Mode Setup](docs/DOCUMENTATION.md#organization-mode)
 - [Cross-Account Role Configuration](docs/DOCUMENTATION.md#cross-account-roles)
