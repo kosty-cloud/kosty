@@ -1,88 +1,68 @@
-# ============================================
-# Kosty Configuration File Example
-# ============================================
-# Copy this file to kosty.yaml and customize for your environment
+# Kosty Configuration Example
+# Copy to kosty.yaml and customize
 #
-# File locations (in order of priority):
-#   1. --config-file /path/to/config.yaml (explicit)
-#   2. ./kosty.yaml (current directory)
-#   3. ~/.kosty/config.yaml (home directory)
+# File priority: --config-file > ./kosty.yaml > ~/.kosty/config.yaml
 #
 # Usage:
-#   kosty audit                          # Uses 'default' profile
-#   kosty audit --profile customer01     # Uses 'customer01' profile
-#   kosty audit --config-file prod.yaml  # Uses custom config file
+#   kosty audit                      # default profile
+#   kosty audit --profile customer01
+#   kosty audit --config-file prod.yaml
 
-# ============================================
-# GLOBAL EXCLUSIONS (applied to all profiles)
-# ============================================
+# Global exclusions (all profiles)
 exclude:
-  # AWS accounts to exclude from scans
   accounts:
-    - "123456789012"  # Sandbox account
-    - "987654321098"  # Legacy account
+    - "123456789012"  # sandbox
+    - "987654321098"  # legacy
   
-  # AWS regions to exclude from scans
   regions:
     - "ap-south-1"
     - "sa-east-1"
   
-  # Services to exclude from scans
   services:
-    - "route53"      # Skip Route53 checks
-    - "apigateway"   # Skip API Gateway checks
+    - "route53"
+    - "apigateway"
   
-  # ARNs to exclude (supports wildcards)
   arns:
-    - "arn:aws:ec2:*:123456789012:instance/i-protected*"  # Protected EC2 instances
-    - "arn:aws:s3:::my-protected-bucket"                   # Protected S3 bucket
-    - "arn:aws:rds:us-east-1:*:db:production-*"           # Production RDS databases
+    - "arn:aws:ec2:*:123456789012:instance/i-protected*"
+    - "arn:aws:s3:::my-protected-bucket"
+    - "arn:aws:rds:us-east-1:*:db:production-*"
 
-# ============================================
-# GLOBAL THRESHOLDS (applied to all profiles)
-# ============================================
+# Global thresholds
 thresholds:
-  ec2_cpu: 20              # EC2 oversized if CPU < 20%
-  rds_cpu: 20              # RDS oversized if CPU < 20%
-  lambda_memory: 512       # Lambda over-provisioned if memory > 512MB
-  stopped_days: 7          # EC2 stopped for 7+ days
-  idle_days: 7             # EC2 idle for 7+ days
-  old_snapshot_days: 30    # EBS snapshots older than 30 days
+  ec2_cpu: 20
+  rds_cpu: 20
+  lambda_memory: 512
+  stopped_days: 7
+  idle_days: 7
+  old_snapshot_days: 30
 
-# ============================================
-# DEFAULT PROFILE (used without --profile)
-# ============================================
+# Default profile
 default:
   organization: true
   cross_account_role: "OrganizationAccountAccessRole"
-  org_admin_account_id: null  # Optional: separate org admin account
+  org_admin_account_id: null
   regions:
     - us-east-1
     - eu-west-1
   max_workers: 20
   output: json
-  save_to: s3://my-bucket/kosty-reports/  # Optional: S3 or local path
+  save_to: s3://my-bucket/kosty-reports/
 
-# ============================================
-# ADDITIONAL PROFILES (use with --profile)
-# ============================================
+# Additional profiles
 profiles:
-  # Single account with AssumeRole and MFA
   customer01:
     organization: false
     regions:
       - us-east-1
     role_arn: "arn:aws:iam::488123456789:role/AllowDogsbody"
     mfa_serial: "arn:aws:iam::532123456789:mfa/device"
-    duration_seconds: 28800  # 8 hours
+    duration_seconds: 28800
     max_workers: 10
     output: json
-    # Profile-specific exclusions (added to global)
     exclude:
       services:
         - "dynamodb"
   
-  # Single account with custom thresholds
   customer02:
     organization: false
     regions:
@@ -90,21 +70,17 @@ profiles:
     role_arn: "arn:aws:iam::741923456789:role/AllowDogsbody"
     mfa_serial: "arn:aws:iam::532123456789:mfa/device"
     max_workers: 5
-    # Override global thresholds
     thresholds:
-      ec2_cpu: 15      # More strict than global (20)
-      stopped_days: 30 # More lenient than global (7)
+      ec2_cpu: 15
+      stopped_days: 30
   
-  # Single account without MFA
   customer03:
     organization: false
     regions:
       - eu-west-1
     role_arn: "arn:aws:iam::976123456789:role/AllowDogsbody"
-    # No mfa_serial = no MFA prompt
     max_workers: 10
   
-  # Multi-region production scan
   production:
     organization: true
     cross_account_role: "ProductionAuditRole"
@@ -113,51 +89,25 @@ profiles:
       - us-west-2
       - eu-west-1
     max_workers: 30
-    output: all  # Generate console, JSON, and CSV
+    output: all
     save_to: s3://prod-audit-reports/kosty/
     exclude:
-      # Exclude production databases from checks
       arns:
         - "arn:aws:rds:*:*:db:prod-*"
   
-  # Development environment
   development:
     organization: false
     regions:
       - us-east-1
     max_workers: 5
     output: console
-    # More lenient thresholds for dev
     thresholds:
       ec2_cpu: 10
       stopped_days: 14
 
-# ============================================
-# CONFIGURATION NOTES
-# ============================================
-#
-# Exclusions (MERGE behavior):
-#   - Profile exclusions are ADDED to global exclusions
-#   - Example: If global excludes "route53" and profile excludes "dynamodb",
-#     both services will be excluded when using that profile
-#
-# Thresholds (OVERRIDE behavior):
-#   - Profile thresholds OVERRIDE global thresholds
-#   - Only specified thresholds are overridden, others use global values
-#   - Example: If profile sets ec2_cpu=15, it overrides global ec2_cpu=20,
-#     but rds_cpu still uses global value
-#
-# Priority Order:
-#   CLI args > Profile config > Default config > Hardcoded defaults
-#
-# AssumeRole:
-#   - If role_arn is set, Kosty will assume that role
-#   - If mfa_serial is set, you'll be prompted for MFA token
-#   - If role_arn is not set, default AWS credentials are used
-#
-# Wildcards in ARNs:
-#   - Use * for wildcard matching
-#   - Examples:
-#     - "arn:aws:ec2:*:123456789012:instance/*" (all EC2 in account)
-#     - "arn:aws:s3:::prod-*" (all buckets starting with prod-)
-#     - "arn:aws:rds:us-east-1:*:db:*" (all RDS in us-east-1)
+# Notes:
+# - Exclusions: profile adds to global (cumulative)
+# - Thresholds: profile overrides global (only specified ones)
+# - Priority: CLI args > profile > default > hardcoded
+# - AssumeRole: set role_arn to assume, mfa_serial for MFA prompt
+# - ARN wildcards: use * for pattern matching

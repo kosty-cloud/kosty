@@ -50,15 +50,9 @@ DEFAULT_THRESHOLDS = {
 
 
 class ConfigManager:
-    """Manages Kosty configuration with YAML profiles"""
+    """Manage configuration with YAML profiles"""
     
     def __init__(self, config_file: Optional[str] = None, profile: str = "default"):
-        """Initialize configuration manager
-        
-        Args:
-            config_file: Path to config file (optional)
-            profile: Profile name to use (default: "default")
-        """
         self.config_file = config_file
         self.profile = profile
         self.config = {}
@@ -69,28 +63,18 @@ class ConfigManager:
         self._validate_config()
     
     def _find_config_file(self) -> Optional[str]:
-        """Find configuration file in order of priority
-        
-        Priority:
-        1. --config-file argument
-        2. ./kosty.yaml (current directory)
-        3. ~/.kosty/config.yaml (home directory)
-        
-        Returns:
-            Path to config file or None
-        """
-        # 1. Explicit config file
+        """Find config: --config-file > ./kosty.yaml > ~/.kosty/config.yaml"""
         if self.config_file:
             if os.path.exists(self.config_file):
                 return self.config_file
             raise ConfigNotFoundError(f"Config file not found: {self.config_file}")
         
-        # 2. Current directory
+        # Check current directory
         for filename in ['kosty.yaml', 'kosty.yml', '.kosty.yaml', '.kosty.yml']:
             if os.path.exists(filename):
                 return filename
         
-        # 3. Home directory
+        # Check home directory
         home_config = Path.home() / '.kosty' / 'config.yaml'
         if home_config.exists():
             return str(home_config)
@@ -98,11 +82,10 @@ class ConfigManager:
         return None
     
     def _load_config(self) -> None:
-        """Load configuration from YAML file"""
+        """Load config from YAML file"""
         config_path = self._find_config_file()
         
         if not config_path:
-            # No config file found, use defaults
             self.raw_config = {'default': {}}
             self.config = DEFAULT_CONFIG.copy()
             return
@@ -115,14 +98,11 @@ class ConfigManager:
         except Exception as e:
             raise ConfigValidationError(f"Failed to load config file {config_path}: {e}")
         
-        # Start with defaults
         self.config = DEFAULT_CONFIG.copy()
         
-        # Merge with default profile
         if 'default' in self.raw_config:
             self.config.update(self.raw_config['default'])
         
-        # Merge with selected profile (if not default)
         if self.profile != 'default':
             profiles = self.raw_config.get('profiles', {})
             if self.profile in profiles:
@@ -131,35 +111,30 @@ class ConfigManager:
                 print(f"⚠️  Profile '{self.profile}' not found, using 'default'")
     
     def _validate_config(self) -> None:
-        """Validate configuration values"""
+        """Validate config values"""
         errors = []
         
-        # Validate regions
         regions = self.config.get('regions', [])
         if isinstance(regions, str):
             regions = [regions]
         
         for region in regions:
             if region not in VALID_REGIONS:
-                errors.append(f"Invalid region: '{region}'")
+                errors.append(f"Invalid region: {region}")
         
-        # Validate excluded services
         excluded_services = self.get_exclusions().get('services', [])
         for service in excluded_services:
             if service not in VALID_SERVICES:
-                errors.append(f"Unknown service: '{service}'")
+                errors.append(f"Unknown service: {service}")
         
-        # Validate ARN format
         excluded_arns = self.get_exclusions().get('arns', [])
         for arn in excluded_arns:
             if not arn.startswith('arn:aws:'):
-                errors.append(f"Invalid ARN format: '{arn}' (must start with 'arn:aws:')")
+                errors.append(f"Invalid ARN: {arn}")
         
-        # Validate boolean types
         if 'organization' in self.config and not isinstance(self.config['organization'], bool):
-            errors.append("'organization' must be boolean (true/false)")
+            errors.append("'organization' must be boolean")
         
-        # Validate integer types
         if 'max_workers' in self.config:
             if not isinstance(self.config['max_workers'], int) or self.config['max_workers'] <= 0:
                 errors.append("'max_workers' must be positive integer")
@@ -168,46 +143,28 @@ class ConfigManager:
             if not isinstance(self.config['duration_seconds'], int) or self.config['duration_seconds'] <= 0:
                 errors.append("'duration_seconds' must be positive integer")
         
-        # Validate thresholds
         thresholds = self.get_thresholds()
         for key, value in thresholds.items():
             if not isinstance(value, (int, float)) or value <= 0:
-                errors.append(f"Threshold '{key}' must be positive number, got: {value}")
+                errors.append(f"Invalid threshold '{key}': {value}")
         
-        # Raise if errors found
         if errors:
             print("\n❌ Configuration validation failed:\n")
             for error in errors:
                 print(f"  • {error}")
-            print("\n🛑 Fix configuration errors before running Kosty.\n")
+            print("\n🛑 Fix errors before running Kosty.\n")
             raise ConfigValidationError('\n'.join(errors))
     
     def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value with fallback
-        
-        Args:
-            key: Configuration key
-            default: Default value if key not found
-            
-        Returns:
-            Configuration value or default
-        """
         return self.config.get(key, default)
     
     def get_thresholds(self) -> Dict[str, Any]:
-        """Get all thresholds with merge logic (3A)
-        
-        Returns:
-            Merged thresholds (global + profile overrides)
-        """
-        # Start with defaults
+        """Get thresholds: global + profile overrides"""
         thresholds = DEFAULT_THRESHOLDS.copy()
         
-        # Merge with global thresholds
         if 'thresholds' in self.raw_config:
             thresholds.update(self.raw_config['thresholds'])
         
-        # Merge with profile thresholds (override)
         if self.profile != 'default':
             profiles = self.raw_config.get('profiles', {})
             if self.profile in profiles:
@@ -217,11 +174,7 @@ class ConfigManager:
         return thresholds
     
     def get_exclusions(self) -> Dict[str, List[str]]:
-        """Get all exclusions with merge logic (2A)
-        
-        Returns:
-            Merged exclusions (global + profile additions)
-        """
+        """Get exclusions: global + profile additions"""
         exclusions = {
             'accounts': [],
             'regions': [],
@@ -229,12 +182,10 @@ class ConfigManager:
             'arns': []
         }
         
-        # Add global exclusions
         if 'exclude' in self.raw_config:
             for key in exclusions.keys():
                 exclusions[key].extend(self.raw_config['exclude'].get(key, []))
         
-        # Add profile exclusions (cumulative)
         if self.profile != 'default':
             profiles = self.raw_config.get('profiles', {})
             if self.profile in profiles:
@@ -245,98 +196,46 @@ class ConfigManager:
         return exclusions
     
     def should_exclude_account(self, account_id: str) -> bool:
-        """Check if account should be excluded
-        
-        Args:
-            account_id: AWS account ID
-            
-        Returns:
-            True if account should be excluded
-        """
         excluded_accounts = self.get_exclusions().get('accounts', [])
         return account_id in excluded_accounts
     
     def should_exclude_region(self, region: str) -> bool:
-        """Check if region should be excluded
-        
-        Args:
-            region: AWS region code
-            
-        Returns:
-            True if region should be excluded
-        """
         excluded_regions = self.get_exclusions().get('regions', [])
         return region in excluded_regions
     
     def should_exclude_service(self, service: str) -> bool:
-        """Check if service should be excluded
-        
-        Args:
-            service: Service name (e.g., 'ec2', 's3')
-            
-        Returns:
-            True if service should be excluded
-        """
         excluded_services = self.get_exclusions().get('services', [])
         return service in excluded_services
     
     def should_exclude_arn(self, arn: str) -> bool:
-        """Check if ARN should be excluded (supports wildcards)
-        
-        Args:
-            arn: AWS ARN
-            
-        Returns:
-            True if ARN matches exclusion pattern
-        """
+        """Check if ARN matches exclusion pattern (wildcards supported)"""
         excluded_arns = self.get_exclusions().get('arns', [])
-        
         for pattern in excluded_arns:
             if fnmatch.fnmatch(arn, pattern):
                 return True
-        
         return False
     
     def merge_with_cli_args(self, cli_args: Dict[str, Any]) -> Dict[str, Any]:
-        """Merge configuration with CLI arguments
-        
-        Priority: CLI args > Profile config > Default config > Hardcoded defaults
-        
-        Args:
-            cli_args: Dictionary of CLI arguments
-            
-        Returns:
-            Merged configuration
-        """
+        """Merge config with CLI args (CLI takes priority)"""
         merged = self.config.copy()
-        
-        # Override with CLI args (only non-None values)
         for key, value in cli_args.items():
             if value is not None:
                 merged[key] = value
-        
         return merged
     
     def get_aws_session(self) -> boto3.Session:
-        """Create AWS session with AssumeRole and MFA support
-        
-        Returns:
-            Configured boto3 Session
-        """
+        """Create AWS session with AssumeRole/MFA if configured"""
         role_arn = self.get('role_arn')
         mfa_serial = self.get('mfa_serial')
         duration = self.get('duration_seconds', 3600)
         
-        # No role_arn, use default credentials
         if not role_arn:
             return boto3.Session()
         
-        # Prompt for MFA if configured
         mfa_token = None
         if mfa_serial:
             mfa_token = input(f"🔐 Enter MFA token for {mfa_serial}: ")
         
-        # AssumeRole
         sts = boto3.client('sts')
         
         assume_role_params = {

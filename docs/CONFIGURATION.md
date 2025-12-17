@@ -1,10 +1,8 @@
-# 🔧 Kosty Configuration Guide
+# Kosty Configuration Guide
 
 Complete guide to configuring Kosty with YAML profiles for persistent settings, exclusions, and AWS authentication.
 
----
-
-## 📋 Table of Contents
+## Table of Contents
 
 - [Quick Start](#quick-start)
 - [Configuration File Location](#configuration-file-location)
@@ -16,11 +14,9 @@ Complete guide to configuring Kosty with YAML profiles for persistent settings, 
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
 
----
+## Quick Start
 
-## 🚀 Quick Start
-
-### 1. Create Configuration File
+### Create Configuration File
 
 ```bash
 # Copy example file
@@ -30,7 +26,7 @@ cp kosty.yaml.example kosty.yaml
 vim kosty.yaml
 ```
 
-### 2. Basic Usage
+### Basic Usage
 
 ```bash
 # Use default profile
@@ -46,9 +42,7 @@ kosty audit --config-file /path/to/config.yaml
 kosty audit --profile customer01 --regions eu-west-1 --max-workers 30
 ```
 
----
-
-## 📂 Configuration File Location
+## Configuration File Location
 
 Kosty searches for configuration files in this order:
 
@@ -68,9 +62,7 @@ Kosty searches for configuration files in this order:
 
 If no configuration file is found, Kosty uses hardcoded defaults.
 
----
-
-## 👤 Profile System
+## Profile System
 
 ### Default Profile
 
@@ -131,9 +123,7 @@ kosty audit --profile production
 | `mfa_serial` | string | MFA device ARN | `null` |
 | `duration_seconds` | integer | AssumeRole session duration | `3600` |
 
----
-
-## 🚫 Exclusions
+## Exclusions
 
 ### Global Exclusions
 
@@ -153,7 +143,7 @@ exclude:
 
 ### Profile-Specific Exclusions
 
-**MERGE behavior**: Profile exclusions are **added** to global exclusions:
+Profile exclusions are added to global exclusions (cumulative):
 
 ```yaml
 # Global
@@ -233,9 +223,7 @@ exclude:
 
 **Effect**: Individual resources matching these patterns are skipped.
 
----
-
-## 🎯 Thresholds
+## Thresholds
 
 ### Global Thresholds
 
@@ -253,7 +241,7 @@ thresholds:
 
 ### Profile Threshold Overrides
 
-**OVERRIDE behavior**: Profile thresholds **replace** global thresholds:
+Profile thresholds replace global thresholds (only specified ones):
 
 ```yaml
 # Global
@@ -287,9 +275,7 @@ profiles:
 | `idle_days` | EC2 | Days instance idle | `7` |
 | `old_snapshot_days` | Snapshots | Snapshot age (days) | `30` |
 
----
-
-## 🔐 AWS Authentication
+## AWS Authentication
 
 ### Default Credentials
 
@@ -354,9 +340,7 @@ default:
 3. Assume `cross_account_role` in each account
 4. Run scans in parallel
 
----
-
-## 📊 Priority Order
+## Priority Order
 
 Configuration values are resolved in this order (highest to lowest priority):
 
@@ -401,9 +385,7 @@ kosty audit
 # → regions: [us-east-1, eu-west-1], max_workers: 20
 ```
 
----
-
-## 💡 Examples
+## Examples
 
 ### Example 1: Multi-Customer Setup
 
@@ -475,9 +457,7 @@ exclude:
     - "arn:aws:s3:::*"  # If in excluded account context
 ```
 
----
-
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Configuration Not Found
 
@@ -535,18 +515,14 @@ profiles:
 1. Region code is correct: `us-east-1` (not `us-east-1a`)
 2. Exclusion is in correct section (global `exclude` or profile `exclude`)
 
----
-
-## 📚 Additional Resources
+## Additional Resources
 
 - [Main Documentation](DOCUMENTATION.md)
 - [CLI Reference](CLI_REFERENCE.md)
 - [Release Notes](RELEASE_NOTES.md)
 - [Example Config File](../kosty.yaml.example)
 
----
-
-## 🆘 Need Help?
+## Need Help?
 
 - 📧 Email: yassir@kosty.cloud
 - 🐛 Issues: https://github.com/kosty-cloud/kosty/issues
