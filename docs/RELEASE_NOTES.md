@@ -1,5 +1,62 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.5.1 - Multi-Profile Parallel Execution (2025-01-15)
+
+### 🔄 Major Feature: Multi-Profile Audits
+- **Parallel Profile Execution**: Run audits across all profiles simultaneously
+  - New `--profiles` flag to execute all configured profiles
+  - Parallel execution with configurable concurrency (default: 3 profiles at once)
+  - Individual reports per profile with timestamp suffixes
+  - Aggregated summary report across all profiles
+  - Continue on errors - failed profiles don't stop others
+
+### 📊 Enhanced Reporting
+- **Profile-Specific Reports**: Each profile gets its own output file
+  - Format: `output/kosty_audit_<profile>_<timestamp>.json`
+  - Includes profile name, timestamp, and configuration metadata
+  - Separate CSV reports per profile when using `--output csv`
+  
+- **Summary Report**: Consolidated view across all profiles
+  - Total issues and savings aggregated
+  - Per-profile breakdown with success/failure status
+  - Error tracking for failed profiles
+  - Format: `output/kosty_summary_<timestamp>.json`
+
+### 🚀 Usage Examples
+```bash
+# Run all profiles in parallel
+kosty audit --profiles --output all
+
+# Control parallel execution
+kosty audit --profiles --max-parallel-profiles 5
+
+# Multi-profile with custom config
+kosty audit --config-file /path/to/config.yaml --profiles
+
+# Override settings for all profiles
+kosty audit --profiles --max-workers 10 --output json
+```
+
+### 📈 Console Output
+- Real-time progress tracking per profile
+- Individual profile completion status with issue counts and savings
+- Final summary table showing all profiles with totals
+- Error reporting for failed profiles
+
+### 🔧 Technical Implementation
+- **MultiProfileRunner Class**: New module for parallel profile execution
+- **ThreadPoolExecutor**: Efficient parallel processing with configurable workers
+- **Profile Isolation**: Each profile runs independently with its own config
+- **Error Resilience**: Exceptions in one profile don't affect others
+
+### 💡 Use Cases
+- **Multi-Customer Audits**: Run audits for all customers in one command
+- **Environment Comparison**: Compare dev, staging, and production simultaneously
+- **Regional Analysis**: Audit multiple regions with different configurations
+- **Time Efficiency**: Reduce total audit time with parallel execution
+
+---
+
 ## Version 1.4.0 - Cost Quantification Engine & Phase 2 Services (2025-11-02)
 
 ### 💰 Major Feature: Cost Quantification Engine
