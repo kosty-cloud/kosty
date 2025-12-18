@@ -1,5 +1,67 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.6.0 - Tag-Based Resource Exclusion (2025-01-16)
+
+### 🏷️ Major Feature: Tag-Based Exclusion Filtering
+- **Resource Filtering by Tags**: Skip resources based on AWS tags before auditing
+  - Filter resources BEFORE expensive API calls (CloudWatch metrics, etc.)
+  - Support for exact match (key + value) or key-only matching
+  - Works across all 16 services with tag support
+  - Cumulative exclusions: profile tags add to global tags
+
+### 🎯 Configuration Format
+```yaml
+exclude:
+  tags:
+    # Exact match (key + value)
+    - key: "kosty_ignore"
+      value: "true"
+    
+    # Key match (any value)
+    - key: "Environment"
+      value: "production"
+    
+    # Key exists (no value specified)
+    - key: "Protected"
+```
+
+### 🚀 Usage Examples
+```bash
+# Tag your resources
+aws ec2 create-tags --resources i-1234567890abcdef0 \
+  --tags Key=kosty_ignore,Value=true
+
+# Run audit - tagged resource will be skipped
+kosty audit
+
+# Per-profile tag exclusions
+kosty audit --profile production
+```
+
+### 📊 Implementation Coverage
+- **16 Services Updated**: ~160 methods modified across all services
+- **Performance Optimized**: Resources filtered before expensive operations
+- **Universal Support**: Works with EC2, S3, RDS, Lambda, EBS, and all other services
+
+### 💡 Use Cases
+- **Skip Production Resources**: Exclude production environment from audits
+- **Protected Infrastructure**: Mark critical resources to skip
+- **Temporary Resources**: Exclude temporary/testing resources
+- **Customer-Specific**: Different exclusions per customer profile
+
+### 🔧 Technical Implementation
+- **tag_utils Module**: New utility module for tag filtering logic
+- **ConfigManager Enhancement**: Tag exclusion support in configuration
+- **Service Integration**: All services pass config_manager and filter by tags
+- **Early Filtering**: Skip resources before CloudWatch/API calls
+
+### 📖 Documentation Updates
+- Updated `kosty.yaml.example` with tag exclusion examples
+- Enhanced `CONFIGURATION.md` with comprehensive tag filtering guide
+- Added examples for common use cases
+
+---
+
 ## Version 1.5.1 - Multi-Profile Parallel Execution (2025-01-15)
 
 ### 🔄 Major Feature: Multi-Profile Audits
