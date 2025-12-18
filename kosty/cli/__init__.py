@@ -75,6 +75,7 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 
 # Main audit command
 @cli.command('audit')
+@click.option('--profile', help='Configuration profile to use')
 @click.option('--organization', is_flag=True, help='Run across organization accounts')
 @click.option('--regions', help='Comma-separated list of regions (e.g., us-east-1,eu-west-1)')
 @click.option('--region', help='AWS region to scan')
@@ -86,7 +87,7 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--profiles', is_flag=True, help='Run audit on all profiles from config file')
 @click.option('--max-parallel-profiles', type=int, default=3, help='Max profiles to run in parallel (default: 3)')
 @click.pass_context
-def audit(ctx, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles):
+def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles):
     """Quick comprehensive audit (same as --all)"""
     from ..core.scanner import ComprehensiveScanner
     from ..core.config import ConfigManager
@@ -119,10 +120,11 @@ def audit(ctx, organization, region, regions, max_workers, output, save_to, cros
         return
     
     # Single profile mode (existing logic)
+    profile_name = profile or ctx.obj.get('profile', 'default')
     try:
         config_manager = ConfigManager(
             config_file=ctx.obj.get('config_file'),
-            profile=ctx.obj.get('profile', 'default')
+            profile=profile_name
         )
     except Exception as e:
         print(f"\n❌ Configuration error: {e}")
