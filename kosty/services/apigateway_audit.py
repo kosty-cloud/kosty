@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
@@ -8,27 +9,27 @@ class APIGatewayAuditService:
         self.cost_checks = ['check_unused_apis']
         self.security_checks = []  # No security checks for API Gateway
     
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related API Gateway audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related API Gateway audits"""
         # No security checks for API Gateway
         return []
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all API Gateway audits (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
         return results
     
-    def check_unused_apis(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_apis(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find API Gateway APIs with no requests"""
         apigateway = session.client('apigateway', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)

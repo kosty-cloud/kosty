@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 
 class BackupAuditService:
@@ -7,26 +8,26 @@ class BackupAuditService:
         self.cost_checks = ['check_empty_backup_vaults', 'check_cross_region_backup_dev_test']
         self.security_checks = []
 
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related AWS Backup audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related AWS Backup audits"""
         return []
 
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all AWS Backup audits"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
         return results
 
-    def check_empty_backup_vaults(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_empty_backup_vaults(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find empty backup vaults"""
         backup = session.client('backup', region_name=region)
         results = []
@@ -74,7 +75,7 @@ class BackupAuditService:
         
         return results
 
-    def check_cross_region_backup_dev_test(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_cross_region_backup_dev_test(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find cross-region backup for dev/test environments"""
         backup = session.client('backup', region_name=region)
         results = []

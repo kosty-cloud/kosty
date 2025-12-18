@@ -290,12 +290,12 @@ class ServiceExecutor:
                 try:
                     result = await loop.run_in_executor(
                         executor, 
-                        lambda r=region: method(session, r, max_workers=workers_per_region, *args, **kwargs)
+                        lambda r=region: method(session, r, max_workers=workers_per_region, config_manager=self.config_manager, *args, **kwargs)
                     )
                 except TypeError:
                     result = await loop.run_in_executor(
                         executor, 
-                        lambda r=region: method(session, r, *args, **kwargs)
+                        lambda r=region: method(session, r, config_manager=self.config_manager, *args, **kwargs)
                     )
                 all_results.extend(result)
         
@@ -406,12 +406,12 @@ class ServiceExecutor:
                     try:
                         result = await loop.run_in_executor(
                             executor,
-                            lambda r=region: method(assumed_session, r, max_workers=workers_per_region, *args, **kwargs)
+                            lambda r=region: method(assumed_session, r, max_workers=workers_per_region, config_manager=self.config_manager, *args, **kwargs)
                         )
                     except TypeError:
                         result = await loop.run_in_executor(
                             executor,
-                            lambda r=region: method(assumed_session, r, *args, **kwargs)
+                            lambda r=region: method(assumed_session, r, config_manager=self.config_manager, *args, **kwargs)
                         )
                     all_results.extend(result)
             

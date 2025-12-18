@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
@@ -16,23 +17,23 @@ class EBSAuditService:
         return volume['VolumeId']
     
     # Audit Methods
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all audits (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
@@ -41,7 +42,7 @@ class EBSAuditService:
     
     
     # Cost Audit Methods
-    def find_orphan_volumes(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_orphan_volumes(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find volumes in available state (detached)"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -82,7 +83,7 @@ class EBSAuditService:
         
         return orphan_volumes
     
-    def find_low_io_volumes(self, session: boto3.Session, region: str, iops_threshold: int = 10, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def find_low_io_volumes(self, session: boto3.Session, region: str, iops_threshold: int = 10, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find volumes with low I/O (<X IOPS/GB)"""
         ec2 = session.client('ec2', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -157,7 +158,7 @@ class EBSAuditService:
         
         return low_io_volumes
     
-    def find_old_snapshots(self, session: boto3.Session, region: str, days: int = 90, **kwargs) -> List[Dict[str, Any]]:
+    def find_old_snapshots(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find snapshots older than X days"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -198,7 +199,7 @@ class EBSAuditService:
         
         return old_snapshots
     
-    def find_gp2_volumes(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_gp2_volumes(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find gp2 volumes (not gp3)"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -231,7 +232,7 @@ class EBSAuditService:
         return gp2_volumes
     
     # Security Audit Methods
-    def find_unencrypted_orphan(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_unencrypted_orphan(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unencrypted orphaned volumes"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -266,7 +267,7 @@ class EBSAuditService:
         
         return unencrypted_orphan
     
-    def find_unencrypted_in_use(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_unencrypted_in_use(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unencrypted volumes in use"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -303,7 +304,7 @@ class EBSAuditService:
         
         return unencrypted_in_use
     
-    def find_public_snapshots(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_public_snapshots(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find public snapshots"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -345,7 +346,7 @@ class EBSAuditService:
         
         return public_snapshots
     
-    def find_no_recent_snapshot(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def find_no_recent_snapshot(self, session: boto3.Session, region: str, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find volumes with no recent snapshot"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -395,26 +396,26 @@ class EBSAuditService:
     
     
     # Individual Check Method Aliases (for CLI compatibility)
-    def check_orphan_volumes(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_orphan_volumes(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_orphan_volumes(session, region, **kwargs)
     
-    def check_low_io_volumes(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_low_io_volumes(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_low_io_volumes(session, region, **kwargs)
     
-    def check_old_snapshots(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_old_snapshots(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_old_snapshots(session, region, **kwargs)
     
-    def check_gp2_volumes(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_gp2_volumes(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_gp2_volumes(session, region, **kwargs)
     
-    def check_unencrypted_orphan(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_unencrypted_orphan(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unencrypted_orphan(session, region, **kwargs)
     
-    def check_unencrypted_in_use(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_unencrypted_in_use(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unencrypted_in_use(session, region, **kwargs)
     
-    def check_public_snapshots(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_public_snapshots(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_public_snapshots(session, region, **kwargs)
     
-    def check_no_recent_snapshot(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_no_recent_snapshot(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_recent_snapshot(session, region, **kwargs)
