@@ -132,6 +132,13 @@ class ConfigManager:
             if not arn.startswith('arn:aws:'):
                 errors.append(f"Invalid ARN: {arn}")
         
+        excluded_tags = self.get_exclusions().get('tags', [])
+        for tag in excluded_tags:
+            if not isinstance(tag, dict):
+                errors.append("Tag exclusion must be a dict with 'key' field")
+            elif 'key' not in tag:
+                errors.append("Tag exclusion must have 'key' field")
+        
         if 'organization' in self.config and not isinstance(self.config['organization'], bool):
             errors.append("'organization' must be boolean")
         
@@ -173,13 +180,14 @@ class ConfigManager:
         
         return thresholds
     
-    def get_exclusions(self) -> Dict[str, List[str]]:
+    def get_exclusions(self) -> Dict[str, List]:
         """Get exclusions: global + profile additions"""
         exclusions = {
             'accounts': [],
             'regions': [],
             'services': [],
-            'arns': []
+            'arns': [],
+            'tags': []
         }
         
         if 'exclude' in self.raw_config:
@@ -213,6 +221,37 @@ class ConfigManager:
         for pattern in excluded_arns:
             if fnmatch.fnmatch(arn, pattern):
                 return True
+        return False
+    
+    def should_exclude_by_tags(self, resource_tags: List[Dict[str, str]]) -> bool:
+        """Check if resource should be excluded based on tags"""
+        if not resource_tags:
+            return False
+        
+        excluded_tags = self.get_exclusions().get('tags', [])
+        if not excluded_tags:
+            return False
+        
+        for excluded_tag in excluded_tags:
+            if not isinstance(excluded_tag, dict):
+                continue
+            
+            key = excluded_tag.get('key')
+            value = excluded_tag.get('value')
+            
+            if not key:
+                continue
+            
+            for resource_tag in resource_tags:
+                tag_key = resource_tag.get('Key') or resource_tag.get('key')
+                tag_value = resource_tag.get('Value') or resource_tag.get('value')
+                
+                if tag_key == key:
+                    if value is None:
+                        return True
+                    if tag_value == value:
+                        return True
+        
         return False
     
     def merge_with_cli_args(self, cli_args: Dict[str, Any]) -> Dict[str, Any]:

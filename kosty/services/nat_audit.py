@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
@@ -8,30 +9,30 @@ class NATAuditService:
         self.cost_checks = ['find_unused_nat_gateways', 'find_redundant_nat_gateways']
         self.security_checks = []  # NAT Gateway has no security checks
 
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related NAT Gateway audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
 
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related NAT Gateway audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
 
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all NAT Gateway audits"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
         return results
 
-    def find_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def find_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find NAT Gateways with <1MB data transfer in X days"""
         ec2 = session.client('ec2', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -94,7 +95,7 @@ class NATAuditService:
         
         return results
 
-    def find_redundant_nat_gateways(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_redundant_nat_gateways(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find multiple NAT Gateways per AZ (should be shared)"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -149,8 +150,8 @@ class NATAuditService:
         return results
 
     # Individual check aliases
-    def check_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_nat_gateways(self, session: boto3.Session, region: str, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unused_nat_gateways(session, region, days, **kwargs)
     
-    def check_redundant_nat_gateways(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_redundant_nat_gateways(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_redundant_nat_gateways(session, region, **kwargs)

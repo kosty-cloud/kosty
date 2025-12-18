@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
@@ -8,26 +9,26 @@ class CloudWatchAuditService:
         self.cost_checks = ['check_log_groups_without_retention', 'check_unused_alarms', 'check_unused_custom_metrics']
         self.security_checks = []  # No security checks for CloudWatch
 
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run security-related audits"""
         return []  # No security checks for CloudWatch
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run complete CloudWatch audit (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
         return results
     
-    def check_log_groups_without_retention(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_log_groups_without_retention(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find log groups without retention policy"""
         logs = session.client('logs', region_name=region)
         results = []
@@ -68,7 +69,7 @@ class CloudWatchAuditService:
         
         return results
 
-    def check_unused_alarms(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_alarms(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unused CloudWatch alarms (no state changes in X days)"""
         cloudwatch = session.client('cloudwatch', region_name=region)
         results = []
@@ -106,7 +107,7 @@ class CloudWatchAuditService:
         
         return results
 
-    def check_unused_custom_metrics(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_custom_metrics(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unused custom metrics (no data in X days)"""
        
         cloudwatch = session.client('cloudwatch', region_name=region)

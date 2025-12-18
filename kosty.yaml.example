@@ -1,113 +1,120 @@
-# Kosty Configuration Example
-# Copy to kosty.yaml and customize
-#
-# File priority: --config-file > ./kosty.yaml > ~/.kosty/config.yaml
-#
-# Usage:
-#   kosty audit                      # default profile
-#   kosty audit --profile customer01
-#   kosty audit --config-file prod.yaml
+# Kosty Configuration File Example
+# Copy this file to kosty.yaml and customize for your needs
 
-# Global exclusions (all profiles)
+# Global exclusions (applied to all profiles unless overridden)
 exclude:
+  # Exclude specific AWS accounts
   accounts:
-    - "123456789012"  # sandbox
-    - "987654321098"  # legacy
+    - "123456789012"
+    - "987654321098"
   
+  # Exclude specific regions
   regions:
     - "ap-south-1"
     - "sa-east-1"
   
+  # Exclude specific services
   services:
     - "route53"
     - "apigateway"
   
+  # Exclude resources by ARN pattern
   arns:
-    - "arn:aws:ec2:*:123456789012:instance/i-protected*"
-    - "arn:aws:s3:::my-protected-bucket"
-    - "arn:aws:rds:us-east-1:*:db:production-*"
+    - "arn:aws:ec2:*:*:instance/i-protected*"
+    - "arn:aws:s3:::production-*"
+  
+  # NEW: Exclude resources by tags
+  tags:
+    # Exclude any resource with this exact tag
+    - key: "kosty_ignore"
+      value: "true"
+    
+    # Exclude any resource with this tag (any value)
+    - key: "Environment"
+      value: "production"
+    
+    # Exclude resources tagged as protected
+    - key: "Protected"
+      value: "yes"
+    
+    # Exclude temporary resources
+    - key: "Temporary"
+      # No value means: exclude if tag key exists with any value
 
-# Global thresholds
+# Global thresholds (can be overridden per profile)
 thresholds:
-  ec2_cpu: 20
-  rds_cpu: 20
-  lambda_memory: 512
-  stopped_days: 7
-  idle_days: 7
-  old_snapshot_days: 30
+  ec2_cpu: 20          # EC2 oversized threshold (%)
+  rds_cpu: 20          # RDS oversized threshold (%)
+  stopped_days: 7      # Days before stopped instance flagged
+  snapshot_days: 30    # Days before old snapshot flagged
+  ami_days: 180        # Days before old AMI flagged
 
-# Default profile
+# Default settings (applied when no profile specified)
 default:
-  organization: true
-  cross_account_role: "OrganizationAccountAccessRole"
-  org_admin_account_id: null
+  organization: false
   regions:
     - us-east-1
     - eu-west-1
   max_workers: 20
-  output: json
-  save_to: s3://my-bucket/kosty-reports/
+  output: console
 
-# Additional profiles
+# Profile definitions
 profiles:
+  # Customer 1 profile
   customer01:
-    organization: false
     regions:
       - us-east-1
-    role_arn: "arn:aws:iam::488123456789:role/AllowDogsbody"
-    mfa_serial: "arn:aws:iam::532123456789:mfa/device"
-    duration_seconds: 28800
     max_workers: 10
-    output: json
+    role_arn: "arn:aws:iam::123456789012:role/KostyAuditRole"
+    mfa_serial: "arn:aws:iam::123456789012:mfa/my-device"
     exclude:
-      services:
-        - "dynamodb"
-  
-  customer02:
-    organization: false
-    regions:
-      - us-east-1
-    role_arn: "arn:aws:iam::741923456789:role/AllowDogsbody"
-    mfa_serial: "arn:aws:iam::532123456789:mfa/device"
-    max_workers: 5
+      tags:
+        - key: "Customer"
+          value: "customer01-protected"
     thresholds:
       ec2_cpu: 15
-      stopped_days: 30
+      rds_cpu: 15
   
-  customer03:
-    organization: false
+  # Customer 2 profile
+  customer02:
     regions:
       - eu-west-1
-    role_arn: "arn:aws:iam::976123456789:role/AllowDogsbody"
-    max_workers: 10
+    max_workers: 8
+    role_arn: "arn:aws:iam::987654321098:role/KostyAuditRole"
+    exclude:
+      services:
+        - "route53"
+      tags:
+        - key: "DoNotAudit"
   
+  # Production environment
   production:
-    organization: true
-    cross_account_role: "ProductionAuditRole"
     regions:
       - us-east-1
-      - us-west-2
       - eu-west-1
-    max_workers: 30
-    output: all
-    save_to: s3://prod-audit-reports/kosty/
+      - ap-southeast-1
+    max_workers: 15
+    organization: true
+    cross_account_role: "OrganizationAccountAccessRole"
     exclude:
-      arns:
-        - "arn:aws:rds:*:*:db:prod-*"
+      tags:
+        - key: "Environment"
+          value: "production"
+        - key: "Critical"
+    thresholds:
+      ec2_cpu: 10
+      rds_cpu: 10
+      stopped_days: 3
   
+  # Development environment
   development:
-    organization: false
     regions:
       - us-east-1
     max_workers: 5
-    output: console
+    exclude:
+      tags:
+        - key: "Temporary"
+        - key: "Testing"
     thresholds:
-      ec2_cpu: 10
+      ec2_cpu: 30
       stopped_days: 14
-
-# Notes:
-# - Exclusions: profile adds to global (cumulative)
-# - Thresholds: profile overrides global (only specified ones)
-# - Priority: CLI args > profile > default > hardcoded
-# - AssumeRole: set role_arn to assume, mfa_serial for MFA prompt
-# - ARN wildcards: use * for pattern matching
