@@ -1,5 +1,24 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.6.1 - Bug Fixes (2025-01-16)
+
+### 🐛 Bug Fixes
+- **Profile Configuration**: Fixed profile settings not being applied in service commands
+  - `execute_service_command` now properly merges profile config with CLI args
+  - Ensures profile settings (regions, role_arn, MFA, exclusions) are respected
+  - CLI arguments still take priority over profile settings
+
+- **Audit Command**: Fixed undefined variables in audit command
+  - Resolved NameError for 'org' and 'admin_account' variables
+  - JSON and CSV report generation now works correctly
+
+### 🔧 Technical Details
+- Added `merge_with_cli_args()` call in `execute_service_command`
+- Consistent behavior between `audit` command and individual service commands
+- Profile-based AWS session (AssumeRole/MFA) now works for all commands
+
+---
+
 ## Version 1.6.0 - Tag-Based Resource Exclusion (2025-01-16)
 
 ### 🏷️ Major Feature: Tag-Based Exclusion Filtering
