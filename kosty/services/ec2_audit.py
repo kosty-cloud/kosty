@@ -2,6 +2,7 @@ import boto3
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import json
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 
 class EC2AuditService:
     def __init__(self):
@@ -11,7 +12,7 @@ class EC2AuditService:
                                'find_unencrypted_ebs', 'find_no_recent_backup']
     
     # Cost Audit Methods
-    def find_stopped(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def find_stopped(self, session: boto3.Session, region: str, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances stopped for X+ days"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -26,6 +27,11 @@ class EC2AuditService:
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     state_transition_time = instance.get('StateTransitionReason', '')
                     if state_transition_time:
                         try:
@@ -62,7 +68,7 @@ class EC2AuditService:
         
         return stopped_instances
     
-    def find_idle(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, **kwargs) -> List[Dict[str, Any]]:
+    def find_idle(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find idle instances (<X% CPU for Y days)"""
         ec2 = session.client('ec2', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -80,6 +86,11 @@ class EC2AuditService:
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_id = instance['InstanceId']
                     
                     try:
@@ -123,7 +134,7 @@ class EC2AuditService:
         
         return idle_instances
     
-    def find_oversized(self, session: boto3.Session, region: str, cpu_threshold: int = 20, days: int = 14, **kwargs) -> List[Dict[str, Any]]:
+    def find_oversized(self, session: boto3.Session, region: str, cpu_threshold: int = 20, days: int = 14, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find oversized instances (<X% CPU)"""
         ec2 = session.client('ec2', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -141,6 +152,11 @@ class EC2AuditService:
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_id = instance['InstanceId']
                     
                     try:
@@ -183,7 +199,7 @@ class EC2AuditService:
         
         return oversized_instances
     
-    def find_previous_generation(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_previous_generation(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find previous generation instance types"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -199,6 +215,11 @@ class EC2AuditService:
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_type = instance['InstanceType']
                     instance_family = instance_type.split('.')[0]
                     
@@ -221,7 +242,7 @@ class EC2AuditService:
         return old_generation
     
     # Security Audit Methods
-    def find_ssh_open(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_ssh_open(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances with SSH port 22 open to 0.0.0.0/0"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -243,6 +264,11 @@ class EC2AuditService:
             instances = ec2.describe_instances()
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                     if any(sg_id in ssh_open_sgs for sg_id in instance_sgs):
                         ssh_open_instances.append({
@@ -263,7 +289,7 @@ class EC2AuditService:
         
         return ssh_open_instances
     
-    def find_rdp_open(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_rdp_open(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances with RDP port 3389 open to 0.0.0.0/0"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -283,6 +309,11 @@ class EC2AuditService:
             instances = ec2.describe_instances()
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                     if any(sg_id in rdp_open_sgs for sg_id in instance_sgs):
                         rdp_open_instances.append({
@@ -303,7 +334,7 @@ class EC2AuditService:
         
         return rdp_open_instances
     
-    def find_database_ports_open(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_database_ports_open(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances with database ports open to 0.0.0.0/0"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -327,6 +358,11 @@ class EC2AuditService:
             instances = ec2.describe_instances()
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                     if any(sg_id in db_open_sgs for sg_id in instance_sgs):
                         db_open_instances.append({
@@ -347,7 +383,7 @@ class EC2AuditService:
         
         return db_open_instances
     
-    def find_public_non_web(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_public_non_web(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find public IP on non-web instances"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -360,6 +396,11 @@ class EC2AuditService:
             instances = ec2.describe_instances()
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     # Check if instance has public IP
                     public_ip = instance.get('PublicIpAddress')
                     if public_ip:
@@ -394,7 +435,7 @@ class EC2AuditService:
         
         return public_non_web
     
-    def find_old_ami(self, session: boto3.Session, region: str, days: int = 180, **kwargs) -> List[Dict[str, Any]]:
+    def find_old_ami(self, session: boto3.Session, region: str, days: int = 180, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances using AMI older than X days"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -407,6 +448,11 @@ class EC2AuditService:
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     ami_id = instance.get('ImageId')
                     if ami_id:
                         try:
@@ -436,7 +482,7 @@ class EC2AuditService:
         
         return old_ami_instances
     
-    def find_imdsv1(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_imdsv1(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances using IMDSv1"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -447,6 +493,11 @@ class EC2AuditService:
             instances = ec2.describe_instances()
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     metadata_options = instance.get('MetadataOptions', {})
                     http_tokens = metadata_options.get('HttpTokens', 'optional')
                     
@@ -469,7 +520,7 @@ class EC2AuditService:
         
         return imdsv1_instances
     
-    def find_unencrypted_ebs(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_unencrypted_ebs(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances with unencrypted EBS volumes"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -480,6 +531,11 @@ class EC2AuditService:
             instances = ec2.describe_instances()
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     has_unencrypted = False
                     for bdm in instance.get('BlockDeviceMappings', []):
                         volume_id = bdm.get('Ebs', {}).get('VolumeId')
@@ -510,7 +566,7 @@ class EC2AuditService:
         
         return unencrypted_instances
     
-    def find_no_recent_backup(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def find_no_recent_backup(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find instances with no recent AMI backup"""
         ec2 = session.client('ec2', region_name=region)
         sts = session.client('sts')
@@ -523,6 +579,11 @@ class EC2AuditService:
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+                    
                     instance_id = instance['InstanceId']
                     
                     # Check for recent AMIs of this instance
@@ -560,27 +621,27 @@ class EC2AuditService:
         return no_backup_instances
     
     # Audit Methods
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all audits (cost + security)"""
         results = []
-        results.extend(self.cost_audit(session, region, **kwargs))
-        results.extend(self.security_audit(session, region, **kwargs))
+        results.extend(self.cost_audit(session, region, config_manager=config_manager, **kwargs))
+        results.extend(self.security_audit(session, region, config_manager=config_manager, **kwargs))
         return results
     
     # Individual Check Method Aliases

@@ -223,6 +223,63 @@ exclude:
 
 **Effect**: Individual resources matching these patterns are skipped.
 
+#### 5. Tag Exclusions (NEW in v1.6.0)
+
+```yaml
+exclude:
+  tags:
+    # Exclude resources with exact tag key and value
+    - key: "kosty_ignore"
+      value: "true"
+    
+    # Exclude resources with tag key (any value)
+    - key: "Environment"
+      value: "production"
+    
+    # Exclude if tag key exists (regardless of value)
+    - key: "Protected"
+    
+    # Exclude temporary resources
+    - key: "Temporary"
+```
+
+**Effect**: Resources with matching tags are skipped during audits.
+
+**How it works:**
+- If `value` is specified: Tag must match both key AND value
+- If `value` is omitted: Tag key must exist (any value matches)
+- Case-sensitive matching
+- Applied before API calls (saves time and API quota)
+
+**Example use cases:**
+```yaml
+exclude:
+  tags:
+    # Skip all production resources
+    - key: "Environment"
+      value: "production"
+    
+    # Skip resources explicitly marked to ignore
+    - key: "kosty_ignore"
+      value: "true"
+    
+    # Skip all resources owned by specific team
+    - key: "Team"
+      value: "platform"
+    
+    # Skip any resource with "DoNotAudit" tag
+    - key: "DoNotAudit"
+```
+
+**Supported services:**
+- EC2 instances, EBS volumes, Snapshots
+- S3 buckets
+- RDS databases
+- Lambda functions
+- Load Balancers, NAT Gateways
+- DynamoDB tables
+- And more (all services with tag support)
+
 ## Thresholds
 
 ### Global Thresholds
@@ -455,6 +512,53 @@ exclude:
     
     # Protect all S3 buckets in specific account
     - "arn:aws:s3:::*"  # If in excluded account context
+  
+  tags:
+    # Protect all production resources
+    - key: "Environment"
+      value: "production"
+    
+    # Protect critical infrastructure
+    - key: "Critical"
+      value: "yes"
+```
+
+### Example 4: Tag-Based Exclusions
+
+```yaml
+# Global tag exclusions
+exclude:
+  tags:
+    - key: "kosty_ignore"
+      value: "true"
+
+profiles:
+  production:
+    regions: [us-east-1, eu-west-1]
+    exclude:
+      tags:
+        # Additional exclusions for production profile
+        - key: "Environment"
+          value: "production"
+        - key: "Critical"
+  
+  development:
+    regions: [us-east-1]
+    exclude:
+      tags:
+        # Exclude temporary dev resources
+        - key: "Temporary"
+        - key: "Testing"
+```
+
+**Usage:**
+```bash
+# Tag your resources
+aws ec2 create-tags --resources i-1234567890abcdef0 \
+  --tags Key=kosty_ignore,Value=true
+
+# Run audit - tagged resource will be skipped
+kosty audit --profile production
 ```
 
 ## Troubleshooting

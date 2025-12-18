@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
@@ -10,7 +11,7 @@ class RDSAuditService:
                                'find_wide_cidr_sg', 'find_disabled_backups', 'find_outdated_engine', 'find_no_ssl_enforcement']
     
     # Cost Audit Methods
-    def find_idle_instances(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, **kwargs) -> List[Dict[str, Any]]:
+    def find_idle_instances(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find idle RDS instances (<5% CPU for 7 days)"""
         rds = session.client('rds', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -64,7 +65,7 @@ class RDSAuditService:
         
         return idle_instances
     
-    def find_oversized_instances(self, session: boto3.Session, region: str, days: int = 14, cpu_threshold: int = 20, connection_threshold: int = 10, **kwargs) -> List[Dict[str, Any]]:
+    def find_oversized_instances(self, session: boto3.Session, region: str, days: int = 14, cpu_threshold: int = 20, connection_threshold: int = 10, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find oversized RDS instances (<20% CPU and <10 connections)"""
         rds = session.client('rds', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -145,7 +146,7 @@ class RDSAuditService:
         
         return oversized_instances
     
-    def find_unused_read_replicas(self, session: boto3.Session, region: str, days: int = 7, read_threshold: int = 100, **kwargs) -> List[Dict[str, Any]]:
+    def find_unused_read_replicas(self, session: boto3.Session, region: str, days: int = 7, read_threshold: int = 100, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unused read replicas (<100 reads/day)"""
         rds = session.client('rds', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -204,7 +205,7 @@ class RDSAuditService:
         
         return unused_replicas
     
-    def find_multi_az_non_prod(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_multi_az_non_prod(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find Multi-AZ for non-production environments"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -242,7 +243,7 @@ class RDSAuditService:
         
         return multi_az_non_prod
     
-    def find_long_backup_retention(self, session: boto3.Session, region: str, retention_threshold: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def find_long_backup_retention(self, session: boto3.Session, region: str, retention_threshold: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find backup retention >7 days for dev/test"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -281,7 +282,7 @@ class RDSAuditService:
         
         return long_retention
     
-    def find_gp2_storage(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_gp2_storage(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find gp2 storage (not gp3)"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -315,7 +316,7 @@ class RDSAuditService:
         return gp2_storage
     
     # Security Audit Methods
-    def find_publicly_accessible(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_publicly_accessible(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find publicly accessible databases"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -346,7 +347,7 @@ class RDSAuditService:
         
         return public_instances
     
-    def find_unencrypted_storage(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_unencrypted_storage(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find storage not encrypted"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -377,7 +378,7 @@ class RDSAuditService:
         
         return unencrypted_instances
     
-    def find_default_username(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_default_username(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find master username is default"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -411,7 +412,7 @@ class RDSAuditService:
         
         return default_username
     
-    def find_wide_cidr_sg(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_wide_cidr_sg(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find security group allows wide CIDR (>=/16)"""
         rds = session.client('rds', region_name=region)
         ec2 = session.client('ec2', region_name=region)
@@ -459,7 +460,7 @@ class RDSAuditService:
         
         return wide_cidr_instances
     
-    def find_disabled_backups(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_disabled_backups(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find automated backups disabled (retention=0)"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -491,7 +492,7 @@ class RDSAuditService:
         
         return disabled_backups
     
-    def find_outdated_engine(self, session: boto3.Session, region: str, months_threshold: int = 12, **kwargs) -> List[Dict[str, Any]]:
+    def find_outdated_engine(self, session: boto3.Session, region: str, months_threshold: int = 12, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find engine version outdated (>12 months)"""
         # This is a simplified check - in reality, you'd need to maintain a database of engine versions and their release dates
         rds = session.client('rds', region_name=region)
@@ -543,7 +544,7 @@ class RDSAuditService:
         
         return outdated_engines
     
-    def find_no_ssl_enforcement(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_no_ssl_enforcement(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find no SSL/TLS enforcement"""
         rds = session.client('rds', region_name=region)
         sts = session.client('sts')
@@ -579,23 +580,23 @@ class RDSAuditService:
         return no_ssl_instances
     
     # Audit Methods
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all audits (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
@@ -603,41 +604,41 @@ class RDSAuditService:
         return results
     
     # Individual Check Method Aliases
-    def check_idle_instances(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_idle_instances(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_idle_instances(session, region, **kwargs)
     
-    def check_oversized_instances(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_oversized_instances(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_oversized_instances(session, region, **kwargs)
     
-    def check_unused_read_replicas(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_read_replicas(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unused_read_replicas(session, region, **kwargs)
     
-    def check_multi_az_non_prod(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_multi_az_non_prod(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_multi_az_non_prod(session, region, **kwargs)
     
-    def check_long_backup_retention(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_long_backup_retention(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_long_backup_retention(session, region, **kwargs)
     
-    def check_gp2_storage(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_gp2_storage(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_gp2_storage(session, region, **kwargs)
     
-    def check_publicly_accessible(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_publicly_accessible(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_publicly_accessible(session, region, **kwargs)
     
-    def check_unencrypted_storage(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_unencrypted_storage(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unencrypted_storage(session, region, **kwargs)
     
-    def check_default_username(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_default_username(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_default_username(session, region, **kwargs)
     
-    def check_wide_cidr_sg(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_wide_cidr_sg(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_wide_cidr_sg(session, region, **kwargs)
     
-    def check_disabled_backups(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_disabled_backups(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_disabled_backups(session, region, **kwargs)
     
-    def check_outdated_engine(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_outdated_engine(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_outdated_engine(session, region, **kwargs)
     
-    def check_no_ssl_enforcement(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_no_ssl_enforcement(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_ssl_enforcement(session, region, **kwargs)

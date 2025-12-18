@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 import json
 
@@ -420,26 +421,26 @@ class S3AuditService:
         return no_mfa_buckets
     
     # Audit Methods
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
             if check in ['find_incomplete_uploads', 'find_lifecycle_candidates']:
-                results.extend(method(session, region, **kwargs))
+                results.extend(method(session, region, config_manager=config_manager, **kwargs))
             else:
-                results.extend(method(session, region))
+                results.extend(method(session, region, config_manager=config_manager))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region))
+            results.extend(method(session, region, config_manager=config_manager))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all audits (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
@@ -447,35 +448,35 @@ class S3AuditService:
         return results
     
     # Individual Check Method Aliases
-    def check_empty_buckets(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_empty_buckets(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_empty(session, region)
     
-    def check_incomplete_uploads(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_incomplete_uploads(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_incomplete_uploads(session, region, **kwargs)
     
-    def check_lifecycle_policy(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_lifecycle_policy(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_lifecycle_candidates(session, region, **kwargs)
     
-    def check_public_read_access(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_public_read_access(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_public_read(session, region)
     
-    def check_public_write_access(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_public_write_access(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_public_write(session, region)
     
-    def check_encryption_at_rest(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_encryption_at_rest(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_encryption(session, region)
     
-    def check_versioning_disabled(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_versioning_disabled(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_versioning(session, region)
     
-    def check_access_logging(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_access_logging(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_logging(session, region)
     
-    def check_bucket_policy_wildcards(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_bucket_policy_wildcards(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_wildcard_policy(session, region)
     
-    def check_public_snapshots(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_public_snapshots(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_public_snapshots(session, region)
     
-    def check_mfa_delete(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_mfa_delete(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_mfa_delete(session, region)
