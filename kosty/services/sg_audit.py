@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 
 class SGAuditService:
@@ -7,34 +8,34 @@ class SGAuditService:
         self.security_checks = ['find_ssh_rdp_open', 'find_database_ports_open', 'find_all_ports_open']
         self.other_checks = ['find_complex_security_groups']
 
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region))
+            results.extend(method(session, region, config_manager=config_manager))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region))
+            results.extend(method(session, region, config_manager=config_manager))
         return results
 
-    def other_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def other_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all other-related audits"""
         results = []
         for check in self.other_checks:
             method = getattr(self, check)
             if check == 'find_complex_security_groups':
-                results.extend(method(session, region, **kwargs))
+                results.extend(method(session, region, config_manager=config_manager, **kwargs))
             else:
-                results.extend(method(session, region))
+                results.extend(method(session, region, config_manager=config_manager))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all audits (cost + security + other)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
@@ -248,17 +249,17 @@ class SGAuditService:
         return results
 
     # Individual check aliases
-    def check_unused_groups(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_groups(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unused_security_groups(session, region)
     
-    def check_ssh_rdp_open(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_ssh_rdp_open(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_ssh_rdp_open(session, region)
     
-    def check_database_ports_open(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_database_ports_open(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_database_ports_open(session, region)
     
-    def check_all_ports_open(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_all_ports_open(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_all_ports_open(session, region)
     
-    def check_complex_security_groups(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_complex_security_groups(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_complex_security_groups(session, region, **kwargs)

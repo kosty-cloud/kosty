@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import json
@@ -11,7 +12,7 @@ class IAMAuditService:
                                'find_no_password_rotation', 'find_cross_account_no_external_id']
     
     # Cost Audit Methods
-    def find_unused_roles(self, session: boto3.Session, region: str, days: int = 90, **kwargs) -> List[Dict[str, Any]]:
+    def find_unused_roles(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unused roles creating resources"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -70,7 +71,7 @@ class IAMAuditService:
         return unused_roles
     
     # Security Audit Methods
-    def find_root_access_keys(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_root_access_keys(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find root account has access keys"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -104,7 +105,7 @@ class IAMAuditService:
         
         return root_keys
     
-    def find_old_access_keys(self, session: boto3.Session, region: str, days: int = 90, **kwargs) -> List[Dict[str, Any]]:
+    def find_old_access_keys(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find access keys older than 90 days"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -152,7 +153,7 @@ class IAMAuditService:
         
         return old_keys
     
-    def find_inactive_users(self, session: boto3.Session, region: str, days: int = 90, **kwargs) -> List[Dict[str, Any]]:
+    def find_inactive_users(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find users inactive >90 days with active keys"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -229,7 +230,7 @@ class IAMAuditService:
         
         return inactive_users
     
-    def find_wildcard_policies(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_wildcard_policies(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find policies using Action:* or Resource:*"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -326,7 +327,7 @@ class IAMAuditService:
         
         return False
     
-    def find_admin_no_mfa(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_admin_no_mfa(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find admin access without MFA"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -386,7 +387,7 @@ class IAMAuditService:
         
         return admin_no_mfa
     
-    def find_weak_password_policy(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_weak_password_policy(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find password policy allows weak passwords"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -456,7 +457,7 @@ class IAMAuditService:
         
         return weak_policy
     
-    def find_no_password_rotation(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_no_password_rotation(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find no password rotation policy"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -507,7 +508,7 @@ class IAMAuditService:
         
         return no_rotation
     
-    def find_cross_account_no_external_id(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def find_cross_account_no_external_id(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find cross-account roles without ExternalId"""
         iam = session.client('iam')
         sts = session.client('sts')
@@ -565,23 +566,23 @@ class IAMAuditService:
         return no_external_id
     
     # Audit Methods
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related audits"""
         results = []
         for check in self.security_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all audits (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
@@ -589,29 +590,29 @@ class IAMAuditService:
         return results
     
     # Individual Check Method Aliases
-    def check_unused_roles(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_roles(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unused_roles(session, region, **kwargs)
     
-    def check_root_access_keys(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_root_access_keys(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_root_access_keys(session, region, **kwargs)
     
-    def check_old_access_keys(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_old_access_keys(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_old_access_keys(session, region, **kwargs)
     
-    def check_inactive_users(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_inactive_users(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_inactive_users(session, region, **kwargs)
     
-    def check_wildcard_policies(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_wildcard_policies(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_wildcard_policies(session, region, **kwargs)
     
-    def check_admin_no_mfa(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_admin_no_mfa(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_admin_no_mfa(session, region, **kwargs)
     
-    def check_weak_password_policy(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_weak_password_policy(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_weak_password_policy(session, region, **kwargs)
     
-    def check_no_password_rotation(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_no_password_rotation(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_password_rotation(session, region, **kwargs)
     
-    def check_cross_account_no_external_id(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_cross_account_no_external_id(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_cross_account_no_external_id(session, region, **kwargs)

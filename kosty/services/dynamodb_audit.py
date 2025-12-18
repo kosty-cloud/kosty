@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
@@ -8,27 +9,27 @@ class DynamoDBAuditService:
         self.cost_checks = ['find_idle_tables']
         self.security_checks = []  # No security checks for DynamoDB
     
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related DynamoDB audits"""
         results = []
         for check in self.cost_checks:
             method = getattr(self, check)
-            results.extend(method(session, region, **kwargs))
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related DynamoDB audits"""
         # No security checks for DynamoDB
         return []
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all DynamoDB audits (cost + security)"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
         return results
     
-    def find_idle_tables(self, session: boto3.Session, region: str, days: int = 7, **kwargs) -> List[Dict[str, Any]]:
+    def find_idle_tables(self, session: boto3.Session, region: str, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find DynamoDB tables with no read/write activity"""
         dynamodb = session.client('dynamodb', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)

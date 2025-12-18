@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
 
@@ -11,28 +12,28 @@ class SnapshotsAuditService:
     
     security_checks = []
     
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run EBS Snapshots cost optimization audit"""
         results = []
         for check in self.cost_checks:
-            results.extend(getattr(self, check)(session, region, **kwargs))
+            results.extend(getattr(self, check)(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run EBS Snapshots security audit"""
         results = []
         for check in self.security_checks:
-            results.extend(getattr(self, check)(session, region, **kwargs))
+            results.extend(getattr(self, check)(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run complete EBS Snapshots audit"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
         return results
     
-    def check_old_snapshots(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def check_old_snapshots(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find EBS snapshots older than retention policy"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -42,6 +43,11 @@ class SnapshotsAuditService:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
             
             for snapshot in response['Snapshots']:
+                if config_manager:
+                    tags = get_resource_tags(snapshot, 'snapshot')
+                    if should_exclude_resource_by_tags(tags, config_manager):
+                        continue
+                
                 if snapshot['StartTime'] < cutoff_date:
                     results.append({
                         'AccountId': session.client('sts').get_caller_identity()['Account'],

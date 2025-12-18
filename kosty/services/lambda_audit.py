@@ -1,4 +1,5 @@
 import boto3
+from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
 
@@ -15,21 +16,21 @@ class LambdaAuditService:
         "check_outdated_runtime"
     ]
     
-    def cost_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run Lambda cost optimization audit"""
         results = []
         for check in self.cost_checks:
-            results.extend(getattr(self, check)(session, region, **kwargs))
+            results.extend(getattr(self, check)(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def security_audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def security_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run Lambda security audit"""
         results = []
         for check in self.security_checks:
-            results.extend(getattr(self, check)(session, region, **kwargs))
+            results.extend(getattr(self, check)(session, region, config_manager=config_manager, **kwargs))
         return results
     
-    def audit(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run complete Lambda audit"""
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
@@ -37,7 +38,7 @@ class LambdaAuditService:
         results.extend(self.check_long_timeout_functions(session, region, **kwargs))
         return results
 
-    def check_unused_functions(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_functions(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find Lambda functions with 0 invocations in X days"""
         lambda_client = session.client('lambda', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -94,7 +95,7 @@ class LambdaAuditService:
         
         return results
 
-    def check_over_provisioned_memory(self, session: boto3.Session, region: str, days: int = 30, **kwargs) -> List[Dict[str, Any]]:
+    def check_over_provisioned_memory(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find Lambda functions with over-provisioned memory"""
         lambda_client = session.client('lambda', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -178,7 +179,7 @@ class LambdaAuditService:
         
         return results
 
-    def check_public_functions(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_public_functions(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find Lambda functions with public access"""
         lambda_client = session.client('lambda', region_name=region)
         results = []
@@ -223,7 +224,7 @@ class LambdaAuditService:
         
         return results
 
-    def check_outdated_runtime(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_outdated_runtime(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find Lambda functions using outdated runtimes"""
         lambda_client = session.client('lambda', region_name=region)
         results = []
@@ -267,7 +268,7 @@ class LambdaAuditService:
         
         return results
 
-    def check_long_timeout_functions(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+    def check_long_timeout_functions(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find Lambda functions with timeout >5min (anti-pattern)"""
         lambda_client = session.client('lambda', region_name=region)
         results = []
