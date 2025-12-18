@@ -11,19 +11,19 @@ def iam(ctx):
 @click.option('--days', default=90, help='Days threshold for unused roles, inactive users and old keys')
 @common_options
 @click.pass_context
-def iam_audit(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def iam_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run complete IAM audit (cost + security)"""
     from ..services.iam_audit import IAMAuditService
-    execute_service_command(ctx, IAMAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
+    execute_service_command(ctx, IAMAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 @iam.command('security-audit')
 @click.option('--days', default=90, help='Days threshold for unused roles, inactive users and old keys')
 @common_options
 @click.pass_context
-def iam_security_audit(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def iam_security_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run IAM security audit only"""
     from ..services.iam_audit import IAMAuditService
-    execute_service_command(ctx, IAMAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
+    execute_service_command(ctx, IAMAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 @iam.command('check-root-access-keys')
 @common_options
@@ -37,37 +37,37 @@ def iam_check_root_keys(ctx, organization, region, max_workers, regions, output)
 @click.option('--days', default=90, help='Days threshold for unused roles')
 @common_options
 @click.pass_context
-def iam_cost_audit(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def iam_cost_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run IAM cost optimization audit only"""
     from ..services.iam_audit import IAMAuditService
-    execute_service_command(ctx, IAMAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
+    execute_service_command(ctx, IAMAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 @iam.command('check-unused-roles')
 @click.option('--days', default=90, help='Days threshold for unused roles')
 @common_options
 @click.pass_context
-def iam_check_unused_roles(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def iam_check_unused_roles(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find unused IAM roles"""
     from ..services.iam_audit import IAMAuditService
-    execute_service_command(ctx, IAMAuditService, 'check_unused_roles', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
+    execute_service_command(ctx, IAMAuditService, 'check_unused_roles', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 @iam.command('check-inactive-users')
 @click.option('--days', default=90, help='Days threshold for inactive users')
 @common_options
 @click.pass_context
-def iam_check_inactive_users(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def iam_check_inactive_users(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find inactive IAM users"""
     from ..services.iam_audit import IAMAuditService
-    execute_service_command(ctx, IAMAuditService, 'check_inactive_users', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
+    execute_service_command(ctx, IAMAuditService, 'check_inactive_users', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 @iam.command('check-old-access-keys')
 @click.option('--days', default=90, help='Days threshold for old access keys')
 @common_options
 @click.pass_context
-def iam_check_old_keys(ctx, days, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def iam_check_old_keys(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find old IAM access keys"""
     from ..services.iam_audit import IAMAuditService
-    execute_service_command(ctx, IAMAuditService, 'check_old_access_keys', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, days=days)
+    execute_service_command(ctx, IAMAuditService, 'check_old_access_keys', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 @iam.command('check-wildcard-policies')
 @common_options
