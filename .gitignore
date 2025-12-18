@@ -63,3 +63,8 @@ htmlcov/
 backups/
 *.backup
 *.bak
+
+# Internal docs
+PR_CHECKLIST.md
+MULTI_PROFILE_SUMMARY.md
+FEATURE_RESPONSE.md
