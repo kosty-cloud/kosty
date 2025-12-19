@@ -33,7 +33,7 @@ class LBAuditService:
         results.extend(self.security_audit(session, region, **kwargs))
         return results
 
-    def find_lbs_with_no_healthy_targets(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_lbs_with_no_healthy_targets(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find load balancers with no healthy targets"""
         elbv2 = session.client('elbv2', region_name=region)
         results = []
@@ -89,7 +89,7 @@ class LBAuditService:
         
         return results
 
-    def find_underutilized_lbs(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_underutilized_lbs(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find load balancers with low request count"""
         elbv2 = session.client('elbv2', region_name=region)
         cloudwatch = session.client('cloudwatch', region_name=region)
@@ -142,7 +142,7 @@ class LBAuditService:
         
         return results
 
-    def find_http_without_https_redirect(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_http_without_https_redirect(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find HTTP listeners without HTTPS redirect"""
         elbv2 = session.client('elbv2', region_name=region)
         results = []
@@ -188,7 +188,7 @@ class LBAuditService:
         
         return results
 
-    def find_deprecated_tls_versions(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_deprecated_tls_versions(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find load balancers with deprecated TLS versions enabled"""
         elbv2 = session.client('elbv2', region_name=region)
         results = []
@@ -236,7 +236,7 @@ class LBAuditService:
         
         return results
 
-    def find_lbs_without_access_logs(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_lbs_without_access_logs(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find load balancers without access logs enabled"""
         elbv2 = session.client('elbv2', region_name=region)
         results = []
@@ -276,7 +276,7 @@ class LBAuditService:
         
         return results
 
-    def find_classic_lbs(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_classic_lbs(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find Classic Load Balancers (should use ALB/NLB)"""
         elb = session.client('elb', region_name=region)
         results = []

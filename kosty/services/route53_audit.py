@@ -31,7 +31,7 @@ class Route53AuditService:
         results.extend(self.security_audit(session, region, **kwargs))
         return results
 
-    def find_unused_hosted_zones(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_unused_hosted_zones(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find hosted zones with only NS/SOA records"""
         route53 = session.client('route53')
         results = []
