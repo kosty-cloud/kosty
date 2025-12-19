@@ -41,25 +41,24 @@ class CostOptimizationReporter:
 
     
     def generate_summary_report(self) -> str:
-        """Generate a summary report with cost savings"""
+        """Generate a summary report"""
         report = []
         report.append("\n" + "=" * 80)
-        report.append("🏆 KOSTY - AWS COST OPTIMIZATION REPORT")
+        report.append("KOSTY - AWS AUDIT REPORT")
         report.append("=" * 80)
-        report.append(f"📅 Scan Date: {self.scan_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+        report.append(f"Scan Date: {self.scan_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
         
         total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())
         total_savings = sum(sum(cmd.get('monthly_savings', 0) for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())
         
-        report.append(f"📊 Total Issues Found: {total_issues}")
+        report.append(f"Total Issues: {total_issues}")
         if total_savings > 0:
-            report.append(f"💰 Total Potential Monthly Savings: ${total_savings:,.2f}")
-            report.append(f"💰 Total Potential Annual Savings: ${total_savings * 12:,.2f}")
+            report.append(f"Potential Monthly Savings: ${total_savings:,.2f}")
+            report.append(f"Potential Annual Savings: ${total_savings * 12:,.2f}")
         report.append("")
         
-        # Summary by account
         for account_id, account_data in self.results.items():
-            report.append(f"📊 Account: {account_id}")
+            report.append(f"Account: {account_id}")
             report.append("-" * 50)
             
             account_issues = 0
@@ -72,21 +71,20 @@ class CostOptimizationReporter:
                     
                     if count > 0:
                         if savings > 0:
-                            report.append(f"  🔍 {service.upper()} {command}: {count} issues (${savings:,.2f}/mo)")
+                            report.append(f"  {service.upper()} {command}: {count} issues (${savings:,.2f}/mo)")
                         else:
-                            report.append(f"  🔍 {service.upper()} {command}: {count} issues")
+                            report.append(f"  {service.upper()} {command}: {count} issues")
                         account_issues += count
                         account_savings += savings
             
             if account_savings > 0:
-                report.append(f"  💡 Account Total: {account_issues} issues, ${account_savings:,.2f}/mo potential savings")
+                report.append(f"  Total: {account_issues} issues, ${account_savings:,.2f}/mo")
             else:
-                report.append(f"  💡 Account Total: {account_issues} issues found")
+                report.append(f"  Total: {account_issues} issues")
             report.append("")
         
-        # Top issues by savings
         if total_savings > 0:
-            report.append("💰 TOP ISSUES BY MONTHLY SAVINGS")
+            report.append("TOP ISSUES BY SAVINGS")
             report.append("-" * 40)
             
             all_issues = []
@@ -102,11 +100,10 @@ class CostOptimizationReporter:
                                 'savings': savings
                             })
             
-            # Sort by savings
             all_issues.sort(key=lambda x: x['savings'], reverse=True)
             
             for i, issue in enumerate(all_issues[:10], 1):
-                report.append(f"  {i:2d}. {issue['service'].upper()} {issue['command']}: ${issue['savings']:,.2f}/mo ({issue['count']} issues)")
+                report.append(f"  {i}. {issue['service'].upper()} {issue['command']}: ${issue['savings']:,.2f}/mo ({issue['count']} issues)")
             
             report.append("")
         
