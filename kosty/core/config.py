@@ -304,5 +304,5 @@ class ConfigManager:
             )
         except Exception as e:
             print(f"\n❌ Failed to assume role: {e}")
-            print("💡 Using default credentials instead\n")
-            return boto3.Session()
+            print("\n🛑 Cannot proceed without valid role access. Aborting.\n")
+            raise SystemExit(1)
