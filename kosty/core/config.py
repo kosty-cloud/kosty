@@ -303,6 +303,11 @@ class ConfigManager:
                 aws_session_token=response['Credentials']['SessionToken']
             )
         except Exception as e:
-            print(f"\n❌ Failed to assume role: {e}")
-            print("\n🛑 Cannot proceed without valid role access. Aborting.\n")
+            config_file = self._find_config_file() or 'No config file'
+            print(f"\nError: Failed to assume role")
+            print(f"  Profile: {self.profile}")
+            print(f"  Config: {config_file}")
+            print(f"  Role ARN: {role_arn}")
+            print(f"  Reason: {e}")
+            print("\nCannot proceed without valid role access. Aborting.\n")
             raise SystemExit(1)
