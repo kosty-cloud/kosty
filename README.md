@@ -320,11 +320,7 @@ These services provide security and compliance audits without cost quantificatio
 - 📈 **Spot instance pricing** (up to 90% off)
 - 🔄 **Free tier limits** and credits
 
-**Use estimates for**:
-- ✅ Relative comparison between issues
-- ✅ Optimization prioritization
-- ✅ Business case development
-- ✅ ROI trend analysis
+**Use estimates for**: Relative comparison between issues, optimization prioritization, business case development, and ROI trend analysis.
 
 **Verify actual costs** in your AWS billing dashboard before making decisions.
 
@@ -407,35 +403,35 @@ kosty audit --output all
 ```
 
 **What `kosty audit` does:**
-- ✅ **Scans 16 core AWS services** automatically
-- ✅ **Runs complete audits** (cost + security) per service
-- ✅ **Generates comprehensive reports** (JSON, CSV, Console)
-- ✅ **Prioritizes issues** by severity and impact
-- ✅ **Scales across** single account or entire organization
+- Scans 16 core AWS services automatically
+- Runs complete audits (cost + security) per service
+- Generates comprehensive reports (JSON, CSV, Console)
+- Prioritizes issues by severity and impact
+- Scales across single account or entire organization
 
 ## 🚀 Features
 
-### 💻 **CLI + Web Dashboard**
-- ✅ **Modular CLI Architecture** - Organized by AWS service for maintainability
-- ✅ **Command Line Interface** - Powerful CLI for automation and scripting
-- ✅ **Visual Web Dashboard** - Modern React-based interface with interactive charts
-- ✅ **Multiple Report Formats** - Console, JSON, CSV outputs + visual reports
+### CLI + Web Dashboard
+- Modular CLI architecture organized by AWS service
+- Powerful command line interface for automation
+- Modern React-based web dashboard with interactive charts
+- Multiple report formats: Console, JSON, CSV, visual reports
 
-### 🔍 **Comprehensive Analysis**
-- ✅ **16 Core AWS Services** - Essential infrastructure coverage
-- ✅ **Cost Quantification** - Real dollar savings for 11 services
-- ✅ **One-Command Audit** - `kosty audit` scans everything
-- ✅ **Organization Support** - Multi-account scanning with configurable roles
-- ✅ **Multi-Region** - Scan across multiple AWS regions simultaneously with `--regions`
-- ✅ **Multi-Profile** - Run audits across all profiles in parallel with `--profiles`
-- ✅ **Flexible IAM** - Custom cross-account roles and separate org admin accounts
+### Comprehensive Analysis
+- 16 core AWS services coverage
+- Real dollar cost savings for 11 services
+- One-command audit scans everything
+- Multi-account organization support with configurable roles
+- Multi-region scanning with `--regions`
+- Multi-profile parallel execution with `--profiles`
+- Flexible IAM with custom cross-account roles
 
-### ⚡ **Performance & Usability**
-- ✅ **Parallel Processing** - High-performance with configurable workers
-- ✅ **ROI Prioritization** - Issues ranked by financial impact
-- ✅ **Safe Operations** - Read-only analysis, no resource modifications
-- ✅ **Professional Reporting** - Executive-ready dashboards with cost totals
-- ✅ **Smart Validation** - Upfront permission checks with clear error messages
+### Performance & Usability
+- Parallel processing with configurable workers
+- Issues ranked by financial impact
+- Read-only analysis, no resource modifications
+- Executive-ready dashboards with cost totals
+- Upfront permission checks with clear error messages
 
 ## 🔧 Configuration
 
