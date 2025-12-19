@@ -11,7 +11,7 @@ class S3AuditService:
                                'find_public_snapshots', 'find_no_mfa_delete']
     
     # Cost Audit Methods
-    def find_empty(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_empty(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find empty S3 buckets"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -50,7 +50,7 @@ class S3AuditService:
         
         return empty_buckets
     
-    def find_incomplete_uploads(self, session: boto3.Session, region: str, days: int = 7) -> List[Dict[str, Any]]:
+    def find_incomplete_uploads(self, session: boto3.Session, region: str, days: int = 7, config_manager=None) -> List[Dict[str, Any]]:
         """Find incomplete multipart uploads"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -87,7 +87,7 @@ class S3AuditService:
         
         return incomplete_uploads
     
-    def find_lifecycle_candidates(self, session: boto3.Session, region: str, days: int = 90) -> List[Dict[str, Any]]:
+    def find_lifecycle_candidates(self, session: boto3.Session, region: str, days: int = 90, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets needing lifecycle policies"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -144,7 +144,7 @@ class S3AuditService:
         return lifecycle_candidates
     
     # Security Audit Methods
-    def find_public_read(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_public_read(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets with public read access"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -186,7 +186,7 @@ class S3AuditService:
         
         return public_buckets
     
-    def find_public_write(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_public_write(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets with public write access"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -226,7 +226,7 @@ class S3AuditService:
         
         return public_write_buckets
     
-    def find_no_encryption(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_no_encryption(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets without encryption"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -262,7 +262,7 @@ class S3AuditService:
         
         return unencrypted_buckets
     
-    def find_no_versioning(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_no_versioning(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets without versioning"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -298,7 +298,7 @@ class S3AuditService:
         
         return no_versioning_buckets
     
-    def find_no_logging(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_no_logging(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets without access logging"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -334,7 +334,7 @@ class S3AuditService:
         
         return no_logging_buckets
     
-    def find_wildcard_policy(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_wildcard_policy(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets with wildcard policies"""
         s3 = session.client('s3')
         sts = session.client('sts')
@@ -378,12 +378,12 @@ class S3AuditService:
         
         return wildcard_buckets
     
-    def find_public_snapshots(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_public_snapshots(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find public snapshots (placeholder - S3 doesn't have snapshots)"""
         # This is more relevant for EBS, but keeping for consistency
         return []
     
-    def find_no_mfa_delete(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_no_mfa_delete(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find buckets without MFA delete"""
         s3 = session.client('s3')
         sts = session.client('sts')

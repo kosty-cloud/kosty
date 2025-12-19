@@ -43,7 +43,7 @@ class SGAuditService:
         results.extend(self.other_audit(session, region, **kwargs))
         return results
 
-    def find_ssh_rdp_open(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_ssh_rdp_open(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find security groups with SSH/RDP open to 0.0.0.0/0"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -83,7 +83,7 @@ class SGAuditService:
         
         return results
 
-    def find_database_ports_open(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_database_ports_open(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find security groups with database ports open to 0.0.0.0/0"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -124,7 +124,7 @@ class SGAuditService:
         
         return results
 
-    def find_all_ports_open(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_all_ports_open(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find security groups with all ports open to 0.0.0.0/0"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -162,7 +162,7 @@ class SGAuditService:
         
         return results
 
-    def find_unused_security_groups(self, session: boto3.Session, region: str) -> List[Dict[str, Any]]:
+    def find_unused_security_groups(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
         """Find unused security groups"""
         ec2 = session.client('ec2', region_name=region)
         results = []
@@ -214,7 +214,7 @@ class SGAuditService:
         
         return results
 
-    def find_complex_security_groups(self, session: boto3.Session, region: str, rule_threshold: int = 50) -> List[Dict[str, Any]]:
+    def find_complex_security_groups(self, session: boto3.Session, region: str, rule_threshold: int = 50, config_manager=None) -> List[Dict[str, Any]]:
         """Find security groups with >rule_threshold rules"""
         ec2 = session.client('ec2', region_name=region)
         results = []
