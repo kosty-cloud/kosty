@@ -35,6 +35,7 @@ DEFAULT_CONFIG = {
     'org_admin_account_id': None,
     'save_to': None,
     'role_arn': None,
+    'aws_profile': None,
     'mfa_serial': None,
     'duration_seconds': 3600
 }
@@ -272,42 +273,61 @@ class ConfigManager:
     def get_aws_session(self) -> boto3.Session:
         """Create AWS session with AssumeRole/MFA if configured"""
         role_arn = self.get('role_arn')
+        aws_profile = self.get('aws_profile')
         mfa_serial = self.get('mfa_serial')
         duration = self.get('duration_seconds', 3600)
         
-        if not role_arn:
-            return boto3.Session()
-        
-        mfa_token = None
-        if mfa_serial:
-            mfa_token = input(f"🔐 Enter MFA token for {mfa_serial}: ")
-        
-        sts = boto3.client('sts')
-        
-        assume_role_params = {
-            'RoleArn': role_arn,
-            'RoleSessionName': f'kosty-{self.profile}',
-            'DurationSeconds': duration
-        }
-        
-        if mfa_serial and mfa_token:
-            assume_role_params['SerialNumber'] = mfa_serial
-            assume_role_params['TokenCode'] = mfa_token
-        
-        try:
-            response = sts.assume_role(**assume_role_params)
+        # Priority: role_arn > aws_profile > default credentials
+        if role_arn:
+            # AssumeRole flow
+            mfa_token = None
+            if mfa_serial:
+                mfa_token = input(f"🔐 Enter MFA token for {mfa_serial}: ")
             
-            return boto3.Session(
-                aws_access_key_id=response['Credentials']['AccessKeyId'],
-                aws_secret_access_key=response['Credentials']['SecretAccessKey'],
-                aws_session_token=response['Credentials']['SessionToken']
-            )
-        except Exception as e:
-            config_file = self._find_config_file() or 'No config file'
-            print(f"\nError: Failed to assume role")
-            print(f"  Profile: {self.profile}")
-            print(f"  Config: {config_file}")
-            print(f"  Role ARN: {role_arn}")
-            print(f"  Reason: {e}")
-            print("\nCannot proceed without valid role access. Aborting.\n")
-            raise SystemExit(1)
+            sts = boto3.client('sts')
+            
+            assume_role_params = {
+                'RoleArn': role_arn,
+                'RoleSessionName': f'kosty-{self.profile}',
+                'DurationSeconds': duration
+            }
+            
+            if mfa_serial and mfa_token:
+                assume_role_params['SerialNumber'] = mfa_serial
+                assume_role_params['TokenCode'] = mfa_token
+            
+            try:
+                response = sts.assume_role(**assume_role_params)
+                
+                return boto3.Session(
+                    aws_access_key_id=response['Credentials']['AccessKeyId'],
+                    aws_secret_access_key=response['Credentials']['SecretAccessKey'],
+                    aws_session_token=response['Credentials']['SessionToken']
+                )
+            except Exception as e:
+                config_file = self._find_config_file() or 'No config file'
+                print(f"\nError: Failed to assume role")
+                print(f"  Profile: {self.profile}")
+                print(f"  Config: {config_file}")
+                print(f"  Role ARN: {role_arn}")
+                print(f"  Reason: {e}")
+                print("\nCannot proceed without valid role access. Aborting.\n")
+                raise SystemExit(1)
+        
+        elif aws_profile:
+            # Use AWS CLI profile
+            try:
+                return boto3.Session(profile_name=aws_profile)
+            except Exception as e:
+                config_file = self._find_config_file() or 'No config file'
+                print(f"\nError: Failed to use AWS profile")
+                print(f"  Profile: {self.profile}")
+                print(f"  Config: {config_file}")
+                print(f"  AWS Profile: {aws_profile}")
+                print(f"  Reason: {e}")
+                print(f"\nMake sure '{aws_profile}' exists in ~/.aws/credentials or ~/.aws/config\n")
+                raise SystemExit(1)
+        
+        else:
+            # Use default credentials (env vars, instance role, default profile)
+            return boto3.Session()
