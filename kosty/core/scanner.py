@@ -69,11 +69,12 @@ class ComprehensiveScanner:
             import boto3
             from concurrent.futures import ThreadPoolExecutor
             
-            session = boto3.Session()
+            # Use profile session if available
+            validation_session = self.session if self.session else boto3.Session()
             
             # If org admin account is specified, assume role there first
             if self.org_admin_account_id:
-                sts_client = session.client('sts')
+                sts_client = validation_session.client('sts')
                 loop = asyncio.get_event_loop()
                 
                 with ThreadPoolExecutor() as executor:
@@ -85,14 +86,14 @@ class ComprehensiveScanner:
                         )
                     )
                 
-                session = boto3.Session(
+                validation_session = boto3.Session(
                     aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
                     aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
                     aws_session_token=assumed_role['Credentials']['SessionToken']
                 )
             
             # Test Organizations access
-            org_client = session.client('organizations')
+            org_client = validation_session.client('organizations')
             loop = asyncio.get_event_loop()
             
             with ThreadPoolExecutor() as executor:
@@ -171,7 +172,7 @@ class ComprehensiveScanner:
                 desc = service_descriptions.get(service_name, f'{service_name} resources')
                 progress.set_description(f"🔍 {service_name.upper()}: {desc}")
                 
-                executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id)
+                executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id, config_manager=self.config_manager, session=self.session)
                 results = await executor.execute('audit')
                 
                 # Process results for each account
