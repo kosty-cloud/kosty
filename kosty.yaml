@@ -1,8 +1,18 @@
+default:
+  regions:
+    - us-east-1
+  max_workers: 5
+
+      
+
 profiles:
   test1:
     regions:
       - us-east-1
     max_workers: 5
+    exclude:
+      services:
+        - s3
     
   test2:
     regions:

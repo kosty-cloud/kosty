@@ -46,9 +46,20 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
     
     if run_all:
         from ..core.scanner import ComprehensiveScanner
+        from ..core.config import ConfigManager
         import asyncio
         
-        scanner = ComprehensiveScanner(organization, region, max_workers, cross_account_role, org_admin_account_id)
+        try:
+            config_manager = ConfigManager(
+                config_file=config_file,
+                profile=profile
+            )
+            session = config_manager.get_aws_session()
+        except Exception:
+            config_manager = None
+            session = None
+        
+        scanner = ComprehensiveScanner(organization, region, max_workers, cross_account_role, org_admin_account_id, config_manager=config_manager, session=session)
         reporter = asyncio.run(scanner.run_comprehensive_scan())
         
         # Generate reports based on output format
