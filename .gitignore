@@ -43,6 +43,8 @@ config
 .idea/
 *.swp
 *.swo
+.amazonq/
+nogithub/
 
 # OS
 .DS_Store
@@ -65,6 +67,3 @@ backups/
 *.bak
 
 # Internal docs
-PR_CHECKLIST.md
-MULTI_PROFILE_SUMMARY.md
-FEATURE_RESPONSE.md
