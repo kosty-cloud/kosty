@@ -84,5 +84,5 @@ def execute_service_command(ctx, service_class, method, output, organization, re
         org, reg_list, workers, role_name, admin_account = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
     
     service = service_class()
-    executor = ServiceExecutor(service, org, reg_list, workers, role_name, admin_account, config_manager=config_manager)
+    executor = ServiceExecutor(service, org, reg_list, workers, role_name, admin_account, config_manager=config_manager, session=session)
     asyncio.run(executor.execute(method, output, save_to=save_to, **kwargs))
