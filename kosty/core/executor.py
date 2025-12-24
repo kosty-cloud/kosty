@@ -8,7 +8,7 @@ from .progress import ProgressBar, SpinnerProgress
 from .storage import StorageManager
 
 class ServiceExecutor:
-    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None, config_manager=None):
+    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None, config_manager=None, session=None):
         self.service = service
         self.organization = organization
         self.regions = regions
@@ -22,6 +22,9 @@ class ServiceExecutor:
             from .config import ConfigManager
             config_manager = ConfigManager()
         self.config_manager = config_manager
+        
+        # Session from profile or default
+        self.session = session if session else boto3.Session()
         
     def _generate_filename(self, method_name: str, results: Dict[str, Any], file_format: str) -> str:
         """Generate descriptive filename based on scan parameters"""
@@ -266,8 +269,7 @@ class ServiceExecutor:
                 print(f"\n📊 CSV report saved: {filename}")
     
     async def _execute_single_account(self, method_name: str, *args, **kwargs) -> Dict[str, Any]:
-        session = boto3.Session()
-        account_id = session.client('sts').get_caller_identity()['Account']
+        account_id = self.session.client('sts').get_caller_identity()['Account']
         
         all_results = []
         
@@ -290,12 +292,12 @@ class ServiceExecutor:
                 try:
                     result = await loop.run_in_executor(
                         executor, 
-                        lambda r=region: method(session, r, max_workers=workers_per_region, config_manager=self.config_manager, *args, **kwargs)
+                        lambda r=region: method(self.session, r, max_workers=workers_per_region, config_manager=self.config_manager, *args, **kwargs)
                     )
                 except TypeError:
                     result = await loop.run_in_executor(
                         executor, 
-                        lambda r=region: method(session, r, config_manager=self.config_manager, *args, **kwargs)
+                        lambda r=region: method(self.session, r, config_manager=self.config_manager, *args, **kwargs)
                     )
                 all_results.extend(result)
         
@@ -322,11 +324,9 @@ class ServiceExecutor:
         return dict(zip(accounts, results))
     
     async def _get_organization_accounts(self) -> List[str]:
-        session = boto3.Session()
-        
         # If org admin account is specified, assume role there first
         if self.org_admin_account_id:
-            sts_client = session.client('sts')
+            sts_client = self.session.client('sts')
             loop = asyncio.get_event_loop()
             
             with ThreadPoolExecutor() as executor:
@@ -338,13 +338,15 @@ class ServiceExecutor:
                     )
                 )
             
-            session = boto3.Session(
+            org_session = boto3.Session(
                 aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
                 aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
                 aws_session_token=assumed_role['Credentials']['SessionToken']
             )
+        else:
+            org_session = self.session
         
-        org_client = session.client('organizations')
+        org_client = org_session.client('organizations')
         
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
@@ -378,8 +380,7 @@ class ServiceExecutor:
     
     async def _execute_for_account(self, account_id: str, method_name: str, *args, **kwargs):
         try:
-            session = boto3.Session()
-            sts_client = session.client('sts')
+            sts_client = self.session.client('sts')
             
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
