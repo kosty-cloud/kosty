@@ -55,7 +55,7 @@ AWS costs and security risks can spiral out of control quickly. Kosty helps you:
 - 🔐 **Detect** security misconfigurations and compliance issues
 - ⚡ **Optimize** with prioritized recommendations by financial impact
 - 🏢 **Scale** across entire AWS Organizations with parallel processing
-- 📊 **Track** ROI with comprehensive cost reporting
+- 📊 Track ROI with detailed cost reporting
 
 
 ## 🎯 Quick Start
@@ -491,8 +491,18 @@ default:
 profiles:
   customer01:
     regions: [us-east-1]
+    # Option 1: AssumeRole (recommended for multi-account)
     role_arn: "arn:aws:iam::123456789012:role/MyRole"
     mfa_serial: "arn:aws:iam::123456789012:mfa/device"
+  
+  customer02:
+    regions: [eu-west-1]
+    # Option 2: AWS CLI profile (for local development)
+    aws_profile: "customer02-prod"
+  
+  customer03:
+    regions: [ap-southeast-1]
+    # Option 3: Default credentials (env vars, instance role)
 ```
 
 See [Configuration Guide](docs/CONFIGURATION.md) for complete documentation.
@@ -514,13 +524,13 @@ See [Configuration Guide](docs/CONFIGURATION.md) for complete documentation.
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how you can help:
+We welcome contributions:
 
-1. **🐛 Report Issues** - Found a bug? [Open an issue](https://github.com/kosty-cloud/kosty/issues)
-2. **💡 Feature Requests** - Have an idea? [Start a discussion](https://github.com/kosty-cloud/kosty/discussions)
-3. **🔧 Add Services** - Implement new AWS service checks
-4. **📖 Improve Docs** - Help make documentation better
-5. **⭐ Star the Repo** - Show your support!
+1. **Report Issues** - Found a bug? [Open an issue](https://github.com/kosty-cloud/kosty/issues)
+2. **Feature Requests** - Have an idea? [Start a discussion](https://github.com/kosty-cloud/kosty/discussions)
+3. **Add Services** - Implement new AWS service checks
+4. **Improve Docs** - Help make documentation better
+5. **Star the Repo** - Show your support!
 
 ### Adding New Services
 
@@ -549,7 +559,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 💼 Professional Services
 
-Kosty is free and open-source for self-service optimization. For teams who prefer expert guidance to maximize results and ensure safe implementation, I offer professional audits.
+Kosty is free and open-source. For teams who want expert guidance to maximize results and safe implementation, I offer professional audits.
 
 ### What's Included
 

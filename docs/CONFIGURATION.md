@@ -120,6 +120,7 @@ kosty audit --profile production
 | `cross_account_role` | string | Role name for cross-account | `OrganizationAccountAccessRole` |
 | `org_admin_account_id` | string | Org admin account ID | `null` |
 | `role_arn` | string | Role ARN to assume | `null` |
+| `aws_profile` | string | AWS CLI profile name | `null` |
 | `mfa_serial` | string | MFA device ARN | `null` |
 | `duration_seconds` | integer | AssumeRole session duration | `3600` |
 
@@ -334,24 +335,11 @@ profiles:
 
 ## AWS Authentication
 
-### Default Credentials
+Kosty supports three authentication methods (in priority order):
 
-If no `role_arn` is configured, Kosty uses default AWS credentials:
+### 1. AssumeRole (Recommended for Multi-Account)
 
-```yaml
-default:
-  regions:
-    - us-east-1
-  # No role_arn = uses default credentials
-```
-
-Kosty will use credentials from:
-1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
-2. `~/.aws/credentials`
-3. `~/.aws/config`
-4. IAM role (if running on EC2/Lambda)
-
-### AssumeRole (without MFA)
+Best for managing multiple customer accounts securely:
 
 ```yaml
 profiles:
@@ -364,6 +352,52 @@ profiles:
 kosty audit --profile customer01
 # → Assumes role without MFA prompt
 ```
+
+### 2. AWS CLI Profile
+
+Best for local development with multiple AWS accounts:
+
+```yaml
+profiles:
+  customer01:
+    aws_profile: "customer01-prod"  # References ~/.aws/credentials
+    regions:
+      - us-east-1
+```
+
+```bash
+kosty audit --profile customer01
+# → Uses credentials from ~/.aws/credentials profile "customer01-prod"
+```
+
+**Setup AWS CLI profile:**
+```bash
+# Configure profile
+aws configure --profile customer01-prod
+
+# Or edit ~/.aws/credentials
+[customer01-prod]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
+### 3. Default Credentials
+
+Best for CI/CD pipelines or EC2 instances with IAM roles:
+
+```yaml
+profiles:
+  customer01:
+    regions:
+      - us-east-1
+    # No role_arn or aws_profile = uses default credentials
+```
+
+Kosty will use credentials from:
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. `~/.aws/credentials` (default profile)
+3. `~/.aws/config` (default profile)
+4. IAM role (if running on EC2/Lambda/ECS)
 
 ### AssumeRole with MFA
 

@@ -60,7 +60,7 @@ default:
 
 # Profile definitions
 profiles:
-  # Customer 1 profile
+  # Customer 1 profile - Using AssumeRole (recommended for multi-account)
   customer01:
     regions:
       - us-east-1
@@ -75,17 +75,24 @@ profiles:
       ec2_cpu: 15
       rds_cpu: 15
   
-  # Customer 2 profile
+  # Customer 2 profile - Using AWS CLI profile (for local development)
   customer02:
     regions:
       - eu-west-1
     max_workers: 8
-    role_arn: "arn:aws:iam::987654321098:role/KostyAuditRole"
+    aws_profile: "customer02-prod"  # References ~/.aws/credentials profile
     exclude:
       services:
         - "route53"
       tags:
         - key: "DoNotAudit"
+  
+  # Customer 3 profile - Using default credentials (env vars, instance role)
+  customer03:
+    regions:
+      - ap-southeast-1
+    max_workers: 5
+    # No role_arn or aws_profile = uses default credentials
   
   # Production environment
   production:
