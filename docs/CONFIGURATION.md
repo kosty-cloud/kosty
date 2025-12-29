@@ -120,6 +120,7 @@ kosty audit --profile production
 | `cross_account_role` | string | Role name for cross-account | `OrganizationAccountAccessRole` |
 | `org_admin_account_id` | string | Org admin account ID | `null` |
 | `role_arn` | string | Role ARN to assume | `null` |
+| `aws_profile` | string | AWS CLI profile name | `null` |
 | `mfa_serial` | string | MFA device ARN | `null` |
 | `duration_seconds` | integer | AssumeRole session duration | `3600` |
 
