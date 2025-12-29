@@ -491,8 +491,18 @@ default:
 profiles:
   customer01:
     regions: [us-east-1]
+    # Option 1: AssumeRole (recommended for multi-account)
     role_arn: "arn:aws:iam::123456789012:role/MyRole"
     mfa_serial: "arn:aws:iam::123456789012:mfa/device"
+  
+  customer02:
+    regions: [eu-west-1]
+    # Option 2: AWS CLI profile (for local development)
+    aws_profile: "customer02-prod"
+  
+  customer03:
+    regions: [ap-southeast-1]
+    # Option 3: Default credentials (env vars, instance role)
 ```
 
 See [Configuration Guide](docs/CONFIGURATION.md) for complete documentation.
