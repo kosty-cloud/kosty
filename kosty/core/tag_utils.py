@@ -24,6 +24,7 @@ def should_exclude_resource_by_tags(resource: Dict[str, Any], config_manager) ->
     return config_manager.should_exclude_by_tags(tags)
 
 
+<<<<<<< Updated upstream
 
 def get_resource_tags(resource: Dict[str, Any], service_type: str = None) -> List[Dict[str, str]]:
     """Extract tags from resource in various formats
@@ -34,5 +35,16 @@ def get_resource_tags(resource: Dict[str, Any], service_type: str = None) -> Lis
 
     Returns:
         List of tag dicts
+=======
+def get_resource_tags(resource: Dict[str, Any], service_type: str = None) -> List[Dict[str, str]]:
+    """Extract tags from resource in various formats
+    
+    Args:
+        resource: Resource dict that may contain tags
+        service_type: Service type (accepted for backward compatibility, not used)
+    
+    Returns:
+        List of tag dicts with 'Key' and 'Value' fields
+>>>>>>> Stashed changes
     """
     return resource.get('Tags') or resource.get('tags') or resource.get('TagList') or []
