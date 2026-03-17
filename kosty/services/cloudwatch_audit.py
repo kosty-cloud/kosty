@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 class CloudWatchAuditService:
     def __init__(self):
         self.service_name = "CloudWatch"
-        self.cost_checks = ['check_log_groups_without_retention', 'check_unused_alarms', 'check_unused_custom_metrics']
-        self.security_checks = []  # No security checks for CloudWatch
+        self.cost_checks = ['check_unused_custom_metrics']
+        self.security_checks = ['check_log_groups_without_retention', 'check_unused_alarms']
 
     def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run cost-related audits"""
@@ -19,7 +19,11 @@ class CloudWatchAuditService:
     
     def security_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run security-related audits"""
-        return []  # No security checks for CloudWatch
+        results = []
+        for check in self.security_checks:
+            method = getattr(self, check)
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
+        return results
     
     def audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run complete CloudWatch audit (cost + security)"""
@@ -51,7 +55,7 @@ class CloudWatchAuditService:
                             'ResourceId': log_group['logGroupName'],
                             'ResourceName': log_group['logGroupName'],
                             'Issue': 'Log group without retention policy',
-                            'type': 'cost',
+                            'type': 'security',
                             'Risk': 'HIGH' if stored_bytes > 1024**3 else 'MEDIUM',
                             'severity': 'high' if stored_bytes > 1024**3 else 'Medium',
                             'Description': f"Log group {log_group['logGroupName']} has no retention policy and costs ${round(monthly_cost, 2)}/month",
@@ -90,7 +94,7 @@ class CloudWatchAuditService:
                             'ResourceId': alarm['AlarmName'],
                             'ResourceName': alarm['AlarmName'],
                             'Issue': 'Unused CloudWatch alarm',
-                            'type': 'cost',
+                            'type': 'security',
                             'Risk': 'LOW',
                             'severity': 'low',
                             'Description': f"CloudWatch alarm {alarm['AlarmName']} has no state changes in {days} days",

@@ -6,8 +6,8 @@ import json
 
 class IAMAuditService:
     def __init__(self):
-        self.cost_checks = ['find_unused_roles']
-        self.security_checks = ['find_root_access_keys', 'find_old_access_keys', 'find_inactive_users', 
+        self.cost_checks = []
+        self.security_checks = ['find_unused_roles', 'find_root_access_keys', 'find_old_access_keys', 'find_inactive_users', 
                                'find_wildcard_policies', 'find_admin_no_mfa', 'find_weak_password_policy',
                                'find_no_password_rotation', 'find_cross_account_no_external_id']
     
@@ -51,7 +51,7 @@ class IAMAuditService:
                             'ResourceId': role_name,
                             'ResourceName': role_name,
                             'Issue': 'Unused role creating resources',
-                            'type': 'cost',
+                            'type': 'security',
                             'Risk': 'HIGH',
                             'severity': 'high',
                             'Description': f"IAM role {role_name} unused for {days}+ days",
