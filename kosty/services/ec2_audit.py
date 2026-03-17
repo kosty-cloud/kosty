@@ -2,7 +2,7 @@ import boto3
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import json
-from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
+from ..core.tag_utils import should_exclude_resource_by_tags
 
 class EC2AuditService:
     def __init__(self):
@@ -28,8 +28,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     state_transition_time = instance.get('StateTransitionReason', '')
@@ -87,8 +86,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_id = instance['InstanceId']
@@ -153,8 +151,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_id = instance['InstanceId']
@@ -216,8 +213,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_type = instance['InstanceType']
@@ -265,8 +261,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
@@ -310,8 +305,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
@@ -359,8 +353,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
@@ -397,8 +390,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     # Check if instance has public IP
@@ -449,8 +441,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     ami_id = instance.get('ImageId')
@@ -494,8 +485,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     metadata_options = instance.get('MetadataOptions', {})
@@ -532,8 +522,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     has_unencrypted = False
@@ -580,8 +569,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_id = instance['InstanceId']
