@@ -2,7 +2,7 @@ import boto3
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import json
-from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
+from ..core.tag_utils import should_exclude_resource_by_tags
 
 class EC2AuditService:
     def __init__(self):
