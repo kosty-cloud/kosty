@@ -68,14 +68,14 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
         
         if output in ['json', 'all']:
             json_file = reporter.save_json_report(organization=organization, org_admin_account_id=org_admin_account_id)
-            print(f"\\n📄 Detailed JSON report saved: {json_file}")
+            print(f"\n📄 Detailed JSON report saved: {json_file}")
         
         if output in ['csv', 'all']:
             csv_file = reporter.save_csv_report(organization=organization, org_admin_account_id=org_admin_account_id)
             print(f"📊 CSV report saved: {csv_file}")
         
         if output == 'all':
-            print(f"\\n🎉 All reports generated successfully!")
+            print(f"\n🎉 All reports generated successfully!")
             total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in reporter.results.values() for svc in acc.values())
             print(f"📊 Total issues found: {total_issues}")
         
@@ -190,18 +190,18 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
     
     # Generate reports based on output format
     if output in ['console', 'all']:
-        print("\\n" + reporter.generate_summary_report())
+        print("\n" + reporter.generate_summary_report())
     
     if output in ['json', 'all']:
         json_file = asyncio.run(reporter.save_json_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to))
-        print(f"\\n📄 Detailed JSON report saved: {json_file}")
+        print(f"\n📄 Detailed JSON report saved: {json_file}")
     
     if output in ['csv', 'all']:
         csv_file = asyncio.run(reporter.save_csv_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to))
         print(f"📊 CSV report saved: {csv_file}")
     
     if output == 'all':
-        print(f"\\n🎉 All reports generated successfully!")
+        print(f"\n🎉 All reports generated successfully!")
         total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in reporter.results.values() for svc in acc.values())
         print(f"📊 Total issues found: {total_issues}")
 

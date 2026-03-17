@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 import importlib
 from typing import Dict, Any, List, Tuple
 from .reporter import CostOptimizationReporter
@@ -30,6 +31,7 @@ class ComprehensiveScanner:
     def _discover_audit_services(self) -> List[Tuple[str, Any]]:
         """Dynamically discover all audit services"""
         services = []
+        excluded_services = []
         services_dir = os.path.join(os.path.dirname(__file__), '..', 'services')
         
         for filename in os.listdir(services_dir):
@@ -39,7 +41,7 @@ class ComprehensiveScanner:
                 
                 # Check if service is excluded
                 if self.config_manager.should_exclude_service(service_name):
-                    print(f"⚠️  {service_name.upper()} service excluded by config")
+                    excluded_services.append(service_name.upper())
                     continue
                 
                 try:
@@ -57,6 +59,9 @@ class ComprehensiveScanner:
                 except Exception as e:
                     print(f"Warning: Could not load {module_name}: {e}")
                     continue
+        
+        if excluded_services:
+            print(f"⚠️  {', '.join(excluded_services)} service(s) excluded by config")
         
         return services
     
@@ -146,60 +151,62 @@ class ComprehensiveScanner:
         print(f"⚡ Parallel workers: {self.max_workers}")
         print("=" * 60)
         
-        progress = ProgressBar(len(self.services), "Comprehensive scan progress")
-        
-        service_descriptions = {
-            's3': 'S3 buckets (empty, public, unencrypted)',
-            'ec2': 'EC2 instances (stopped, oversized, security)',
-            'rds': 'RDS databases (idle, oversized, public)',
-            'lambda': 'Lambda functions (unused, over-provisioned)',
-            'ebs': 'EBS volumes (orphaned, unencrypted)',
-            'iam': 'IAM users/roles (unused, insecure)',
-            'cloudwatch': 'CloudWatch (unused alarms, expensive logs)',
-            'lb': 'Load Balancers (no targets, underutilized)',
-            'eip': 'Elastic IPs (unattached, on stopped instances)',
-            'nat': 'NAT Gateways (unused, redundant)',
-            'vpc': 'VPC resources (unused security groups)',
-            'cloudfront': 'CloudFront (unused distributions)',
-            'route53': 'Route53 (unused hosted zones)',
-            'elasticache': 'ElastiCache (idle clusters)',
-            'dynamodb': 'DynamoDB (idle tables, over-provisioned)'
-        }
+        progress = ProgressBar(len(self.services), "Scanning")
         
         # Run all services in parallel
         semaphore = asyncio.Semaphore(self.max_workers)
+        service_results = {}  # service_name -> issue count
         
         async def _audit_service(service_name, service_instance):
             async with semaphore:
                 try:
-                    desc = service_descriptions.get(service_name, f'{service_name} resources')
-                    print(f"  🔍 {service_name.upper()}: {desc}")
-                    
-                    executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id, config_manager=self.config_manager, session=self.session)
+                    executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id, config_manager=self.config_manager, session=self.session, parent_progress=progress)
                     results = await executor.execute('audit')
                     
+                    svc_issues = 0
                     # Process results for each account
                     for account_id, account_results in results.items():
                         if isinstance(account_results, list):
                             self.reporter.add_results(service_name, 'audit', account_results, account_id)
+                            svc_issues += len(account_results)
                         elif isinstance(account_results, str) and account_results.startswith("Error"):
-                            print(f"\n    ⚠️  {account_id}: {account_results}")
+                            pass  # errors logged by executor
                         else:
                             self.reporter.add_results(service_name, 'audit', [], account_id)
+                    
+                    service_results[service_name] = svc_issues
                             
                 except Exception as e:
-                    print(f"\n    ❌ Error auditing {service_name}: {str(e)}")
+                    service_results[service_name] = f"Error: {e}"
                 finally:
                     progress.update()
         
-        await asyncio.gather(*[
-            _audit_service(name, instance) for name, instance in self.services
-        ])
+        # Suppress stdout from worker threads so progress bar on stderr stays clean
+        _orig_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+        try:
+            await asyncio.gather(*[
+                _audit_service(name, instance) for name, instance in self.services
+            ])
+        finally:
+            sys.stdout.close()
+            sys.stdout = _orig_stdout
         
+        # Print per-service summary table
+        total_issues = sum(v for v in service_results.values() if isinstance(v, int))
         print("\n" + "=" * 60)
         print("✅ Comprehensive scan completed!")
-        total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in self.reporter.results.values() for svc in acc.values())
         print(f"📊 Total issues found: {total_issues}")
+        print("─" * 60)
+        for svc_name, count in sorted(service_results.items(), key=lambda x: x[1] if isinstance(x[1], int) else -1, reverse=True):
+            if isinstance(count, int):
+                if count > 0:
+                    print(f"  {svc_name.upper():>12}  {count:>4} issues")
+                else:
+                    print(f"  {svc_name.upper():>12}     ✅ clean")
+            else:
+                print(f"  {svc_name.upper():>12}     ❌ {count}")
+        print("─" * 60)
         print(f"💰 Ready to generate cost optimization reports")
         print("=" * 60)
         

@@ -4,11 +4,11 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from .progress import ProgressBar, SpinnerProgress
+from .progress import SpinnerProgress
 from .storage import StorageManager
 
 class ServiceExecutor:
-    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None, config_manager=None, session=None):
+    def __init__(self, service, organization: bool, regions: List[str], max_workers: int = 5, cross_account_role: str = 'OrganizationAccountAccessRole', org_admin_account_id: str = None, config_manager=None, session=None, parent_progress=None):
         self.service = service
         self.organization = organization
         self.regions = regions
@@ -16,6 +16,7 @@ class ServiceExecutor:
         self.cross_account_role = cross_account_role
         self.org_admin_account_id = org_admin_account_id
         self.storage_manager = StorageManager()
+        self._parent_progress = parent_progress
         
         # Config manager for exclusions
         if config_manager is None:
@@ -114,11 +115,14 @@ class ServiceExecutor:
                 return {}
             print("✅ Save location validated successfully")
         
-        # Display command description before starting
-        self._display_command_description(method_name)
+        # Skip per-service header/spinner when running inside the parallel scanner
+        if not self._parent_progress:
+            self._display_command_description(method_name)
         
-        spinner = SpinnerProgress(f"Running {method_name}")
-        spinner.start()
+        spinner = None
+        if not self._parent_progress:
+            spinner = SpinnerProgress(f"Running {method_name}")
+            spinner.start()
         
         try:
             if self.organization:
@@ -130,12 +134,14 @@ class ServiceExecutor:
             await self._display_results(results, method_name, output_format, save_to)
             return results
         except ValueError as e:
-            spinner.stop()
+            if spinner:
+                spinner.stop()
             print(f"\n{str(e)}")
             print("\n💡 Try running without --organization flag for single account scan.")
             return {}
         finally:
-            spinner.stop()
+            if spinner:
+                spinner.stop()
     
     def _display_command_description(self, method_name: str):
         """Display what the command will do before execution"""
@@ -178,7 +184,13 @@ class ServiceExecutor:
             if isinstance(items, list):
                 total_issues += len(items)
         
-        # Always show console output with resource details
+        # In parallel scanner mode: silently update the shared progress bar only
+        if self._parent_progress:
+            if total_issues > 0:
+                self._parent_progress.add_issues(total_issues)
+            return
+        
+        # Standalone mode: show full console output
         for account_id, items in results.items():
             if isinstance(items, list) and items:
                 print(f"\n📊 Account: {account_id}")
