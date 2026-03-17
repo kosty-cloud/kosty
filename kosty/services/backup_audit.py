@@ -5,8 +5,8 @@ from typing import List, Dict, Any
 class BackupAuditService:
     def __init__(self):
         self.service_name = "Backup"
-        self.cost_checks = ['check_empty_backup_vaults', 'check_cross_region_backup_dev_test']
-        self.security_checks = []
+        self.cost_checks = ['check_cross_region_backup_dev_test']
+        self.security_checks = ['check_empty_backup_vaults']
 
     def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related AWS Backup audits"""
@@ -18,7 +18,11 @@ class BackupAuditService:
     
     def security_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all security-related AWS Backup audits"""
-        return []
+        results = []
+        for check in self.security_checks:
+            method = getattr(self, check)
+            results.extend(method(session, region, config_manager=config_manager, **kwargs))
+        return results
 
     def audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all AWS Backup audits"""
@@ -59,7 +63,7 @@ class BackupAuditService:
                             'ResourceName': vault_name,
                             'ResourceArn': vault['BackupVaultArn'],
                             'Issue': 'Empty backup vault',
-                            'type': 'cost',
+                            'type': 'security',
                             'Risk': 'Waste $0.10/mo per vault',
                             'severity': 'low',
                             'Details': {
