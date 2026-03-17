@@ -148,46 +148,53 @@ class ComprehensiveScanner:
         
         progress = ProgressBar(len(self.services), "Comprehensive scan progress")
         
-        # Run audit for each service
-        for service_name, service_instance in self.services:
-            try:
-                service_descriptions = {
-                    's3': 'S3 buckets (empty, public, unencrypted)',
-                    'ec2': 'EC2 instances (stopped, oversized, security)',
-                    'rds': 'RDS databases (idle, oversized, public)',
-                    'lambda': 'Lambda functions (unused, over-provisioned)',
-                    'ebs': 'EBS volumes (orphaned, unencrypted)',
-                    'iam': 'IAM users/roles (unused, insecure)',
-                    'cloudwatch': 'CloudWatch (unused alarms, expensive logs)',
-                    'lb': 'Load Balancers (no targets, underutilized)',
-                    'eip': 'Elastic IPs (unattached, on stopped instances)',
-                    'nat': 'NAT Gateways (unused, redundant)',
-                    'vpc': 'VPC resources (unused security groups)',
-                    'cloudfront': 'CloudFront (unused distributions)',
-                    'route53': 'Route53 (unused hosted zones)',
-                    'elasticache': 'ElastiCache (idle clusters)',
-                    'dynamodb': 'DynamoDB (idle tables, over-provisioned)'
-                }
-                
-                desc = service_descriptions.get(service_name, f'{service_name} resources')
-                progress.set_description(f"🔍 {service_name.upper()}: {desc}")
-                
-                executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id, config_manager=self.config_manager, session=self.session)
-                results = await executor.execute('audit')
-                
-                # Process results for each account
-                for account_id, account_results in results.items():
-                    if isinstance(account_results, list):
-                        self.reporter.add_results(service_name, 'audit', account_results, account_id)
-                    elif isinstance(account_results, str) and account_results.startswith("Error"):
-                        print(f"\n    ⚠️  {account_id}: {account_results}")
-                    else:
-                        self.reporter.add_results(service_name, 'audit', [], account_id)
-                        
-            except Exception as e:
-                print(f"\n    ❌ Error auditing {service_name}: {str(e)}")
-            finally:
-                progress.update()
+        service_descriptions = {
+            's3': 'S3 buckets (empty, public, unencrypted)',
+            'ec2': 'EC2 instances (stopped, oversized, security)',
+            'rds': 'RDS databases (idle, oversized, public)',
+            'lambda': 'Lambda functions (unused, over-provisioned)',
+            'ebs': 'EBS volumes (orphaned, unencrypted)',
+            'iam': 'IAM users/roles (unused, insecure)',
+            'cloudwatch': 'CloudWatch (unused alarms, expensive logs)',
+            'lb': 'Load Balancers (no targets, underutilized)',
+            'eip': 'Elastic IPs (unattached, on stopped instances)',
+            'nat': 'NAT Gateways (unused, redundant)',
+            'vpc': 'VPC resources (unused security groups)',
+            'cloudfront': 'CloudFront (unused distributions)',
+            'route53': 'Route53 (unused hosted zones)',
+            'elasticache': 'ElastiCache (idle clusters)',
+            'dynamodb': 'DynamoDB (idle tables, over-provisioned)'
+        }
+        
+        # Run all services in parallel
+        semaphore = asyncio.Semaphore(self.max_workers)
+        
+        async def _audit_service(service_name, service_instance):
+            async with semaphore:
+                try:
+                    desc = service_descriptions.get(service_name, f'{service_name} resources')
+                    print(f"  🔍 {service_name.upper()}: {desc}")
+                    
+                    executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id, config_manager=self.config_manager, session=self.session)
+                    results = await executor.execute('audit')
+                    
+                    # Process results for each account
+                    for account_id, account_results in results.items():
+                        if isinstance(account_results, list):
+                            self.reporter.add_results(service_name, 'audit', account_results, account_id)
+                        elif isinstance(account_results, str) and account_results.startswith("Error"):
+                            print(f"\n    ⚠️  {account_id}: {account_results}")
+                        else:
+                            self.reporter.add_results(service_name, 'audit', [], account_id)
+                            
+                except Exception as e:
+                    print(f"\n    ❌ Error auditing {service_name}: {str(e)}")
+                finally:
+                    progress.update()
+        
+        await asyncio.gather(*[
+            _audit_service(name, instance) for name, instance in self.services
+        ])
         
         print("\n" + "=" * 60)
         print("✅ Comprehensive scan completed!")
