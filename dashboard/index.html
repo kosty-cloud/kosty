@@ -52,13 +52,15 @@
             </div>
         );
 
-        const IssueCard = ({ service, items, count, type, onIssueClick, onViewAll, severityColors }) => {
+        const IssueCard = ({ service, items, count, type, totalMonthlySavings, onIssueClick, onViewAll, severityColors }) => {
             const typeColors = {
                 cost: 'border-orange-500',
                 security: 'border-red-500',
                 Cost: 'border-orange-500',
                 Security: 'border-red-500'
             };
+
+            const groupSavings = totalMonthlySavings || (items ? items.reduce((sum, item) => sum + (item.monthly_cost || 0), 0) : 0);
 
             return (
                 <div className={`bg-white rounded-lg p-4 border-l-4 ${typeColors[type] || typeColors.cost} card-shadow hover:shadow-lg transition-shadow`}>
@@ -70,9 +72,17 @@
                                 <p className="text-xs text-gray-600 capitalize">{type} Issues</p>
                             </div>
                         </div>
-                        <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
-                            {count}
-                        </span>
+                        <div className="flex flex-col items-end">
+                            <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                                {count}
+                            </span>
+                            {groupSavings > 0 && (
+                                <span className="text-xs font-semibold text-green-600 mt-1">
+                                    <i className="fas fa-dollar-sign mr-0.5"></i>
+                                    ${groupSavings.toFixed(2)}/mo
+                                </span>
+                            )}
+                        </div>
                     </div>
                     
                     {items && items.length > 0 && (
@@ -212,7 +222,7 @@
             const [selectedIssue, setSelectedIssue] = useState(null);
             const [viewAllModal, setViewAllModal] = useState(null);
             const [filters, setFilters] = useState({
-                type: 'all',
+                type: 'cost',
                 severity: 'all',
                 service: 'all'
             });
@@ -236,7 +246,7 @@
                 if (currentData && chartRef.current && pieChartRef.current && severityChartRef.current) {
                     createCharts();
                 }
-            }, [data, showDemo, chartRef.current, pieChartRef.current, severityChartRef.current]);
+            }, [data, showDemo, filters.type, chartRef.current, pieChartRef.current, severityChartRef.current]);
 
             const createCharts = () => {
                 const currentData = data || (showDemo ? demoData : null);
@@ -389,10 +399,23 @@
                 if (!currentData) return { labels: [], values: [] };
                 
                 const normalizedData = normalizeData(currentData);
+                const typeFilter = filters.type;
                 
                 Object.values(normalizedData.results).forEach(account => {
                     Object.entries(account).forEach(([service, commands]) => {
-                        const totalIssues = Object.values(commands).reduce((sum, cmd) => sum + cmd.count, 0);
+                        let totalIssues = 0;
+                        Object.values(commands).forEach(cmd => {
+                            if (cmd.items) {
+                                cmd.items.forEach(item => {
+                                    const itemType = (item.Type || item.type || 'other').toLowerCase();
+                                    if (typeFilter === 'all' || itemType === typeFilter) {
+                                        totalIssues++;
+                                    }
+                                });
+                            } else {
+                                totalIssues += cmd.count || 0;
+                            }
+                        });
                         if (totalIssues > 0) {
                             services[service.toUpperCase()] = (services[service.toUpperCase()] || 0) + totalIssues;
                         }
@@ -443,12 +466,16 @@
                 if (!currentData) return { labels: [], values: [] };
                 
                 const normalizedData = normalizeData(currentData);
+                const typeFilter = filters.type;
                 
                 Object.values(normalizedData.results).forEach(account => {
                     Object.entries(account).forEach(([service, commands]) => {
                         Object.entries(commands).forEach(([command, details]) => {
                             if (details.items) {
                                 details.items.forEach(item => {
+                                    const itemType = (item.Type || item.type || 'other').toLowerCase();
+                                    if (typeFilter !== 'all' && itemType !== typeFilter) return;
+                                    
                                     const severity = item.severity || item.Severity || 'low';
                                     const normalizedSeverity = severity.toLowerCase();
                                     
@@ -501,11 +528,13 @@
                                             service,
                                             type: 'Cost',
                                             items: [],
-                                            count: 0
+                                            count: 0,
+                                            totalMonthlySavings: 0
                                         };
                                     }
                                     grouped[key].items.push(...costItems);
                                     grouped[key].count += costItems.length;
+                                    grouped[key].totalMonthlySavings += costItems.reduce((sum, item) => sum + (item.monthly_cost || 0), 0);
                                 }
 
                                 if (securityItems.length > 0) {
@@ -515,11 +544,13 @@
                                             service,
                                             type: 'Security',
                                             items: [],
-                                            count: 0
+                                            count: 0,
+                                            totalMonthlySavings: 0
                                         };
                                     }
                                     grouped[key].items.push(...securityItems);
                                     grouped[key].count += securityItems.length;
+                                    grouped[key].totalMonthlySavings += securityItems.reduce((sum, item) => sum + (item.monthly_cost || 0), 0);
                                 }
                             }
                         });
@@ -905,9 +936,9 @@
                                                 </select>
                                             </div>
                                             
-                                            {(filters.type !== 'all' || filters.severity !== 'all' || filters.service !== 'all') && (
+                                            {(filters.type !== 'cost' || filters.severity !== 'all' || filters.service !== 'all') && (
                                                 <button
-                                                    onClick={() => setFilters({type: 'all', severity: 'all', service: 'all'})}
+                                                    onClick={() => setFilters({type: 'cost', severity: 'all', service: 'all'})}
                                                     className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                                                 >
                                                     <i className="fas fa-times mr-1"></i>
@@ -946,7 +977,7 @@
                                                         Try adjusting your filter criteria.
                                                     </p>
                                                     <button
-                                                        onClick={() => setFilters({type: 'all', severity: 'all', service: 'all'})}
+                                                        onClick={() => setFilters({type: 'cost', severity: 'all', service: 'all'})}
                                                         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                                     >
                                                         Clear All Filters
