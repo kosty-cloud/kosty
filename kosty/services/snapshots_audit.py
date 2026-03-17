@@ -1,5 +1,5 @@
 import boto3
-from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
+from ..core.tag_utils import should_exclude_resource_by_tags
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
 
@@ -44,8 +44,7 @@ class SnapshotsAuditService:
             
             for snapshot in response['Snapshots']:
                 if config_manager:
-                    tags = get_resource_tags(snapshot, 'snapshot')
-                    if should_exclude_resource_by_tags(tags, config_manager):
+                    if should_exclude_resource_by_tags(snapshot, config_manager):
                         continue
                 
                 if snapshot['StartTime'] < cutoff_date:

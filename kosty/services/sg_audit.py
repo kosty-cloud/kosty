@@ -4,8 +4,8 @@ from typing import List, Dict, Any
 
 class SGAuditService:
     def __init__(self):
-        self.cost_checks = ['find_unused_security_groups']
-        self.security_checks = ['find_ssh_rdp_open', 'find_database_ports_open', 'find_all_ports_open']
+        self.cost_checks = []
+        self.security_checks = ['find_unused_security_groups', 'find_ssh_rdp_open', 'find_database_ports_open', 'find_all_ports_open']
         self.other_checks = ['find_complex_security_groups']
 
     def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -201,7 +201,7 @@ class SGAuditService:
                         'ResourceId': sg_id,
                         'ARN': f"arn:aws:ec2:{region}:{session.client('sts').get_caller_identity()['Account']}:security-group/{sg_id}",
                         'Issue': 'Unused security group (no attachments)',
-                        'type': 'cost',
+                        'type': 'security',
                         'Risk': 'Configuration drift',
                         'severity': 'low',
                         'Details': {

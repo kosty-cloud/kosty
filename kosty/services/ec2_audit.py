@@ -2,7 +2,7 @@ import boto3
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import json
-from ..core.tag_utils import should_exclude_resource_by_tags, get_resource_tags
+from ..core.tag_utils import should_exclude_resource_by_tags
 
 class EC2AuditService:
     def __init__(self):
@@ -10,6 +10,31 @@ class EC2AuditService:
         self.security_checks = ['find_ssh_open', 'find_rdp_open', 'find_database_ports_open', 
                                'find_public_non_web', 'find_old_ami', 'find_imdsv1', 
                                'find_unencrypted_ebs', 'find_no_recent_backup']
+    
+    @staticmethod
+    def _enrich_instance_context(instance: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract useful context from an EC2 instance for enriching audit findings.
+        
+        Returns a dict with Name, AutoScalingGroup, ImageId, LaunchTemplate, and Tags.
+        """
+        tags = {t['Key']: t['Value'] for t in instance.get('Tags', [])}
+        name = tags.get('Name', '')
+        asg = tags.get('aws:autoscaling:groupName', '')
+        
+        lt_info = instance.get('LaunchTemplate', {})
+        launch_template = ''
+        if lt_info:
+            lt_name = lt_info.get('LaunchTemplateName', '')
+            lt_ver = lt_info.get('Version', '')
+            launch_template = f"{lt_name}:v{lt_ver}" if lt_name else ''
+        
+        return {
+            'Name': name,
+            'AutoScalingGroup': asg,
+            'ImageId': instance.get('ImageId', ''),
+            'LaunchTemplate': launch_template,
+            'Tags': tags,
+        }
     
     # Cost Audit Methods
     def find_stopped(self, session: boto3.Session, region: str, days: int = 7, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -28,8 +53,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     state_transition_time = instance.get('StateTransitionReason', '')
@@ -42,6 +66,7 @@ class EC2AuditService:
                                 transition_str = match.group(1)
                                 transition_time = datetime.strptime(transition_str, '%Y-%m-%d %H:%M:%S %Z')
                                 if transition_time < cutoff_date:
+                                    ctx = self._enrich_instance_context(instance)
                                     stopped_instances.append({
                                         'AccountId': account_id,
                                         'InstanceId': instance['InstanceId'],
@@ -59,7 +84,8 @@ class EC2AuditService:
                                         'check': 'stopped_instances',
                                         'instance_type': instance['InstanceType'],
                                         'resource_id': instance['InstanceId'],
-                                        'resource_name': instance['InstanceId']
+                                        'resource_name': ctx['Name'] or instance['InstanceId'],
+                                        **ctx,
                                     })
                         except:
                             continue
@@ -87,8 +113,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_id = instance['InstanceId']
@@ -108,6 +133,7 @@ class EC2AuditService:
                         if metrics['Datapoints']:
                             avg_cpu = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
                             if avg_cpu < cpu_threshold:
+                                ctx = self._enrich_instance_context(instance)
                                 idle_instances.append({
                                     'AccountId': account_id,
                                     'InstanceId': instance_id,
@@ -125,7 +151,8 @@ class EC2AuditService:
                                     'check': 'idle_instances',
                                     'instance_type': instance['InstanceType'],
                                     'resource_id': instance_id,
-                                    'resource_name': instance_id
+                                    'resource_name': ctx['Name'] or instance_id,
+                                    **ctx,
                                 })
                     except Exception:
                         continue
@@ -153,8 +180,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_id = instance['InstanceId']
@@ -173,6 +199,7 @@ class EC2AuditService:
                         if metrics['Datapoints']:
                             avg_cpu = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
                             if avg_cpu < cpu_threshold:
+                                ctx = self._enrich_instance_context(instance)
                                 oversized_instances.append({
                                     'AccountId': account_id,
                                     'InstanceId': instance_id,
@@ -190,7 +217,8 @@ class EC2AuditService:
                                     'check': 'oversized_instances',
                                     'instance_type': instance['InstanceType'],
                                     'resource_id': instance_id,
-                                    'resource_name': instance_id
+                                    'resource_name': ctx['Name'] or instance_id,
+                                    **ctx,
                                 })
                     except Exception:
                         continue
@@ -216,14 +244,14 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_type = instance['InstanceType']
                     instance_family = instance_type.split('.')[0]
                     
                     if instance_family in previous_gen_types:
+                        ctx = self._enrich_instance_context(instance)
                         old_generation.append({
                             'AccountId': account_id,
                             'InstanceId': instance['InstanceId'],
@@ -234,7 +262,9 @@ class EC2AuditService:
                             'type': 'cost',
                             'Risk': 'Waste 10-20% vs current gen',
                             'severity': 'medium',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance['InstanceId'],
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking previous generation instances: {e}")
@@ -265,12 +295,12 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                     if any(sg_id in ssh_open_sgs for sg_id in instance_sgs):
+                        ctx = self._enrich_instance_context(instance)
                         ssh_open_instances.append({
                             'AccountId': account_id,
                             'InstanceId': instance['InstanceId'],
@@ -282,7 +312,9 @@ class EC2AuditService:
                             'type': 'security',
                             'Risk': 'Brute force attacks (38k/day avg)',
                             'severity': 'critical',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance['InstanceId'],
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking SSH open instances: {e}")
@@ -310,12 +342,12 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                     if any(sg_id in rdp_open_sgs for sg_id in instance_sgs):
+                        ctx = self._enrich_instance_context(instance)
                         rdp_open_instances.append({
                             'AccountId': account_id,
                             'InstanceId': instance['InstanceId'],
@@ -327,7 +359,9 @@ class EC2AuditService:
                             'type': 'security',
                             'Risk': 'Brute force attacks',
                             'severity': 'critical',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance['InstanceId'],
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking RDP open instances: {e}")
@@ -359,12 +393,12 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_sgs = [sg['GroupId'] for sg in instance.get('SecurityGroups', [])]
                     if any(sg_id in db_open_sgs for sg_id in instance_sgs):
+                        ctx = self._enrich_instance_context(instance)
                         db_open_instances.append({
                             'AccountId': account_id,
                             'InstanceId': instance['InstanceId'],
@@ -376,7 +410,9 @@ class EC2AuditService:
                             'type': 'security',
                             'Risk': 'Unauthorized DB access',
                             'severity': 'critical',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance['InstanceId'],
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking database ports: {e}")
@@ -397,8 +433,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     # Check if instance has public IP
@@ -417,6 +452,7 @@ class EC2AuditService:
                                         break
                         
                         if not has_web_access:
+                            ctx = self._enrich_instance_context(instance)
                             public_non_web.append({
                                 'AccountId': account_id,
                                 'InstanceId': instance['InstanceId'],
@@ -428,7 +464,9 @@ class EC2AuditService:
                                 'type': 'security',
                                 'Risk': 'Unnecessary attack surface',
                                 'severity': 'high',
-                                'Service': 'EC2'
+                                'Service': 'EC2',
+                                'resource_name': ctx['Name'] or instance['InstanceId'],
+                                **ctx,
                             })
         except Exception as e:
             print(f"Error checking public non-web instances: {e}")
@@ -449,8 +487,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     ami_id = instance.get('ImageId')
@@ -461,6 +498,7 @@ class EC2AuditService:
                                 ami = ami_details['Images'][0]
                                 creation_date = datetime.strptime(ami['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ')
                                 if creation_date < cutoff_date:
+                                    ctx = self._enrich_instance_context(instance)
                                     old_ami_instances.append({
                                         'AccountId': account_id,
                                         'InstanceId': instance['InstanceId'],
@@ -473,7 +511,9 @@ class EC2AuditService:
                                         'type': 'security',
                                         'Risk': 'Unpatched CVEs accumulation',
                                         'severity': 'high',
-                                        'Service': 'EC2'
+                                        'Service': 'EC2',
+                                        'resource_name': ctx['Name'] or instance['InstanceId'],
+                                        **ctx,
                                     })
                         except Exception:
                             continue
@@ -494,14 +534,14 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     metadata_options = instance.get('MetadataOptions', {})
                     http_tokens = metadata_options.get('HttpTokens', 'optional')
                     
                     if http_tokens == 'optional':  # IMDSv1 enabled
+                        ctx = self._enrich_instance_context(instance)
                         imdsv1_instances.append({
                             'AccountId': account_id,
                             'InstanceId': instance['InstanceId'],
@@ -513,7 +553,9 @@ class EC2AuditService:
                             'type': 'security',
                             'Risk': 'SSRF attacks (Capital One vector)',
                             'severity': 'medium',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance['InstanceId'],
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking IMDSv1 instances: {e}")
@@ -532,8 +574,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     has_unencrypted = False
@@ -549,6 +590,7 @@ class EC2AuditService:
                                 continue
                     
                     if has_unencrypted:
+                        ctx = self._enrich_instance_context(instance)
                         unencrypted_instances.append({
                             'AccountId': account_id,
                             'InstanceId': instance['InstanceId'],
@@ -559,7 +601,9 @@ class EC2AuditService:
                             'type': 'security',
                             'Risk': 'Data exposure if compromised',
                             'severity': 'medium',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance['InstanceId'],
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking unencrypted EBS volumes: {e}")
@@ -580,8 +624,7 @@ class EC2AuditService:
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
                     if config_manager:
-                        tags = get_resource_tags(instance, 'ec2')
-                        if should_exclude_resource_by_tags(tags, config_manager):
+                        if should_exclude_resource_by_tags(instance, config_manager):
                             continue
                     
                     instance_id = instance['InstanceId']
@@ -603,6 +646,7 @@ class EC2AuditService:
                             break
                     
                     if not has_recent_backup:
+                        ctx = self._enrich_instance_context(instance)
                         no_backup_instances.append({
                             'AccountId': account_id,
                             'InstanceId': instance_id,
@@ -613,7 +657,9 @@ class EC2AuditService:
                             'type': 'security',
                             'Risk': 'No recovery point',
                             'severity': 'medium',
-                            'Service': 'EC2'
+                            'Service': 'EC2',
+                            'resource_name': ctx['Name'] or instance_id,
+                            **ctx,
                         })
         except Exception as e:
             print(f"Error checking recent backups: {e}")
