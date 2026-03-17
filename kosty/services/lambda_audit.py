@@ -7,13 +7,14 @@ class LambdaAuditService:
     service_name = "Lambda"
     
     cost_checks = [
-        "check_unused_functions",
         "check_over_provisioned_memory"
     ]
     
     security_checks = [
         "check_public_functions",
-        "check_outdated_runtime"
+        "check_outdated_runtime",
+        "check_unused_functions",
+        "check_long_timeout_functions"
     ]
     
     def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -35,7 +36,6 @@ class LambdaAuditService:
         results = []
         results.extend(self.cost_audit(session, region, **kwargs))
         results.extend(self.security_audit(session, region, **kwargs))
-        results.extend(self.check_long_timeout_functions(session, region, **kwargs))
         return results
 
     def check_unused_functions(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -74,7 +74,7 @@ class LambdaAuditService:
                             'ResourceId': function['FunctionName'],
                             'ResourceName': function['FunctionName'],
                             'Issue': 'Unused Lambda function',
-                            'type': 'cost',
+                            'type': 'security',
                             'Risk': 'LOW',
                             'severity': 'low',
                             'Description': f"Lambda function {function['FunctionName']} has 0 invocations in {days} days",
@@ -287,7 +287,7 @@ class LambdaAuditService:
                         'ResourceId': function['FunctionName'],
                         'ResourceName': function['FunctionName'],
                         'Issue': 'Long timeout Lambda function',
-                        'type': 'cost',
+                        'type': 'security',
                         'Risk': 'LOW',
                         'severity': 'low',
                         'Description': f"Lambda function {function['FunctionName']} has timeout >5min (consider ECS/Fargate)",
