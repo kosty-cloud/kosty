@@ -34,4 +34,4 @@ WORKDIR /home/nonroot
 
 USER nonroot
 
-ENTRYPOINT ["/opt/venv/bin/python", "/opt/venv/bin/kosty"]
+ENTRYPOINT ["python3", "-m", "kosty.cli"]
