@@ -105,6 +105,39 @@ open dashboard/index.html
 pip install kosty
 ```
 
+### Docker
+
+Run Kosty in a secure, isolated container without installing Python dependencies.
+
+```bash
+# Pull the image
+docker pull ghcr.io/kosty-cloud/kosty:latest
+
+# Run audit with AWS credentials
+docker run --rm \
+  -v ~/.aws:/home/nonroot/.aws:ro \
+  ghcr.io/kosty-cloud/kosty:latest audit
+
+# Run with custom config file
+docker run --rm \
+  -v ~/.aws:/home/nonroot/.aws:ro \
+  -v $(pwd)/kosty.yaml:/home/nonroot/kosty.yaml:ro \
+  ghcr.io/kosty-cloud/kosty:latest audit --config-file kosty.yaml
+
+# Save reports to local directory
+docker run --rm \
+  -v ~/.aws:/home/nonroot/.aws:ro \
+  -v $(pwd)/reports:/home/nonroot/reports \
+  ghcr.io/kosty-cloud/kosty:latest audit --output json
+```
+
+**Important**: The container runs as a non-root user for security. Mount your AWS credentials directory to `/home/nonroot/.aws` as read-only (`:ro`). Never mount credentials as read-write.
+
+**Available tags:**
+- `latest` - Latest stable release from main branch
+- `1.x.x` - Specific version tags
+- Multi-architecture support: AMD64 and ARM64
+
 ### Install from Source
 ```bash
 git clone https://github.com/kosty-cloud/kosty.git
