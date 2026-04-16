@@ -31,8 +31,8 @@ kosty/cli.py.backup
 secrets.md
 integrations/
 tests/
-
-
+secrets_docs/
+kosty.yaml
 # AWS credentials
 .aws/
 credentials

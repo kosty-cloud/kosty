@@ -114,3 +114,21 @@ def s3_check_mfa_delete(ctx, profile, organization, region, max_workers, regions
     """Find buckets without MFA delete"""
     from ..services.s3_audit import S3AuditService
     execute_service_command(ctx, S3AuditService, 'check_mfa_delete', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@s3.command('check-no-object-lock')
+@common_options
+@click.pass_context
+def s3_check_object_lock(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find buckets without Object Lock enabled"""
+    from ..services.s3_audit import S3AuditService
+    execute_service_command(ctx, S3AuditService, 'check_no_object_lock', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@s3.command('check-no-cross-region-replication')
+@common_options
+@click.pass_context
+def s3_check_crr(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find buckets without cross-region replication"""
+    from ..services.s3_audit import S3AuditService
+    execute_service_command(ctx, S3AuditService, 'check_no_cross_region_replication', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
