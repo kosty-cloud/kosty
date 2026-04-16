@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 class RDSAuditService:
     def __init__(self):
         self.cost_checks = ['find_idle_instances', 'find_oversized_instances', 'find_unused_read_replicas', 
-                           'find_multi_az_non_prod', 'find_long_backup_retention', 'find_gp2_storage']
+                           'find_multi_az_non_prod', 'find_long_backup_retention', 'find_gp2_storage',
+                           'find_no_performance_insights']
         self.security_checks = ['find_publicly_accessible', 'find_unencrypted_storage', 'find_default_username',
-                               'find_wide_cidr_sg', 'find_disabled_backups', 'find_outdated_engine', 'find_no_ssl_enforcement']
+                               'find_wide_cidr_sg', 'find_disabled_backups', 'find_outdated_engine', 'find_no_ssl_enforcement',
+                               'find_no_auto_minor_upgrade']
     
     # Cost Audit Methods
     def find_idle_instances(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -555,11 +557,8 @@ class RDSAuditService:
             instances = rds.describe_db_instances()
             
             for instance in instances['DBInstances']:
-                # Check parameter groups for SSL enforcement
                 db_parameter_groups = instance.get('DBParameterGroups', [])
                 
-                # This is a simplified check - in reality, you'd need to check the actual parameter values
-                # For now, we'll flag instances that might not have SSL enforcement
                 no_ssl_instances.append({
                     'AccountId': account_id,
                     'DBInstanceIdentifier': instance['DBInstanceIdentifier'],
@@ -578,6 +577,36 @@ class RDSAuditService:
             print(f"Error checking SSL enforcement: {e}")
         
         return no_ssl_instances
+    
+    def find_no_auto_minor_upgrade(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find instances with auto minor version upgrade disabled"""
+        rds = session.client('rds', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            for instance in rds.describe_db_instances()['DBInstances']:
+                if not instance.get('AutoMinorVersionUpgrade', True):
+                    results.append({
+                        'AccountId': account_id,
+                        'DBInstanceIdentifier': instance['DBInstanceIdentifier'],
+                        'DBInstanceClass': instance['DBInstanceClass'],
+                        'Engine': instance['Engine'],
+                        'EngineVersion': instance.get('EngineVersion', ''),
+                        'ARN': instance['DBInstanceArn'],
+                        'Region': region,
+                        'Issue': 'Auto minor version upgrade disabled',
+                        'type': 'security',
+                        'Risk': 'Missing security patches applied during maintenance windows',
+                        'severity': 'medium',
+                        'Service': 'RDS',
+                        'check': 'no_auto_minor_upgrade'
+                    })
+        except Exception as e:
+            print(f"Error checking auto minor upgrade: {e}")
+        
+        return results
     
     # Audit Methods
     def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -642,3 +671,38 @@ class RDSAuditService:
     
     def check_no_ssl_enforcement(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_ssl_enforcement(session, region, **kwargs)
+    
+    def check_no_auto_minor_upgrade(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_auto_minor_upgrade(session, region, **kwargs)
+
+    def find_no_performance_insights(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find instances without Performance Insights enabled"""
+        rds = session.client('rds', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            for instance in rds.describe_db_instances()['DBInstances']:
+                if not instance.get('PerformanceInsightsEnabled', False):
+                    results.append({
+                        'AccountId': account_id,
+                        'DBInstanceIdentifier': instance['DBInstanceIdentifier'],
+                        'DBInstanceClass': instance['DBInstanceClass'],
+                        'Engine': instance['Engine'],
+                        'ARN': instance['DBInstanceArn'],
+                        'Region': region,
+                        'Issue': 'Performance Insights disabled',
+                        'type': 'cost',
+                        'Risk': 'No visibility into query performance bottlenecks',
+                        'severity': 'low',
+                        'Service': 'RDS',
+                        'check': 'no_performance_insights'
+                    })
+        except Exception as e:
+            print(f"Error checking Performance Insights: {e}")
+        
+        return results
+    
+    def check_no_performance_insights(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_performance_insights(session, region, **kwargs)

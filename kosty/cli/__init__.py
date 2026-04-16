@@ -20,6 +20,8 @@ from .route53_commands import route53
 from .apigateway_commands import apigateway
 from .backup_commands import backup
 from .snapshots_commands import snapshots
+from .waf_commands import waf
+from .public_exposure_commands import public_exposure
 
 @click.group(invoke_without_command=True)
 @click.option('--config-file', help='Path to configuration file (default: ./kosty.yaml or ~/.kosty/config.yaml)')
@@ -228,6 +230,8 @@ cli.add_command(route53)
 cli.add_command(apigateway)
 cli.add_command(backup)
 cli.add_command(snapshots)
+cli.add_command(waf)
+cli.add_command(public_exposure)
 
 if __name__ == '__main__':
     cli()

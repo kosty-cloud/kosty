@@ -160,24 +160,26 @@ class ComprehensiveScanner:
         async def _audit_service(service_name, service_instance):
             async with semaphore:
                 try:
+                    print(f"  ▶ {service_name.upper()} started", file=sys.stderr)
                     executor = ServiceExecutor(service_instance, self.organization, self.regions, self.max_workers, self.cross_account_role, self.org_admin_account_id, config_manager=self.config_manager, session=self.session, parent_progress=progress)
                     results = await executor.execute('audit')
                     
                     svc_issues = 0
-                    # Process results for each account
                     for account_id, account_results in results.items():
                         if isinstance(account_results, list):
                             self.reporter.add_results(service_name, 'audit', account_results, account_id)
                             svc_issues += len(account_results)
                         elif isinstance(account_results, str) and account_results.startswith("Error"):
-                            pass  # errors logged by executor
+                            pass
                         else:
                             self.reporter.add_results(service_name, 'audit', [], account_id)
                     
                     service_results[service_name] = svc_issues
+                    print(f"  ✓ {service_name.upper()} done ({svc_issues} issues)", file=sys.stderr)
                             
                 except Exception as e:
                     service_results[service_name] = f"Error: {e}"
+                    print(f"  ✗ {service_name.upper()} error: {e}", file=sys.stderr)
                 finally:
                     progress.update()
         

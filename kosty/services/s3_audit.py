@@ -8,7 +8,8 @@ class S3AuditService:
         self.cost_checks = ['find_empty', 'find_incomplete_uploads', 'find_lifecycle_candidates']
         self.security_checks = ['find_public_read', 'find_public_write', 'find_no_encryption', 
                                'find_no_versioning', 'find_no_logging', 'find_wildcard_policy', 
-                               'find_public_snapshots', 'find_no_mfa_delete']
+                               'find_public_snapshots', 'find_no_mfa_delete', 'find_no_object_lock',
+                               'find_no_cross_region_replication']
     
     # Cost Audit Methods
     def find_empty(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
@@ -480,3 +481,85 @@ class S3AuditService:
     
     def check_mfa_delete(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_mfa_delete(session, region)
+    
+    def find_no_object_lock(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find buckets without Object Lock enabled"""
+        s3 = session.client('s3')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            for bucket in s3.list_buckets()['Buckets']:
+                bucket_name = bucket['Name']
+                try:
+                    location = s3.get_bucket_location(Bucket=bucket_name)
+                    bucket_region = location['LocationConstraint'] or 'us-east-1'
+                    
+                    try:
+                        lock = s3.get_object_lock_configuration(Bucket=bucket_name)
+                        if lock.get('ObjectLockConfiguration', {}).get('ObjectLockEnabled') != 'Enabled':
+                            raise Exception('not enabled')
+                    except Exception:
+                        results.append({
+                            'AccountId': account_id,
+                            'ResourceName': bucket_name,
+                            'BucketName': bucket_name,
+                            'ARN': f'arn:aws:s3:::{bucket_name}',
+                            'Region': bucket_region,
+                            'Issue': 'Object Lock not enabled',
+                            'type': 'security',
+                            'Risk': 'No immutability protection against ransomware or accidental deletion',
+                            'severity': 'medium',
+                            'Service': 'S3',
+                            'check': 'no_object_lock'
+                        })
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error checking Object Lock: {e}")
+        
+        return results
+    
+    def check_no_object_lock(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_object_lock(session, region)
+
+    def find_no_cross_region_replication(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find buckets without cross-region replication"""
+        s3 = session.client('s3')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            for bucket in s3.list_buckets()['Buckets']:
+                bucket_name = bucket['Name']
+                try:
+                    location = s3.get_bucket_location(Bucket=bucket_name)
+                    bucket_region = location['LocationConstraint'] or 'us-east-1'
+                    
+                    try:
+                        replication = s3.get_bucket_replication(Bucket=bucket_name)
+                    except s3.exceptions.ClientError:
+                        results.append({
+                            'AccountId': account_id,
+                            'ResourceName': bucket_name,
+                            'BucketName': bucket_name,
+                            'ARN': f'arn:aws:s3:::{bucket_name}',
+                            'Region': bucket_region,
+                            'Issue': 'No cross-region replication configured',
+                            'type': 'security',
+                            'Risk': 'No disaster recovery for regional outage',
+                            'severity': 'low',
+                            'Service': 'S3',
+                            'check': 'no_cross_region_replication'
+                        })
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error checking cross-region replication: {e}")
+        
+        return results
+    
+    def check_no_cross_region_replication(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_cross_region_replication(session, region)

@@ -181,6 +181,10 @@ class ConfigManager:
         
         return thresholds
     
+    def get_threshold(self, key: str, default: Any = None) -> Any:
+        """Get a single threshold value by key"""
+        return self.get_thresholds().get(key, default)
+    
     def get_exclusions(self) -> Dict[str, List]:
         """Get exclusions: global + profile additions"""
         exclusions = {

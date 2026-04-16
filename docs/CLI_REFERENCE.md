@@ -5,7 +5,7 @@
 ### Global Commands
 
 #### `kosty audit`
-Comprehensive scan of all 16 AWS services.
+Comprehensive scan of all 17 AWS services.
 
 **Usage:**
 ```bash
@@ -24,6 +24,30 @@ kosty audit
 kosty audit --organization --max-workers 20
 kosty audit --output json --region us-west-2
 ```
+
+---
+
+#### `kosty public-exposure`
+External attack surface audit. Maps all publicly exposed resources across 15 resource types and evaluates protection layers (WAF, SG, TLS, auth, encryption).
+
+**Usage:**
+```bash
+kosty public-exposure [OPTIONS]
+```
+
+**Examples:**
+```bash
+kosty public-exposure --region eu-west-3 --output console
+kosty public-exposure --organization --output json
+kosty public-exposure --regions us-east-1,eu-west-1 --output all
+```
+
+**Resources scanned:** ALB/NLB, EC2, S3, RDS, RDS Snapshots, EBS Snapshots, API Gateway, Lambda URLs, CloudFront, OpenSearch, Redshift, EKS, ECR Public, SNS, SQS
+
+**Classification:**
+- 🔴 Exposed & Unprotected (critical)
+- 🟡 Exposed & Partially Protected (high)
+- 🟢 Exposed & Protected (info)
 
 ---
 
@@ -73,7 +97,7 @@ kosty ec2 check-no-recent-backup [--days INT]
 kosty ec2 check-unused-key-pairs
 ```
 
-### S3 Commands (14 total)
+### S3 Commands (17 total)
 
 #### Audit Commands
 ```bash
@@ -95,9 +119,11 @@ kosty s3 check-access-logging
 kosty s3 check-bucket-policy-wildcards
 kosty s3 check-public-snapshots
 kosty s3 check-mfa-delete
+kosty s3 check-no-object-lock
+kosty s3 check-no-cross-region-replication
 ```
 
-### RDS Commands (17 total)
+### RDS Commands (20 total)
 
 #### Audit Commands
 ```bash
@@ -121,10 +147,12 @@ kosty rds check-wide-cidr-sg
 kosty rds check-disabled-backups
 kosty rds check-outdated-engine [--months INT]
 kosty rds check-no-ssl-enforcement
+kosty rds check-no-auto-minor-upgrade
+kosty rds check-no-performance-insights
 kosty rds check-unused-parameter-groups
 ```
 
-### IAM Commands (13 total)
+### IAM Commands (22 total)
 
 #### Audit Commands
 ```bash
@@ -136,15 +164,32 @@ kosty iam security-audit [--days INT]
 #### Individual Checks
 ```bash
 kosty iam check-root-access-keys
+kosty iam check-root-mfa
+kosty iam check-all-users-mfa
+kosty iam check-admin-no-mfa
 kosty iam check-unused-roles [--days INT]
 kosty iam check-inactive-users [--days INT]
 kosty iam check-old-access-keys [--days INT]
+kosty iam check-unused-access-keys [--days INT]
+kosty iam check-multiple-active-keys
 kosty iam check-wildcard-policies
-kosty iam check-admin-no-mfa
+kosty iam check-wildcard-assume-role
+kosty iam check-passrole-permissions
+kosty iam check-inline-policies
+kosty iam check-shared-lambda-roles
 kosty iam check-weak-password-policy
-kosty iam check-no-password-rotation [--days INT]
+kosty iam check-no-password-rotation
 kosty iam check-cross-account-no-external-id
-kosty iam check-unused-groups [--days INT]
+kosty iam check-privilege-escalation [--deep]
+```
+
+**Privilege Escalation Detection:**
+The `--deep` flag is available on `audit`, `security-audit`, and `check-privilege-escalation`. Without it, Kosty uses fast pattern matching (21 known escalation paths). With `--deep`, findings are confirmed via `iam:SimulatePrincipalPolicy` for zero false positives.
+
+```bash
+kosty iam audit --deep
+kosty iam security-audit --deep
+kosty iam check-privilege-escalation --deep
 ```
 
 ### Security Groups Commands (9 total)
@@ -204,6 +249,50 @@ kosty ebs check-unencrypted-in-use
 kosty ebs check-public-snapshots
 kosty ebs check-no-recent-snapshot [--days INT]
 kosty ebs check-oversized-volumes
+```
+
+---
+
+### WAFv2 Commands (9 total)
+
+#### Audit Commands
+```bash
+kosty waf audit
+kosty waf cost-audit
+kosty waf security-audit
+```
+
+#### Individual Checks
+```bash
+kosty waf check-unassociated-acls
+kosty waf check-missing-managed-rules
+kosty waf check-no-rate-based-rule
+kosty waf check-no-logging
+kosty waf check-default-count-action
+kosty waf check-no-bot-control
+```
+
+### API Gateway Commands (15 total)
+
+#### Audit Commands
+```bash
+kosty apigateway audit [--days INT]
+kosty apigateway cost-audit [--days INT]
+kosty apigateway security-audit
+```
+
+#### Individual Checks
+```bash
+kosty apigateway check-unused-apis [--days INT]
+kosty apigateway check-no-waf
+kosty apigateway check-no-authorization
+kosty apigateway check-no-logging
+kosty apigateway check-no-throttling
+kosty apigateway check-private-api-no-policy
+kosty apigateway check-http-api-no-jwt
+kosty apigateway check-custom-domain-no-tls12
+kosty apigateway check-missing-request-validation
+kosty apigateway check-cloudfront-bypass
 ```
 
 ---
