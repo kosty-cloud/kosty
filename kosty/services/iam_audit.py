@@ -9,7 +9,11 @@ class IAMAuditService:
         self.cost_checks = []
         self.security_checks = ['find_unused_roles', 'find_root_access_keys', 'find_old_access_keys', 'find_inactive_users', 
                                'find_wildcard_policies', 'find_admin_no_mfa', 'find_weak_password_policy',
-                               'find_no_password_rotation', 'find_cross_account_no_external_id']
+                               'find_no_password_rotation', 'find_cross_account_no_external_id',
+                               'find_all_users_mfa', 'find_root_mfa', 'find_unused_access_keys',
+                               'find_inline_policies', 'find_passrole_permissions', 'find_shared_lambda_roles',
+                               'find_multiple_active_keys', 'find_wildcard_assume_role',
+                               'find_privilege_escalation']
     
     # Cost Audit Methods
     def find_unused_roles(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -565,6 +569,702 @@ class IAMAuditService:
         
         return no_external_id
     
+    def find_all_users_mfa(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find IAM users without MFA enabled"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            users = iam.list_users()
+            for user in users['Users']:
+                try:
+                    mfa_devices = iam.list_mfa_devices(UserName=user['UserName'])
+                    # Only flag users with console access (password)
+                    try:
+                        iam.get_login_profile(UserName=user['UserName'])
+                        has_console = True
+                    except iam.exceptions.NoSuchEntityException:
+                        has_console = False
+                    
+                    if has_console and not mfa_devices['MFADevices']:
+                        results.append({
+                            'AccountId': account_id,
+                            'Region': region,
+                            'Service': 'IAM',
+                            'ResourceId': user['UserName'],
+                            'ResourceName': user['UserName'],
+                            'ARN': user['Arn'],
+                            'Issue': 'Console user without MFA enabled',
+                            'type': 'security',
+                            'Risk': 'Account compromise via credential theft',
+                            'severity': 'high',
+                            'check': 'all_users_mfa'
+                        })
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error checking users MFA: {e}")
+        
+        return results
+    
+    def find_root_mfa(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Check if MFA is enabled for the root account"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            summary = iam.get_account_summary()
+            root_mfa = summary['SummaryMap'].get('AccountMFAEnabled', 0)
+            
+            if root_mfa == 0:
+                results.append({
+                    'AccountId': account_id,
+                    'Region': region,
+                    'Service': 'IAM',
+                    'ResourceId': 'root',
+                    'ResourceName': 'root',
+                    'ARN': f'arn:aws:iam::{account_id}:root',
+                    'Issue': 'Root account does not have MFA enabled',
+                    'type': 'security',
+                    'Risk': 'Full account takeover if root credentials are compromised',
+                    'severity': 'critical',
+                    'check': 'root_mfa'
+                })
+        except Exception as e:
+            print(f"Error checking root MFA: {e}")
+        
+        return results
+    
+    def find_unused_access_keys(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find active access keys unused for 90+ days"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            users = iam.list_users()
+            cutoff_date = datetime.now() - timedelta(days=days)
+            
+            for user in users['Users']:
+                try:
+                    access_keys = iam.list_access_keys(UserName=user['UserName'])
+                    for key in access_keys['AccessKeyMetadata']:
+                        if key['Status'] != 'Active':
+                            continue
+                        key_last_used = iam.get_access_key_last_used(AccessKeyId=key['AccessKeyId'])
+                        last_used_date = key_last_used.get('AccessKeyLastUsed', {}).get('LastUsedDate')
+                        
+                        is_unused = False
+                        if not last_used_date:
+                            is_unused = True
+                        elif last_used_date.replace(tzinfo=None) < cutoff_date:
+                            is_unused = True
+                        
+                        if is_unused:
+                            results.append({
+                                'AccountId': account_id,
+                                'Region': region,
+                                'Service': 'IAM',
+                                'ResourceId': user['UserName'],
+                                'ResourceName': user['UserName'],
+                                'ARN': user['Arn'],
+                                'Issue': f'Active access key unused for {days}+ days',
+                                'type': 'security',
+                                'Risk': 'Dormant credentials increase attack surface',
+                                'severity': 'high',
+                                'check': 'unused_access_keys',
+                                'Details': {
+                                    'AccessKeyId': key['AccessKeyId'],
+                                    'LastUsed': last_used_date.isoformat() if last_used_date else 'Never',
+                                    'Status': key['Status']
+                                }
+                            })
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error checking unused access keys: {e}")
+        
+        return results
+    
+    def find_inline_policies(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Detect inline policies on users, groups, and roles"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            # Check users
+            for user in iam.list_users()['Users']:
+                try:
+                    policies = iam.list_user_policies(UserName=user['UserName'])
+                    for policy_name in policies['PolicyNames']:
+                        results.append({
+                            'AccountId': account_id,
+                            'Region': region,
+                            'Service': 'IAM',
+                            'ResourceId': user['UserName'],
+                            'ResourceName': user['UserName'],
+                            'ARN': user['Arn'],
+                            'Issue': f'Inline policy "{policy_name}" on user (use managed policies)',
+                            'type': 'security',
+                            'Risk': 'Inline policies are harder to audit and reuse',
+                            'severity': 'medium',
+                            'check': 'inline_policies'
+                        })
+                except Exception:
+                    continue
+            
+            # Check roles
+            for role in iam.list_roles()['Roles']:
+                if role['RoleName'].startswith('aws-') or role['RoleName'].startswith('AWSServiceRole'):
+                    continue
+                try:
+                    policies = iam.list_role_policies(RoleName=role['RoleName'])
+                    for policy_name in policies['PolicyNames']:
+                        results.append({
+                            'AccountId': account_id,
+                            'Region': region,
+                            'Service': 'IAM',
+                            'ResourceId': role['RoleName'],
+                            'ResourceName': role['RoleName'],
+                            'ARN': role['Arn'],
+                            'Issue': f'Inline policy "{policy_name}" on role (use managed policies)',
+                            'type': 'security',
+                            'Risk': 'Inline policies are harder to audit and reuse',
+                            'severity': 'medium',
+                            'check': 'inline_policies'
+                        })
+                except Exception:
+                    continue
+            
+            # Check groups
+            for group in iam.list_groups()['Groups']:
+                try:
+                    policies = iam.list_group_policies(GroupName=group['GroupName'])
+                    for policy_name in policies['PolicyNames']:
+                        results.append({
+                            'AccountId': account_id,
+                            'Region': region,
+                            'Service': 'IAM',
+                            'ResourceId': group['GroupName'],
+                            'ResourceName': group['GroupName'],
+                            'ARN': group['Arn'],
+                            'Issue': f'Inline policy "{policy_name}" on group (use managed policies)',
+                            'type': 'security',
+                            'Risk': 'Inline policies are harder to audit and reuse',
+                            'severity': 'medium',
+                            'check': 'inline_policies'
+                        })
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error checking inline policies: {e}")
+        
+        return results
+    
+    def find_passrole_permissions(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Flag policies granting iam:PassRole with wildcard resource"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            paginator = iam.get_paginator('list_policies')
+            for page in paginator.paginate(Scope='Local'):
+                for policy in page['Policies']:
+                    try:
+                        version = iam.get_policy_version(
+                            PolicyArn=policy['Arn'],
+                            VersionId=policy['DefaultVersionId']
+                        )
+                        doc = version['PolicyVersion']['Document']
+                        if isinstance(doc, str):
+                            doc = json.loads(doc)
+                        
+                        statements = doc.get('Statement', [])
+                        if not isinstance(statements, list):
+                            statements = [statements]
+                        
+                        for stmt in statements:
+                            if stmt.get('Effect') != 'Allow':
+                                continue
+                            actions = stmt.get('Action', [])
+                            if not isinstance(actions, list):
+                                actions = [actions]
+                            resources = stmt.get('Resource', [])
+                            if not isinstance(resources, list):
+                                resources = [resources]
+                            
+                            has_passrole = any(a.lower() in ['iam:passrole', 'iam:*', '*'] for a in actions)
+                            has_wildcard_resource = '*' in resources
+                            
+                            if has_passrole and has_wildcard_resource:
+                                results.append({
+                                    'AccountId': account_id,
+                                    'Region': region,
+                                    'Service': 'IAM',
+                                    'ResourceId': policy['PolicyName'],
+                                    'ResourceName': policy['PolicyName'],
+                                    'ARN': policy['Arn'],
+                                    'Issue': 'iam:PassRole with wildcard resource - privilege escalation risk',
+                                    'type': 'security',
+                                    'Risk': 'Attacker can escalate privileges by passing any role to any service',
+                                    'severity': 'critical',
+                                    'check': 'passrole_permissions'
+                                })
+                                break
+                    except Exception:
+                        continue
+        except Exception as e:
+            print(f"Error checking PassRole permissions: {e}")
+        
+        return results
+    
+    def find_shared_lambda_roles(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find Lambda functions sharing the same execution role"""
+        lambda_client = session.client('lambda', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            role_map = {}  # role_arn -> [function_names]
+            paginator = lambda_client.get_paginator('list_functions')
+            for page in paginator.paginate():
+                for func in page['Functions']:
+                    role_arn = func.get('Role', '')
+                    role_map.setdefault(role_arn, []).append(func['FunctionName'])
+            
+            for role_arn, functions in role_map.items():
+                if len(functions) > 1:
+                    for func_name in functions:
+                        results.append({
+                            'AccountId': account_id,
+                            'Region': region,
+                            'Service': 'IAM',
+                            'ResourceId': func_name,
+                            'ResourceName': func_name,
+                            'ARN': role_arn,
+                            'Issue': f'Lambda shares execution role with {len(functions)-1} other function(s)',
+                            'type': 'security',
+                            'Risk': 'Blast radius expansion - compromise of one function affects all',
+                            'severity': 'medium',
+                            'check': 'shared_lambda_roles',
+                            'Details': {
+                                'SharedRole': role_arn,
+                                'SharedWith': [f for f in functions if f != func_name]
+                            }
+                        })
+        except Exception as e:
+            print(f"Error checking shared Lambda roles: {e}")
+        
+        return results
+    
+    def find_multiple_active_keys(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find users with more than one active access key"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            for user in iam.list_users()['Users']:
+                try:
+                    keys = iam.list_access_keys(UserName=user['UserName'])
+                    active_keys = [k for k in keys['AccessKeyMetadata'] if k['Status'] == 'Active']
+                    if len(active_keys) > 1:
+                        results.append({
+                            'AccountId': account_id,
+                            'Region': region,
+                            'Service': 'IAM',
+                            'ResourceId': user['UserName'],
+                            'ResourceName': user['UserName'],
+                            'ARN': user['Arn'],
+                            'Issue': f'User has {len(active_keys)} active access keys',
+                            'type': 'security',
+                            'Risk': 'Increased attack surface and harder key rotation',
+                            'severity': 'medium',
+                            'check': 'multiple_active_keys'
+                        })
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error checking multiple active keys: {e}")
+        
+        return results
+    
+    def find_wildcard_assume_role(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Flag policies granting sts:AssumeRole with wildcard resource"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+        
+        try:
+            paginator = iam.get_paginator('list_policies')
+            for page in paginator.paginate(Scope='Local'):
+                for policy in page['Policies']:
+                    try:
+                        version = iam.get_policy_version(
+                            PolicyArn=policy['Arn'],
+                            VersionId=policy['DefaultVersionId']
+                        )
+                        doc = version['PolicyVersion']['Document']
+                        if isinstance(doc, str):
+                            doc = json.loads(doc)
+                        
+                        statements = doc.get('Statement', [])
+                        if not isinstance(statements, list):
+                            statements = [statements]
+                        
+                        for stmt in statements:
+                            if stmt.get('Effect') != 'Allow':
+                                continue
+                            actions = stmt.get('Action', [])
+                            if not isinstance(actions, list):
+                                actions = [actions]
+                            resources = stmt.get('Resource', [])
+                            if not isinstance(resources, list):
+                                resources = [resources]
+                            
+                            has_assume = any(a.lower() in ['sts:assumerole', 'sts:*', '*'] for a in actions)
+                            has_wildcard = '*' in resources
+                            
+                            if has_assume and has_wildcard:
+                                results.append({
+                                    'AccountId': account_id,
+                                    'Region': region,
+                                    'Service': 'IAM',
+                                    'ResourceId': policy['PolicyName'],
+                                    'ResourceName': policy['PolicyName'],
+                                    'ARN': policy['Arn'],
+                                    'Issue': 'sts:AssumeRole with wildcard resource',
+                                    'type': 'security',
+                                    'Risk': 'Can assume any role in the account - full privilege escalation',
+                                    'severity': 'critical',
+                                    'check': 'wildcard_assume_role'
+                                })
+                                break
+                    except Exception:
+                        continue
+        except Exception as e:
+            print(f"Error checking wildcard AssumeRole: {e}")
+        
+        return results
+    
+    # --- Privilege Escalation Detection (21 patterns) ---
+
+    ESCALATION_PATTERNS = {
+        'CreatePolicyVersion': {
+            'actions': [['iam:CreatePolicyVersion']],
+            'severity': 'critical',
+            'risk': 'Can rewrite any customer-managed policy to grant full admin'
+        },
+        'SetDefaultPolicyVersion': {
+            'actions': [['iam:SetDefaultPolicyVersion']],
+            'severity': 'critical',
+            'risk': 'Can activate an older, more permissive policy version'
+        },
+        'AttachUserPolicy': {
+            'actions': [['iam:AttachUserPolicy']],
+            'severity': 'critical',
+            'risk': 'Can attach AdministratorAccess to own user'
+        },
+        'AttachRolePolicy': {
+            'actions': [['iam:AttachRolePolicy']],
+            'severity': 'critical',
+            'risk': 'Can attach admin policy to an assumable role'
+        },
+        'AttachGroupPolicy': {
+            'actions': [['iam:AttachGroupPolicy']],
+            'severity': 'critical',
+            'risk': 'Can attach admin policy to own group'
+        },
+        'PutUserPolicy': {
+            'actions': [['iam:PutUserPolicy']],
+            'severity': 'critical',
+            'risk': 'Can create an inline admin policy on own user'
+        },
+        'PutRolePolicy': {
+            'actions': [['iam:PutRolePolicy']],
+            'severity': 'critical',
+            'risk': 'Can create an inline admin policy on an assumable role'
+        },
+        'PutGroupPolicy': {
+            'actions': [['iam:PutGroupPolicy']],
+            'severity': 'critical',
+            'risk': 'Can create an inline admin policy on own group'
+        },
+        'AddUserToGroup': {
+            'actions': [['iam:AddUserToGroup']],
+            'severity': 'critical',
+            'risk': 'Can add self to an admin group'
+        },
+        'UpdateAssumeRolePolicy': {
+            'actions': [['iam:UpdateAssumeRolePolicy']],
+            'severity': 'critical',
+            'risk': 'Can modify trust policy of an admin role to assume it'
+        },
+        'CreateLoginProfile': {
+            'actions': [['iam:CreateLoginProfile']],
+            'severity': 'high',
+            'risk': 'Can create console password for another user'
+        },
+        'UpdateLoginProfile': {
+            'actions': [['iam:UpdateLoginProfile']],
+            'severity': 'high',
+            'risk': 'Can reset console password of another user'
+        },
+        'CreateAccessKey': {
+            'actions': [['iam:CreateAccessKey']],
+            'severity': 'high',
+            'risk': 'Can create API keys for another user'
+        },
+        'PassRole+Lambda': {
+            'actions': [['iam:PassRole'], ['lambda:CreateFunction', 'lambda:InvokeFunction']],
+            'severity': 'high',
+            'risk': 'Can launch a Lambda with an admin role and invoke it'
+        },
+        'PassRole+LambdaUpdate': {
+            'actions': [['iam:PassRole'], ['lambda:UpdateFunctionCode']],
+            'severity': 'high',
+            'risk': 'Can inject code into a Lambda running with a privileged role'
+        },
+        'PassRole+EC2': {
+            'actions': [['iam:PassRole'], ['ec2:RunInstances']],
+            'severity': 'high',
+            'risk': 'Can launch an EC2 instance with an admin instance profile'
+        },
+        'PassRole+ECS': {
+            'actions': [['iam:PassRole'], ['ecs:RegisterTaskDefinition', 'ecs:RunTask']],
+            'severity': 'high',
+            'risk': 'Can run an ECS task with an admin task role'
+        },
+        'PassRole+CloudFormation': {
+            'actions': [['iam:PassRole'], ['cloudformation:CreateStack']],
+            'severity': 'high',
+            'risk': 'Can deploy a CloudFormation stack with an admin service role'
+        },
+        'PassRole+DataPipeline': {
+            'actions': [['iam:PassRole'], ['datapipeline:CreatePipeline']],
+            'severity': 'medium',
+            'risk': 'Can create a Data Pipeline with a privileged role'
+        },
+        'PassRole+Glue': {
+            'actions': [['iam:PassRole'], ['glue:CreateDevEndpoint']],
+            'severity': 'medium',
+            'risk': 'Can create a Glue endpoint with a privileged role'
+        },
+        'AssumeRoleWildcard': {
+            'actions': [['sts:AssumeRole']],
+            'severity': 'critical',
+            'risk': 'Can assume any role in the account'
+        }
+    }
+
+    def _get_all_actions_for_principal(self, iam, principal_type, principal_name):
+        """Collect all allowed actions from inline + attached + group policies"""
+        actions = set()
+        has_wildcard_resource = False
+
+        def _extract_actions(policy_doc):
+            nonlocal has_wildcard_resource
+            if isinstance(policy_doc, str):
+                policy_doc = json.loads(policy_doc)
+            stmts = policy_doc.get('Statement', [])
+            if not isinstance(stmts, list):
+                stmts = [stmts]
+            for stmt in stmts:
+                if stmt.get('Effect') != 'Allow':
+                    continue
+                stmt_actions = stmt.get('Action', [])
+                if not isinstance(stmt_actions, list):
+                    stmt_actions = [stmt_actions]
+                resources = stmt.get('Resource', [])
+                if not isinstance(resources, list):
+                    resources = [resources]
+                if '*' in resources:
+                    has_wildcard_resource = True
+                for a in stmt_actions:
+                    actions.add(a.lower())
+
+        try:
+            if principal_type == 'User':
+                for pname in iam.list_user_policies(UserName=principal_name).get('PolicyNames', []):
+                    doc = iam.get_user_policy(UserName=principal_name, PolicyName=pname)['PolicyDocument']
+                    _extract_actions(doc)
+                for p in iam.list_attached_user_policies(UserName=principal_name).get('AttachedPolicies', []):
+                    if p['PolicyArn'].startswith('arn:aws:iam::aws:'):
+                        continue
+                    try:
+                        pv = iam.get_policy(PolicyArn=p['PolicyArn'])
+                        doc = iam.get_policy_version(PolicyArn=p['PolicyArn'], VersionId=pv['Policy']['DefaultVersionId'])['PolicyVersion']['Document']
+                        _extract_actions(doc)
+                    except Exception:
+                        continue
+                for g in iam.list_groups_for_user(UserName=principal_name).get('Groups', []):
+                    for pname in iam.list_group_policies(GroupName=g['GroupName']).get('PolicyNames', []):
+                        doc = iam.get_group_policy(GroupName=g['GroupName'], PolicyName=pname)['PolicyDocument']
+                        _extract_actions(doc)
+                    for p in iam.list_attached_group_policies(GroupName=g['GroupName']).get('AttachedPolicies', []):
+                        if p['PolicyArn'].startswith('arn:aws:iam::aws:'):
+                            continue
+                        try:
+                            pv = iam.get_policy(PolicyArn=p['PolicyArn'])
+                            doc = iam.get_policy_version(PolicyArn=p['PolicyArn'], VersionId=pv['Policy']['DefaultVersionId'])['PolicyVersion']['Document']
+                            _extract_actions(doc)
+                        except Exception:
+                            continue
+            elif principal_type == 'Role':
+                for pname in iam.list_role_policies(RoleName=principal_name).get('PolicyNames', []):
+                    doc = iam.get_role_policy(RoleName=principal_name, PolicyName=pname)['PolicyDocument']
+                    _extract_actions(doc)
+                for p in iam.list_attached_role_policies(RoleName=principal_name).get('AttachedPolicies', []):
+                    if p['PolicyArn'].startswith('arn:aws:iam::aws:'):
+                        continue
+                    try:
+                        pv = iam.get_policy(PolicyArn=p['PolicyArn'])
+                        doc = iam.get_policy_version(PolicyArn=p['PolicyArn'], VersionId=pv['Policy']['DefaultVersionId'])['PolicyVersion']['Document']
+                        _extract_actions(doc)
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+        return actions, has_wildcard_resource
+
+    def _action_matches(self, principal_actions, required_action):
+        """Check if a principal has a required action (supports wildcards like iam:*)"""
+        required = required_action.lower()
+        service = required.split(':')[0]
+        for a in principal_actions:
+            if a == '*' or a == required:
+                return True
+            if a == f'{service}:*':
+                return True
+        return False
+
+    def _check_pattern_match(self, principal_actions, pattern):
+        """Check if principal has all action groups required for an escalation pattern"""
+        for action_group in pattern['actions']:
+            group_matched = all(self._action_matches(principal_actions, a) for a in action_group)
+            if not group_matched:
+                return False
+        return True
+
+    def _simulate_escalation(self, iam, principal_arn, pattern):
+        """Use SimulatePrincipalPolicy to confirm escalation is actually allowed"""
+        all_actions = []
+        for group in pattern['actions']:
+            all_actions.extend(group)
+
+        try:
+            result = iam.simulate_principal_policy(
+                PolicySourceArn=principal_arn,
+                ActionNames=all_actions,
+                ResourceArns=['*']
+            )
+            return all(
+                r['EvalDecision'] == 'allowed'
+                for r in result['EvaluationResults']
+            )
+        except Exception:
+            return None
+
+    def find_privilege_escalation(self, session: boto3.Session, region: str, deep: bool = False, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Detect IAM principals with privilege escalation paths (21 patterns)"""
+        iam = session.client('iam')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        principals = []
+        try:
+            for user in iam.list_users()['Users']:
+                principals.append(('User', user['UserName'], user['Arn']))
+        except Exception:
+            pass
+        try:
+            for role in iam.list_roles()['Roles']:
+                if role['RoleName'].startswith('aws-') or role['RoleName'].startswith('AWSServiceRole'):
+                    continue
+                principals.append(('Role', role['RoleName'], role['Arn']))
+        except Exception:
+            pass
+
+        for principal_type, name, arn in principals:
+            try:
+                actions, has_wildcard_resource = self._get_all_actions_for_principal(iam, principal_type, name)
+                if not actions:
+                    continue
+
+                # Check permission boundary
+                has_boundary = False
+                try:
+                    if principal_type == 'User':
+                        user_detail = iam.get_user(UserName=name)['User']
+                        has_boundary = 'PermissionsBoundary' in user_detail
+                    else:
+                        role_detail = iam.get_role(RoleName=name)['Role']
+                        has_boundary = 'PermissionsBoundary' in role_detail
+                except Exception:
+                    pass
+
+                for pattern_name, pattern in self.ESCALATION_PATTERNS.items():
+                    if not self._check_pattern_match(actions, pattern):
+                        continue
+                    if not has_wildcard_resource and pattern_name != 'AssumeRoleWildcard':
+                        continue
+
+                    confirmed = None
+                    if deep:
+                        confirmed = self._simulate_escalation(iam, arn, pattern)
+                        if confirmed is False:
+                            continue
+
+                    severity = pattern['severity']
+                    if has_boundary and confirmed is None:
+                        severity = 'medium'
+
+                    status = ''
+                    if deep and confirmed is True:
+                        status = ' [CONFIRMED by SimulatePrincipalPolicy]'
+                    elif deep and confirmed is None:
+                        status = ' [simulation failed, pattern-based]'
+                    elif has_boundary:
+                        status = ' [boundary may mitigate]'
+
+                    results.append({
+                        'AccountId': account_id,
+                        'Region': region,
+                        'Service': 'IAM',
+                        'ResourceId': name,
+                        'ResourceName': name,
+                        'ARN': arn,
+                        'Issue': f'{principal_type} can escalate via {pattern_name}{status}',
+                        'type': 'security',
+                        'Risk': pattern['risk'],
+                        'severity': severity,
+                        'check': 'privilege_escalation',
+                        'Details': {
+                            'PrincipalType': principal_type,
+                            'Pattern': pattern_name,
+                            'HasPermissionBoundary': has_boundary,
+                            'DeepScanConfirmed': confirmed
+                        }
+                    })
+            except Exception:
+                continue
+
+        return results
+
     # Audit Methods
     def cost_audit(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
@@ -590,6 +1290,24 @@ class IAMAuditService:
         return results
     
     # Individual Check Method Aliases
+    def check_all_users_mfa(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_all_users_mfa(session, region, **kwargs)
+    
+    def check_root_mfa(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_root_mfa(session, region, **kwargs)
+    
+    def check_unused_access_keys(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_unused_access_keys(session, region, **kwargs)
+    
+    def check_inline_policies(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_inline_policies(session, region, **kwargs)
+    
+    def check_passrole_permissions(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_passrole_permissions(session, region, **kwargs)
+    
+    def check_shared_lambda_roles(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_shared_lambda_roles(session, region, **kwargs)
+    
     def check_unused_roles(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_unused_roles(session, region, **kwargs)
     
@@ -616,3 +1334,12 @@ class IAMAuditService:
     
     def check_cross_account_no_external_id(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_cross_account_no_external_id(session, region, **kwargs)
+
+    def check_multiple_active_keys(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_multiple_active_keys(session, region, **kwargs)
+    
+    def check_wildcard_assume_role(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_wildcard_assume_role(session, region, **kwargs)
+
+    def check_privilege_escalation(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_privilege_escalation(session, region, **kwargs)

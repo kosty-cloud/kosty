@@ -9,9 +9,11 @@
 
 > 💡 Need expert help optimizing your AWS infrastructure? [Professional consulting services available →](https://kosty.cloud?utm_source=github&utm_medium=readme-header)
 
-**🚀 Identify AWS cost waste and security vulnerabilities across 16 core services with a single command**
+**🚀 Identify AWS cost waste and security vulnerabilities across 17 core services with a single command**
 
 *Save thousands of dollars monthly and improve security posture by finding unused resources, oversized instances, misconfigurations, and compliance issues*
+
+*NEW: `kosty public-exposure` — Map your entire external attack surface in one command*
 
 [🎯 Quick Start](#-quick-start) • [📖 Documentation](docs/DOCUMENTATION.md) • [🔧 Installation](#-installation) • [💡 Examples](#-examples)
 
@@ -41,16 +43,18 @@ So I built Kosty - the tool I wish existed when I started consulting.
 
 
 ### What Kosty Does
-- 🔍 Scans **16 core AWS services** in one command
+- 🔍 Scans **17 core AWS services** in one command
 - 💰 **Quantifies cost savings** with real dollar amounts (11 services)
 - 📊 Finds **oversized instances** (EC2, RDS, Lambda)
 - 🔐 Detects **security vulnerabilities** (public DBs, unencrypted storage, open ports)
 - 🛡️ Identifies **compliance issues** (old access keys, public snapshots, weak configurations)
+- 🛡️ **WAF & API Gateway hardening** (rate limiting, managed rules, authorization, logging)
+- 🌐 **External attack surface mapping** — finds all publicly exposed resources and evaluates protections
 
 **One command. Full audit. Real savings. Free forever.**
 
 AWS costs and security risks can spiral out of control quickly. Kosty helps you:
-- 🔍 **Discover** unused resources and security vulnerabilities across 16 core AWS services
+- 🔍 **Discover** unused resources and security vulnerabilities across 17 core AWS services
 - 💰 **Quantify** cost savings with real dollar amounts ($X/month calculations)
 - 🔐 **Detect** security misconfigurations and compliance issues
 - ⚡ **Optimize** with prioritized recommendations by financial impact
@@ -207,7 +211,55 @@ kosty ec2 check-unencrypted-ebs
 kosty iam check-root-access-keys
 kosty iam check-unused-roles
 kosty iam check-old-access-keys
+kosty iam check-root-mfa
+kosty iam check-all-users-mfa
+kosty iam check-passrole-permissions
+kosty iam check-inline-policies
+
+# WAF security audit
+kosty waf audit
+kosty waf check-no-rate-based-rule
+kosty waf check-no-logging
+kosty waf check-missing-managed-rules
+
+# API Gateway security audit
+kosty apigateway security-audit
+kosty apigateway check-no-waf
+kosty apigateway check-no-authorization
+kosty apigateway check-no-throttling
+kosty apigateway check-http-api-no-jwt
+
+# S3 advanced security
+kosty s3 check-no-object-lock
+kosty s3 check-no-cross-region-replication
+
+# RDS security
+kosty rds check-no-auto-minor-upgrade
+kosty rds check-no-performance-insights
 ```
+
+### 🌐 External Attack Surface Audit
+
+```bash
+# Map everything publicly exposed and evaluate protections
+kosty public-exposure --output console
+
+# Organization-wide attack surface mapping
+kosty public-exposure --organization --output json
+
+# Multi-region exposure scan
+kosty public-exposure --regions us-east-1,eu-west-1 --output all
+```
+
+**What it scans (15 resource types):**
+- ALB/NLB, EC2, S3, RDS, API Gateway, Lambda URLs, CloudFront
+- OpenSearch, Redshift, EKS, ECR Public, SNS, SQS
+- RDS & EBS Snapshots
+
+**Findings classified as:**
+- 🔴 Exposed & Unprotected — immediate action required
+- 🟡 Exposed & Partially Protected — gaps to address
+- 🟢 Exposed & Protected — all protections verified
 
 ### 🏢 Comprehensive Scanning
 
@@ -359,7 +411,7 @@ These services provide security and compliance audits without cost quantificatio
 
 ---
 
-## 📊 Complete Service Coverage (16 Services)
+## 📊 Complete Service Coverage (17 Services)
 
 ### 🎯 Service Overview
 
@@ -369,9 +421,9 @@ These services provide security and compliance audits without cost quantificatio
 | **🗄️ Storage** | S3, EBS, Snapshots | Empty buckets, orphaned volumes, old snapshots |
 | **🗃️ Database** | RDS, DynamoDB | Idle databases, over-provisioned tables |
 | **🌐 Network** | EIP, LB, NAT, SG, Route53 | Unused resources, no healthy targets |
-| **🔐 Security** | IAM | Unused roles, old access keys, inactive users |
+| **🔐 Security** | IAM, WAFv2 | MFA, privilege escalation, rate limiting, managed rules |
 | **📊 Management** | CloudWatch, Backup | Unused alarms, expensive logs, empty vaults |
-| **🌐 Application** | API Gateway | Unused APIs, expensive configurations |
+| **🌐 Application** | API Gateway | WAF association, authorization, throttling, logging |
 
 ### 📋 Service Commands Summary
 
@@ -380,10 +432,12 @@ These services provide security and compliance audits without cost quantificatio
 | **EC2** | 16 | 3 | 13 checks |
 | **RDS** | 17 | 3 | 14 checks |
 | **S3** | 14 | 3 | 11 checks |
-| **IAM** | 13 | 3 | 10 checks |
+| **IAM** | 22 | 3 | 16 checks |
 | **EBS** | 12 | 3 | 9 checks |
 | **LB** | 10 | 3 | 7 checks |
 | **SG** | 9 | 3 | 6 checks |
+| **WAFv2** | 8 | 3 | 5 checks |
+| **API Gateway** | 11 | 3 | 8 checks |
 | **Lambda** | 8 | 3 | 5 checks |
 | **EIP** | 7 | 3 | 4 checks |
 | **CloudWatch** | 7 | 3 | 4 checks |
@@ -416,11 +470,41 @@ These services provide security and compliance audits without cost quantificatio
 - `check-unused-read-replicas` - Unused read replicas
 - `check-unencrypted-storage` - Unencrypted RDS storage
 
-**IAM (10 individual checks):**
+**IAM (16 individual checks):**
 - `check-root-access-keys` - Root account access keys
+- `check-root-mfa` - Root account MFA status
+- `check-all-users-mfa` - Console users without MFA
 - `check-unused-roles` - Roles unused for 90+ days
 - `check-inactive-users` - Inactive users with active keys
 - `check-wildcard-policies` - Policies with wildcard permissions
+- `check-old-access-keys` - Access keys older than 90 days
+- `check-unused-access-keys` - Active keys unused for 90+ days
+- `check-passrole-permissions` - iam:PassRole with wildcard resource
+- `check-inline-policies` - Inline policies on users/roles/groups
+- `check-shared-lambda-roles` - Lambda functions sharing execution roles
+- `check-multiple-active-keys` - Users with multiple active access keys
+- `check-wildcard-assume-role` - sts:AssumeRole with wildcard resource
+- `check-privilege-escalation` - Detect 21 privilege escalation patterns (use `--deep` for SimulatePrincipalPolicy confirmation)
+
+**WAFv2 (6 individual checks):**
+- `check-unassociated-acls` - Web ACLs not attached to any resource
+- `check-missing-managed-rules` - Missing Core Rule Set, IP Reputation, SQLi, or Known Bad Inputs
+- `check-no-rate-based-rule` - No DDoS/brute-force rate limiting
+- `check-no-logging` - WAF logging disabled
+- `check-default-count-action` - Critical rules set to Count instead of Block
+- `check-no-bot-control` - No Bot Control rule group configured
+
+**API Gateway (8 individual checks):**
+- `check-unused-apis` - APIs with zero requests
+- `check-no-waf` - Stages not protected by WAF
+- `check-no-authorization` - Endpoints with AUTH_TYPE=NONE
+- `check-no-logging` - Access/execution logging disabled
+- `check-no-throttling` - No custom throttling (cost-bleeding risk)
+- `check-private-api-no-policy` - Private APIs without resource policy
+- `check-http-api-no-jwt` - HTTP APIs without JWT authorizer
+- `check-custom-domain-no-tls12` - Custom domains not enforcing TLS 1.2
+- `check-missing-request-validation` - Methods without request validation
+- `check-cloudfront-bypass` - APIs behind CloudFront without resource policy restricting direct access
 
 ## 🎯 The Ultimate Command
 
@@ -436,7 +520,7 @@ kosty audit --output all
 ```
 
 **What `kosty audit` does:**
-- Scans 16 core AWS services automatically
+- Scans 17 core AWS services automatically
 - Runs complete audits (cost + security) per service
 - Generates comprehensive reports (JSON, CSV, Console)
 - Prioritizes issues by severity and impact
@@ -451,7 +535,7 @@ kosty audit --output all
 - Multiple report formats: Console, JSON, CSV, visual reports
 
 ### Comprehensive Analysis
-- 16 core AWS services coverage
+- 17 core AWS services coverage
 - Real dollar cost savings for 11 services
 - One-command audit scans everything
 - Multi-account organization support with configurable roles

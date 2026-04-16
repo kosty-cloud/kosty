@@ -111,11 +111,17 @@ class CloudWatchAuditService:
         
         return results
 
-    def check_unused_custom_metrics(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+    def check_unused_custom_metrics(self, session: boto3.Session, region: str, days: int = 30, max_metrics: int = 50, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unused custom metrics (no data in X days)"""
-       
         cloudwatch = session.client('cloudwatch', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
         results = []
+        
+        if config_manager:
+            max_metrics = config_manager.get_threshold('max_metrics', max_metrics)
+        
+        checked = 0
         
         try:
             paginator = cloudwatch.get_paginator('list_metrics')
@@ -124,11 +130,14 @@ class CloudWatchAuditService:
             
             for page in paginator.paginate():
                 for metric in page['Metrics']:
-                    namespace = metric['Namespace']
+                    if checked >= max_metrics:
+                        break
                     
+                    namespace = metric['Namespace']
                     if namespace.startswith('AWS/'):
                         continue
                     
+                    checked += 1
                     try:
                         stats_response = cloudwatch.get_metric_statistics(
                             Namespace=namespace,
@@ -143,7 +152,7 @@ class CloudWatchAuditService:
                         if not stats_response['Datapoints']:
                             metric_name = f"{namespace}/{metric['MetricName']}"
                             results.append({
-                                'AccountId': session.client('sts').get_caller_identity()['Account'],
+                                'AccountId': account_id,
                                 'Region': region,
                                 'Service': self.service_name,
                                 'ResourceId': metric_name,
@@ -153,16 +162,17 @@ class CloudWatchAuditService:
                                 'Risk': 'LOW',
                                 'severity': 'low',
                                 'Description': f"Custom metric {metric_name} has no data in {days} days but costs $0.30/month",
-                                'ARN': f"arn:aws:cloudwatch:{region}:{session.client('sts').get_caller_identity()['Account']}:metric/{namespace}/{metric['MetricName']}",
                                 'Details': {
                                     'Namespace': namespace,
                                     'MetricName': metric['MetricName'],
-                                    'Dimensions': metric.get('Dimensions', []),
                                     'EstimatedMonthlyCost': 0.30
                                 }
                             })
                     except Exception:
                         continue
+                
+                if checked >= max_metrics:
+                    break
         except Exception as e:
             print(f"Error checking CloudWatch custom metrics in {region}: {e}")
         
