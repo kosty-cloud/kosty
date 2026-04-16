@@ -148,3 +148,21 @@ def rds_check_no_ssl(ctx, profile, organization, region, max_workers, regions, o
     """Find no SSL/TLS enforcement"""
     from ..services.rds_audit import RDSAuditService
     execute_service_command(ctx, RDSAuditService, 'check_no_ssl_enforcement', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@rds.command('check-no-auto-minor-upgrade')
+@common_options
+@click.pass_context
+def rds_check_auto_upgrade(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find instances with auto minor version upgrade disabled"""
+    from ..services.rds_audit import RDSAuditService
+    execute_service_command(ctx, RDSAuditService, 'check_no_auto_minor_upgrade', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@rds.command('check-no-performance-insights')
+@common_options
+@click.pass_context
+def rds_check_perf_insights(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find instances without Performance Insights enabled"""
+    from ..services.rds_audit import RDSAuditService
+    execute_service_command(ctx, RDSAuditService, 'check_no_performance_insights', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)

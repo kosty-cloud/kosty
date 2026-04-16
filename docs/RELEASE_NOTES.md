@@ -1,5 +1,106 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.9.0 - Security Audit Expansion, WAFv2 & Public Exposure (2025-01-XX)
+
+### 🌐 New Command: `kosty public-exposure`
+Full external attack surface mapping. Scans 15 resource types across your AWS account, identifies everything reachable from the internet, and evaluates protection layers for each exposed resource.
+
+**Resources scanned:**
+- ALB/NLB (internet-facing) — checks WAF, HTTPS
+- EC2 (public IP) — checks SG port restrictions, IMDSv2
+- S3 (public ACL/policy) — checks CloudFront, PublicAccessBlock
+- RDS (PubliclyAccessible) — checks SG, encryption
+- RDS & EBS Snapshots (public) — always critical
+- API Gateway (public endpoints) — checks WAF, throttling, auth
+- Lambda Function URLs — checks auth type, CORS
+- CloudFront distributions — checks WAF, HTTPS, TLS 1.2
+- OpenSearch domains (no VPC) — checks access policy, encryption, HTTPS
+- Redshift clusters (PubliclyAccessible) — checks SG, encryption
+- EKS (public API endpoint) — checks private endpoint, CIDR restrictions, audit logging
+- ECR Public repositories — always flagged
+- SNS topics (wildcard policy) — no-condition Allow to *
+- SQS queues (wildcard policy) — no-condition Allow to *
+
+**Findings are classified into three tiers:**
+- 🔴 **Exposed & Unprotected** — no protections detected, immediate action required
+- 🟡 **Exposed & Partially Protected** — some protections in place, gaps remain
+- 🟢 **Exposed & Protected** — all evaluated protections are active
+
+```bash
+kosty public-exposure --region eu-west-3 --output console
+kosty public-exposure --organization --output json
+```
+
+### 🛡️ New Service: AWS WAFv2 (6 checks)
+- `check-unassociated-acls` — Web ACLs not attached to any resource
+- `check-missing-managed-rules` — Missing Core Rule Set or IP Reputation
+- `check-no-rate-based-rule` — No DDoS/brute-force rate limiting (Critical)
+- `check-no-logging` — WAF logging disabled
+- `check-default-count-action` — Critical rules set to Count instead of Block
+- `check-no-bot-control` — No Bot Control rule group configured
+- Handles both REGIONAL and CLOUDFRONT scopes automatically
+
+### 🔐 IAM: +8 Security Checks
+- `check-root-mfa` — Root account MFA status (Critical)
+- `check-all-users-mfa` — Console users without MFA
+- `check-unused-access-keys` — Active keys unused for 90+ days
+- `check-inline-policies` — Inline policies on users, roles, and groups
+- `check-passrole-permissions` — iam:PassRole with wildcard resource (Critical)
+- `check-shared-lambda-roles` — Lambda functions sharing execution roles
+- `check-multiple-active-keys` — Users with multiple active access keys
+- `check-wildcard-assume-role` — sts:AssumeRole with wildcard resource (Critical)
+
+### 🔐 IAM: Privilege Escalation Detection (21 patterns)
+- `check-privilege-escalation` — Scans all users and roles for 21 known escalation paths
+- Detects direct escalation (CreatePolicyVersion, AttachUserPolicy, AddUserToGroup, etc.)
+- Detects credential theft (CreateAccessKey, CreateLoginProfile for other users)
+- Detects compute-based escalation (PassRole + Lambda/EC2/ECS/CloudFormation/Glue)
+- Checks for permission boundaries as a mitigating factor
+- Optional `--deep` flag confirms findings via `iam:SimulatePrincipalPolicy` (zero false positives)
+
+### 🌐 API Gateway: +8 Security Checks
+- `check-no-waf` — Stages not protected by WAF
+- `check-no-authorization` — Endpoints with AUTH_TYPE=NONE
+- `check-no-logging` — Access/execution logging disabled
+- `check-no-throttling` — No custom throttling (cost-bleeding risk)
+- `check-private-api-no-policy` — Private APIs without resource policy
+- `check-http-api-no-jwt` — HTTP APIs (v2) without JWT authorizer
+- `check-custom-domain-no-tls12` — Custom domains not enforcing TLS 1.2
+- `check-missing-request-validation` — Methods without request validation
+- `check-cloudfront-bypass` — APIs behind CloudFront without resource policy restricting direct access
+
+### 🛡️ WAFv2: Enhanced Managed Rules Check
+- `check-missing-managed-rules` now verifies 4 rule groups: Core Rule Set, IP Reputation, SQLi Rule Set, and Known Bad Inputs (Log4j, etc.)
+
+### 🗃️ RDS: +2 Checks
+- `check-no-auto-minor-upgrade` — Auto minor version upgrade disabled (Security)
+- `check-no-performance-insights` — Performance Insights disabled (Cost)
+
+### 🗄️ S3: +2 Checks
+- `check-no-object-lock` — Object Lock not enabled, no ransomware protection (Security)
+- `check-no-cross-region-replication` — No cross-region replication configured (DR)
+
+### 🛡️ WAFv2: +1 Check
+- `check-no-bot-control` — No Bot Control rule group configured
+
+### ⚡ Performance Fix
+- Fixed CloudWatch `check-unused-custom-metrics` hanging on accounts with many custom metrics
+- Added configurable `--max-metrics` parameter (default: 50) via CLI or `kosty.yaml`
+- Comprehensive scan now completes reliably on all account sizes
+
+### 📊 Summary
+- **Total services**: 17 (was 16)
+- **New checks this release**: 26+
+- **New standalone command**: `kosty public-exposure` (15 resource types)
+- **Total commands**: ~180+
+
+### 📖 Documentation
+- Updated README.md with all new commands and examples
+- Updated CLI_REFERENCE.md with WAFv2, IAM, API Gateway, RDS, S3 sections
+- Internal PENDING_FEATURES.md tracker for audit coverage
+
+---
+
 ## Version 1.6.1 - Bug Fixes (2025-01-16)
 
 ### 🐛 Bug Fixes
