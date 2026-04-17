@@ -1,6 +1,8 @@
-# 📊 Kosty Service Coverage
+# Kosty — Service Coverage
 
-> 30 AWS services, 180+ checks, organized by category.
+30 AWS services. 180+ checks. Full list below.
+
+---
 
 ## Compute
 
@@ -32,7 +34,7 @@
 
 ## Storage
 
-### S3 (12 checks)
+### S3 (13 checks)
 | Check | Type | Severity |
 |-------|------|----------|
 | `check-empty-buckets` | Cost | Low |
@@ -180,12 +182,12 @@
 
 ## Management & Monitoring
 
-### CloudWatch (4 checks)
+### CloudWatch (3 checks)
 | Check | Type | Severity |
 |-------|------|----------|
-| `check-log-retention` | Security | High |
+| `check-log-groups-without-retention` | Security | High |
 | `check-unused-alarms` | Security | Low |
-| `check-unused-custom-metrics` | Cost | Low |
+| `check-unused-custom-metrics [--max-metrics]` | Cost | Low |
 
 ### Backup (3 checks)
 | Check | Type | Severity |
@@ -239,7 +241,7 @@
 ### ACM (1 check)
 | Check | Type | Severity |
 |-------|------|----------|
-| `check-expiring-certificates` | Security | Medium-Critical |
+| `check-expiring-certificates` | Security | Medium–Critical |
 
 ### ElastiCache (2 checks)
 | Check | Type | Severity |
@@ -267,28 +269,28 @@
 ### SSM (1 check)
 | Check | Type | Severity |
 |-------|------|----------|
-| `check-non-compliant-patches` | Security | Medium-Critical |
+| `check-non-compliant-patches` | Security | Medium–Critical |
 
 ---
 
 ## Public Exposure Audit
 
-`kosty public-exposure` scans 15 resource types:
+`kosty public-exposure` scans 15 resource types and evaluates protection layers for each:
 
-| Resource | Exposed if... | Protections Verified |
+| Resource | Exposed if... | Protections Checked |
 |----------|--------------|---------------------|
 | ALB/NLB | internet-facing | WAF, HTTPS |
-| EC2 | Public IP | SG web-only, IMDSv2 |
-| S3 | Public ACL/policy | CloudFront, PublicAccessBlock |
-| RDS | PubliclyAccessible | SG, Encryption |
-| RDS Snapshots | restore=all | — |
-| EBS Snapshots | public | — |
-| API Gateway | public endpoint | WAF, Throttling, Auth |
-| Lambda URLs | function URL active | Auth type, CORS |
-| CloudFront | distribution active | WAF, HTTPS, TLS 1.2 |
-| OpenSearch | no VPC | Access Policy, Encryption, HTTPS |
-| Redshift | PubliclyAccessible | SG, Encryption |
-| EKS | public API endpoint | Private endpoint, CIDR, Audit logging |
-| ECR Public | public repo | — |
-| SNS | wildcard policy | — |
-| SQS | wildcard policy | — |
+| EC2 | public IP assigned | SG web-only, IMDSv2 |
+| S3 | public ACL or bucket policy | CloudFront, PublicAccessBlock |
+| RDS | PubliclyAccessible=true | SG restrictions, encryption |
+| RDS Snapshots | restore=all | — (always critical) |
+| EBS Snapshots | createVolumePermission=all | — (always critical) |
+| API Gateway | public endpoint | WAF, throttling, auth |
+| Lambda URLs | function URL configured | auth type, CORS |
+| CloudFront | enabled distribution | WAF, HTTPS, TLS 1.2 |
+| OpenSearch | no VPC attachment | access policy, encryption, HTTPS |
+| Redshift | PubliclyAccessible=true | SG restrictions, encryption |
+| EKS | public API server endpoint | private endpoint, CIDR, audit logging |
+| ECR Public | public repository | — (always flagged) |
+| SNS | wildcard Allow without Condition | — |
+| SQS | wildcard Allow without Condition | — |
