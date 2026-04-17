@@ -393,16 +393,7 @@ kosty ai sagemaker check-notebook-direct-internet
 kosty ai sagemaker check-notebook-root-access
 ```
 
-### Standalone Bedrock Commands
 
-These are also available directly (included in `kosty audit` full scan):
-```bash
-kosty bedrock audit
-kosty bedrock cost-audit
-kosty bedrock security-audit
-kosty bedrock check-no-logging
-kosty bedrock check-no-budget-limits
-```
 
 ### KMS Commands (3 total)
 
