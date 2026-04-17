@@ -1,5 +1,50 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.9.2 - Foundational Security Services & Bedrock Audit (2025-01-XX)
+
+### 🌟 6 New Services
+
+**CloudTrail** (3 checks)
+- `check-not-enabled` — No multi-region trail configured (CIS 3.1)
+- `check-no-log-validation` — Log file integrity validation disabled (CIS 3.2)
+- `check-no-encryption` — Logs not encrypted with KMS (CIS 3.7)
+
+**VPC** (2 checks)
+- `check-no-flow-logs` — VPC without Flow Logs enabled (CIS 3.9)
+- `check-default-sg-open` — Default security group has inbound rules (CIS 5.3)
+
+**GuardDuty** (1 check)
+- `check-not-enabled` — Threat detection not active in region (CIS 4.15)
+
+**AWS Config** (1 check)
+- `check-not-enabled` — Configuration recorder not active (CIS 3.5)
+
+**Secrets Manager** (2 checks)
+- `check-unused-secrets` — Secrets never accessed but billed $0.40/mo each
+- `check-no-rotation` — Automatic rotation not enabled
+
+**Amazon Bedrock** (2 checks)
+- `check-no-logging` — Model invocation logging disabled
+- `check-no-budget-limits` — No AWS Budget for Bedrock spend
+
+### 🔧 Enhanced Checks
+
+**IAM `check-unused-roles`**
+- Default threshold reduced from 90 to 30 days
+- Roles with AdministratorAccess or `*:*` now flagged as `critical` instead of `high`
+- Admin detection via attached policies and inline policy analysis
+
+**EC2 `check-imdsv1-oversized`** (new)
+- Cross-references IMDSv1 + low CPU utilization into a single `critical` finding
+- Instances that are both SSRF-vulnerable and wasting money get highest remediation priority
+
+### 📊 Summary
+- **Total services**: 23 (was 17)
+- **New checks this release**: 12
+- **Total commands**: ~200+
+
+---
+
 ## Version 1.9.0 - Security Audit Expansion, WAFv2 & Public Exposure (2025-01-XX)
 
 ### 🌐 New Command: `kosty public-exposure`
