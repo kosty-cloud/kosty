@@ -1,14 +1,16 @@
 import boto3
 import json
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 
 
 class BedrockAuditService:
     def __init__(self):
-        self.cost_checks = ['find_no_budget_limits', 'find_no_prompt_caching', 'find_no_inference_profiles']
+        self.cost_checks = ['find_no_budget_limits', 'find_no_prompt_caching', 'find_no_inference_profiles', 'find_tpm_quota_high_usage']
         self.security_checks = [
             'find_no_logging', 'find_no_guardrails', 'find_shadow_ai',
-            'find_no_vpc_endpoint', 'find_custom_model_no_kms'
+            'find_no_vpc_endpoint', 'find_custom_model_no_kms',
+            'find_cross_account_model_access'
         ]
 
     def find_no_logging(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -253,6 +255,129 @@ class BedrockAuditService:
 
         return results
 
+    def find_tpm_quota_high_usage(self, session: boto3.Session, region: str, threshold: int = 80, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Check if Bedrock TPM quota usage is above threshold"""
+        sq = session.client('service-quotas', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        try:
+            paginator = sq.get_paginator('list_service_quotas')
+            for page in paginator.paginate(ServiceCode='bedrock'):
+                for quota in page['Quotas']:
+                    if 'token' not in quota.get('QuotaName', '').lower():
+                        continue
+
+                    quota_value = quota.get('Value', 0)
+                    if quota_value == 0:
+                        continue
+
+                    usage = quota.get('UsageMetric', {})
+                    if not usage:
+                        continue
+
+                    try:
+                        cw = session.client('cloudwatch', region_name=region)
+                        metrics = cw.get_metric_statistics(
+                            Namespace=usage.get('MetricNamespace', ''),
+                            MetricName=usage.get('MetricName', ''),
+                            Dimensions=[{'Name': k, 'Value': v} for k, v in usage.get('MetricDimensions', {}).items()],
+                            StartTime=datetime.utcnow() - timedelta(hours=24),
+                            EndTime=datetime.utcnow(),
+                            Period=3600, Statistics=['Maximum']
+                        )
+                        if metrics['Datapoints']:
+                            max_usage = max(dp['Maximum'] for dp in metrics['Datapoints'])
+                            pct = (max_usage / quota_value) * 100
+                            if pct >= threshold:
+                                results.append({
+                                    'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                                    'ResourceId': quota['QuotaName'], 'ResourceName': quota['QuotaName'],
+                                    'Issue': f'TPM quota at {round(pct)}% ({round(max_usage)}/{round(quota_value)})',
+                                    'type': 'cost',
+                                    'Risk': 'Approaching throttling limit — production requests will be rejected',
+                                    'severity': 'high' if pct >= 90 else 'medium',
+                                    'check': 'tpm_quota_high_usage'
+                                })
+                    except Exception:
+                        continue
+        except Exception as e:
+            if 'AccessDeniedException' not in str(e):
+                print(f"Error checking Bedrock TPM quotas: {e}")
+
+        return results
+
+    def find_cross_account_model_access(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Check S3 bucket policies on custom model training data for cross-account access"""
+        bedrock = session.client('bedrock', region_name=region)
+        s3 = session.client('s3')
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        try:
+            models = bedrock.list_custom_models()
+            checked_buckets = set()
+
+            for model in models.get('modelSummaries', []):
+                try:
+                    detail = bedrock.get_custom_model(modelIdentifier=model['modelName'])
+                    s3_uri = detail.get('trainingDataConfig', {}).get('s3Uri', '')
+                    if not s3_uri or not s3_uri.startswith('s3://'):
+                        continue
+
+                    bucket = s3_uri.split('/')[2]
+                    if bucket in checked_buckets:
+                        continue
+                    checked_buckets.add(bucket)
+
+                    try:
+                        policy_str = s3.get_bucket_policy(Bucket=bucket)['Policy']
+                        policy = json.loads(policy_str)
+
+                        for stmt in policy.get('Statement', []):
+                            if stmt.get('Effect') != 'Allow':
+                                continue
+                            principal = stmt.get('Principal', {})
+                            if principal == '*' or (isinstance(principal, dict) and principal.get('AWS') == '*'):
+                                results.append({
+                                    'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                                    'ResourceId': bucket, 'ResourceName': f'{model["modelName"]} ({bucket})',
+                                    'Issue': f'Training data bucket "{bucket}" has wildcard principal in policy',
+                                    'type': 'security',
+                                    'Risk': 'Unauthorized third-party access to model training data',
+                                    'severity': 'high', 'check': 'cross_account_model_access'
+                                })
+                                break
+
+                            if isinstance(principal, dict):
+                                aws_principals = principal.get('AWS', [])
+                                if not isinstance(aws_principals, list):
+                                    aws_principals = [aws_principals]
+                                for p in aws_principals:
+                                    if ':' in str(p) and account_id not in str(p):
+                                        results.append({
+                                            'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                                            'ResourceId': bucket, 'ResourceName': f'{model["modelName"]} ({bucket})',
+                                            'Issue': f'Training data bucket "{bucket}" grants cross-account access',
+                                            'type': 'security',
+                                            'Risk': 'External account can read model training data',
+                                            'severity': 'medium', 'check': 'cross_account_model_access'
+                                        })
+                                        break
+                    except s3.exceptions.from_code('NoSuchBucketPolicy'):
+                        pass
+                    except Exception:
+                        continue
+                except Exception:
+                    continue
+        except Exception as e:
+            if 'AccessDeniedException' not in str(e):
+                print(f"Error checking cross-account model access: {e}")
+
+        return results
+
     def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         results = []
         for check in self.cost_checks:
@@ -294,3 +419,9 @@ class BedrockAuditService:
 
     def check_no_inference_profiles(self, session, region, **kwargs):
         return self.find_no_inference_profiles(session, region, **kwargs)
+
+    def check_tpm_quota_high_usage(self, session, region, **kwargs):
+        return self.find_tpm_quota_high_usage(session, region, **kwargs)
+
+    def check_cross_account_model_access(self, session, region, **kwargs):
+        return self.find_cross_account_model_access(session, region, **kwargs)
