@@ -10,7 +10,7 @@ class RDSAuditService:
                            'find_no_performance_insights']
         self.security_checks = ['find_publicly_accessible', 'find_unencrypted_storage', 'find_default_username',
                                'find_wide_cidr_sg', 'find_disabled_backups', 'find_outdated_engine', 'find_no_ssl_enforcement',
-                               'find_no_auto_minor_upgrade']
+                               'find_no_auto_minor_upgrade', 'find_no_event_subscription']
     
     # Cost Audit Methods
     def find_idle_instances(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -706,3 +706,35 @@ class RDSAuditService:
     
     def check_no_performance_insights(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_performance_insights(session, region, **kwargs)
+
+    def find_no_event_subscription(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find RDS instances without event subscriptions for critical events"""
+        rds = session.client('rds', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        try:
+            subs = rds.describe_event_subscriptions()['EventSubscriptionsList']
+            has_instance_sub = any(
+                s.get('SourceType') in ['db-instance', None] and s.get('Enabled', False)
+                for s in subs
+            )
+
+            if not has_instance_sub:
+                results.append({
+                    'AccountId': account_id, 'Region': region, 'Service': 'RDS',
+                    'ResourceId': 'rds-event-subscriptions',
+                    'ResourceName': 'RDS Event Subscriptions',
+                    'Issue': 'No RDS event subscription for instance events',
+                    'type': 'security',
+                    'Risk': 'Failovers, maintenance, and configuration changes go unnoticed',
+                    'severity': 'medium', 'check': 'no_event_subscription'
+                })
+        except Exception as e:
+            print(f"Error checking RDS event subscriptions: {e}")
+
+        return results
+
+    def check_no_event_subscription(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_event_subscription(session, region, **kwargs)

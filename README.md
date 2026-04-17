@@ -9,7 +9,7 @@
 
 > 💡 Need expert help optimizing your AWS infrastructure? [Professional consulting services available →](https://kosty.cloud?utm_source=github&utm_medium=readme-header)
 
-**🚀 Identify AWS cost waste and security vulnerabilities across 28 core services with a single command**
+**🚀 Identify AWS cost waste and security vulnerabilities across 30 core services with a single command**
 
 *Save thousands of dollars monthly and improve security posture by finding unused resources, oversized instances, misconfigurations, and compliance issues*
 
@@ -43,7 +43,7 @@ So I built Kosty - the tool I wish existed when I started consulting.
 
 
 ### What Kosty Does
-- 🔍 Scans **28 core AWS services** in one command
+- 🔍 Scans **30 core AWS services** in one command
 - 💰 **Quantifies cost savings** with real dollar amounts (11 services)
 - 📊 Finds **oversized instances** (EC2, RDS, Lambda)
 - 🔐 Detects **security vulnerabilities** (public DBs, unencrypted storage, open ports)
@@ -54,7 +54,7 @@ So I built Kosty - the tool I wish existed when I started consulting.
 **One command. Full audit. Real savings. Free forever.**
 
 AWS costs and security risks can spiral out of control quickly. Kosty helps you:
-- 🔍 **Discover** unused resources and security vulnerabilities across 28 core AWS services
+- 🔍 **Discover** unused resources and security vulnerabilities across 30 core AWS services
 - 💰 **Quantify** cost savings with real dollar amounts ($X/month calculations)
 - 🔐 **Detect** security misconfigurations and compliance issues
 - ⚡ **Optimize** with prioritized recommendations by financial impact
@@ -441,6 +441,8 @@ These services provide security and compliance audits without cost quantificatio
 | **📨 Messaging** | SNS, SQS | Encryption at rest and in transit |
 | **🗃️ Cache** | ElastiCache | Encryption at rest and in transit |
 | **📜 Certificates** | ACM | Expiring certificates |
+| **📦 Containers** | ECS | Privileged task definitions |
+| **🔧 Patch Management** | SSM | Patch compliance |
 
 ### 📋 Service Commands Summary
 
@@ -537,7 +539,7 @@ kosty audit --output all
 ```
 
 **What `kosty audit` does:**
-- Scans 28 core AWS services automatically
+- Scans 30 core AWS services automatically
 - Runs complete audits (cost + security) per service
 - Generates comprehensive reports (JSON, CSV, Console)
 - Prioritizes issues by severity and impact
@@ -552,7 +554,7 @@ kosty audit --output all
 - Multiple report formats: Console, JSON, CSV, visual reports
 
 ### Comprehensive Analysis
-- 28 core AWS services coverage
+- 30 core AWS services coverage
 - Real dollar cost savings for 11 services
 - One-command audit scans everything
 - Multi-account organization support with configurable roles
