@@ -166,3 +166,12 @@ def rds_check_perf_insights(ctx, profile, organization, region, max_workers, reg
     """Find instances without Performance Insights enabled"""
     from ..services.rds_audit import RDSAuditService
     execute_service_command(ctx, RDSAuditService, 'check_no_performance_insights', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@rds.command('check-no-event-subscription')
+@common_options
+@click.pass_context
+def rds_check_event_sub(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find missing RDS event subscriptions"""
+    from ..services.rds_audit import RDSAuditService
+    execute_service_command(ctx, RDSAuditService, 'check_no_event_subscription', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)

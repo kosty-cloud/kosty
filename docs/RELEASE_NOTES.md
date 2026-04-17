@@ -1,5 +1,79 @@
 # 🚀 Kosty Release Notes
 
+## Version 1.9.2 - Foundational Security Services & Bedrock Audit (2025-01-XX)
+
+### 🌟 13 New Services
+
+**CloudTrail** (3 checks)
+- `check-not-enabled` — No multi-region trail configured (CIS 3.1)
+- `check-no-log-validation` — Log file integrity validation disabled (CIS 3.2)
+- `check-no-encryption` — Logs not encrypted with KMS (CIS 3.7)
+
+**VPC** (2 checks)
+- `check-no-flow-logs` — VPC without Flow Logs enabled (CIS 3.9)
+- `check-default-sg-open` — Default security group has inbound rules (CIS 5.3)
+
+**GuardDuty** (1 check)
+- `check-not-enabled` — Threat detection not active in region (CIS 4.15)
+
+**AWS Config** (1 check)
+- `check-not-enabled` — Configuration recorder not active (CIS 3.5)
+
+**Secrets Manager** (2 checks)
+- `check-unused-secrets` — Secrets never accessed but billed $0.40/mo each
+- `check-no-rotation` — Automatic rotation not enabled
+
+**Amazon Bedrock** (2 checks)
+- `check-no-logging` — Model invocation logging disabled
+- `check-no-budget-limits` — No AWS Budget for Bedrock spend
+
+**KMS** (1 check)
+- `check-no-key-rotation` — Customer-managed keys without automatic rotation
+
+**ACM** (1 check)
+- `check-expiring-certificates` — Certificates expiring within 30 days (configurable via `--days`)
+
+**ElastiCache** (2 checks)
+- `check-no-encryption-at-rest` — Redis replication groups without encryption at rest
+- `check-no-encryption-in-transit` — Redis replication groups without encryption in transit
+
+**SNS** (1 check)
+- `check-no-encryption` — Topics without server-side encryption
+
+**SQS** (1 check)
+- `check-no-encryption` — Queues without server-side encryption
+
+**ECS** (1 check)
+- `check-privileged-tasks` — Task definitions with privileged containers (container escape risk)
+
+**SSM** (1 check)
+- `check-non-compliant-patches` — Instances with missing security patches
+
+### 🔧 Enhanced Checks
+
+**IAM `check-unused-roles`**
+- Default threshold reduced from 90 to 30 days
+- Roles with AdministratorAccess or `*:*` now flagged as `critical` instead of `high`
+- Admin detection via attached policies and inline policy analysis
+
+**EC2 `check-imdsv1-oversized`** (new)
+- Cross-references IMDSv1 + low CPU utilization into a single `critical` finding
+- Instances that are both SSRF-vulnerable and wasting money get highest remediation priority
+
+**RDS `check-no-event-subscription`** (new)
+- Detects missing RDS event subscriptions for instance events
+
+**S3 `check-no-account-public-access-block`** (new)
+- Checks if account-level S3 Block Public Access is fully enabled
+- Flags as critical if not configured at all
+
+### 📊 Summary
+- **Total services**: 30 (was 17)
+- **New checks this release**: 25+
+- **Total commands**: ~240+
+
+---
+
 ## Version 1.9.0 - Security Audit Expansion, WAFv2 & Public Exposure (2025-01-XX)
 
 ### 🌐 New Command: `kosty public-exposure`
