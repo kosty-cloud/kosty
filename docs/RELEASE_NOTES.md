@@ -2,7 +2,7 @@
 
 ## Version 1.9.2 - Foundational Security Services & Bedrock Audit (2025-01-XX)
 
-### 🌟 6 New Services
+### 🌟 11 New Services
 
 **CloudTrail** (3 checks)
 - `check-not-enabled` — No multi-region trail configured (CIS 3.1)
@@ -27,6 +27,22 @@
 - `check-no-logging` — Model invocation logging disabled
 - `check-no-budget-limits` — No AWS Budget for Bedrock spend
 
+**KMS** (1 check)
+- `check-no-key-rotation` — Customer-managed keys without automatic rotation
+
+**ACM** (1 check)
+- `check-expiring-certificates` — Certificates expiring within 30 days (configurable via `--days`)
+
+**ElastiCache** (2 checks)
+- `check-no-encryption-at-rest` — Redis replication groups without encryption at rest
+- `check-no-encryption-in-transit` — Redis replication groups without encryption in transit
+
+**SNS** (1 check)
+- `check-no-encryption` — Topics without server-side encryption
+
+**SQS** (1 check)
+- `check-no-encryption` — Queues without server-side encryption
+
 ### 🔧 Enhanced Checks
 
 **IAM `check-unused-roles`**
@@ -38,10 +54,14 @@
 - Cross-references IMDSv1 + low CPU utilization into a single `critical` finding
 - Instances that are both SSRF-vulnerable and wasting money get highest remediation priority
 
+**S3 `check-no-account-public-access-block`** (new)
+- Checks if account-level S3 Block Public Access is fully enabled
+- Flags as critical if not configured at all
+
 ### 📊 Summary
-- **Total services**: 23 (was 17)
-- **New checks this release**: 12
-- **Total commands**: ~200+
+- **Total services**: 28 (was 17)
+- **New checks this release**: 20+
+- **Total commands**: ~220+
 
 ---
 

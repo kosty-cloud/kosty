@@ -5,7 +5,7 @@
 ### Global Commands
 
 #### `kosty audit`
-Comprehensive scan of all 23 AWS services.
+Comprehensive scan of all 28 AWS services.
 
 **Usage:**
 ```bash
@@ -366,6 +366,43 @@ kosty bedrock security-audit
 ```bash
 kosty bedrock check-no-logging
 kosty bedrock check-no-budget-limits
+```
+
+### KMS Commands (3 total)
+
+```bash
+kosty kms audit
+kosty kms check-no-key-rotation
+```
+
+### ACM Commands (3 total)
+
+```bash
+kosty acm audit [--days INT]
+kosty acm check-expiring-certificates [--days INT]
+```
+
+### ElastiCache Commands (4 total)
+
+```bash
+kosty elasticache audit
+kosty elasticache security-audit
+kosty elasticache check-no-encryption-at-rest
+kosty elasticache check-no-encryption-in-transit
+```
+
+### SNS Commands (2 total)
+
+```bash
+kosty sns audit
+kosty sns check-no-encryption
+```
+
+### SQS Commands (2 total)
+
+```bash
+kosty sqs audit
+kosty sqs check-no-encryption
 ```
 
 ---
