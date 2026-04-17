@@ -20,7 +20,11 @@ def ai_full_audit(ctx, days, profile, organization, region, max_workers, regions
     """Run full AI audit (Bedrock + SageMaker)"""
     from ..services.bedrock_audit import BedrockAuditService
     from ..services.sagemaker_audit import SageMakerAuditService
+    print("\n🤖 Bedrock Audit")
+    print("─" * 40)
     execute_service_command(ctx, BedrockAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    print("\n🤖 SageMaker Audit")
+    print("─" * 40)
     execute_service_command(ctx, SageMakerAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 
@@ -32,7 +36,11 @@ def ai_cost_audit(ctx, days, profile, organization, region, max_workers, regions
     """Run AI cost audit (Bedrock + SageMaker)"""
     from ..services.bedrock_audit import BedrockAuditService
     from ..services.sagemaker_audit import SageMakerAuditService
+    print("\n🤖 Bedrock Cost Audit")
+    print("─" * 40)
     execute_service_command(ctx, BedrockAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    print("\n🤖 SageMaker Cost Audit")
+    print("─" * 40)
     execute_service_command(ctx, SageMakerAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 
@@ -43,7 +51,11 @@ def ai_security_audit(ctx, profile, organization, region, max_workers, regions, 
     """Run AI security audit (Bedrock + SageMaker)"""
     from ..services.bedrock_audit import BedrockAuditService
     from ..services.sagemaker_audit import SageMakerAuditService
+    print("\n🤖 Bedrock Security Audit")
+    print("─" * 40)
     execute_service_command(ctx, BedrockAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    print("\n🤖 SageMaker Security Audit")
+    print("─" * 40)
     execute_service_command(ctx, SageMakerAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 

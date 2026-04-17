@@ -13,7 +13,7 @@ kosty ai bedrock check-shadow-ai            # unapproved AI usage
 kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 ```
 
-**Bedrock** (8 checks)
+**Bedrock** (10 checks)
 - `check-no-logging` — Model invocation logging disabled
 - `check-no-budget-limits` — No AWS Budget for Bedrock spend
 - `check-no-guardrails` — No Guardrails configured (prompt injection, PII leakage)
@@ -22,6 +22,8 @@ kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 - `check-custom-model-no-kms` — Custom models not encrypted with customer-managed KMS
 - `check-no-prompt-caching` — Cache-compatible models available but caching not verified
 - `check-no-inference-profiles` — No Application Inference Profiles for cost attribution
+- `check-tpm-quota` — TPM quota usage above 80% (approaching throttling)
+- `check-cross-account-model-access` — Training data S3 buckets with cross-account or wildcard access
 
 **SageMaker** (7 checks)
 - `check-idle-endpoints` — Endpoints with zero invocations (GPU running 24/7 for nothing)
@@ -34,7 +36,7 @@ kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 
 ### 📊 Summary
 - **Total services**: 31 (was 30)
-- **New checks**: 15 (Bedrock 8 + SageMaker 7)
+- **New checks**: 17 (Bedrock 10 + SageMaker 7)
 - **Total checks**: ~200+
 
 ---

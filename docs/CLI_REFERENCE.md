@@ -375,6 +375,8 @@ kosty ai bedrock check-no-vpc-endpoint
 kosty ai bedrock check-custom-model-no-kms
 kosty ai bedrock check-no-prompt-caching
 kosty ai bedrock check-no-inference-profiles
+kosty ai bedrock check-tpm-quota
+kosty ai bedrock check-cross-account-model-access
 ```
 
 #### SageMaker Subcommands

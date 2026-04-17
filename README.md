@@ -90,7 +90,7 @@ kosty ai bedrock check-shadow-ai            # unapproved AI usage
 kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 ```
 
-**Bedrock** (8 checks) — guardrails, shadow AI detection, VPC endpoints, prompt caching, inference profiles, custom model encryption, logging, budget limits
+**Bedrock** (10 checks) — guardrails, shadow AI detection, VPC endpoints, prompt caching, inference profiles, custom model encryption, logging, budget limits, TPM quota monitoring, cross-account model access
 
 **SageMaker** (7 checks) — idle endpoints, zombie notebooks, Spot training, checkpointing, VPC endpoints, internet access, root access
 
