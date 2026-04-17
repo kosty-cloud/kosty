@@ -224,7 +224,7 @@
 
 ## AI/ML
 
-### Bedrock (8 checks)
+### Bedrock (10 checks)
 | Check | Type | Severity |
 |-------|------|----------|
 | `check-no-logging` | Security | High |
@@ -235,6 +235,8 @@
 | `check-custom-model-no-kms` | Security | Medium |
 | `check-no-prompt-caching` | Cost | Medium |
 | `check-no-inference-profiles` | Cost | Low |
+| `check-tpm-quota` | Cost | Medium–High |
+| `check-cross-account-model-access` | Security | High |
 
 ### SageMaker (7 checks)
 | Check | Type | Severity |

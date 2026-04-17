@@ -41,7 +41,7 @@ class CostOptimizationReporter:
 
     
     def generate_summary_report(self) -> str:
-        """Generate a summary report"""
+        """Generate a summary report with cost and security breakdown"""
         report = []
         report.append("\n" + "=" * 80)
         report.append("KOSTY - AWS AUDIT REPORT")
@@ -51,7 +51,20 @@ class CostOptimizationReporter:
         total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())
         total_savings = sum(sum(cmd.get('monthly_savings', 0) for cmd in svc.values()) for acc in self.results.values() for svc in acc.values())
         
-        report.append(f"Total Issues: {total_issues}")
+        # Count cost vs security issues
+        total_cost = 0
+        total_security = 0
+        for acc in self.results.values():
+            for svc in acc.values():
+                for cmd_data in svc.values():
+                    for item in cmd_data.get('items', []):
+                        item_type = (item.get('type') or item.get('Type') or '').lower()
+                        if item_type == 'cost':
+                            total_cost += 1
+                        else:
+                            total_security += 1
+        
+        report.append(f"Total Issues: {total_issues} (🔐 {total_security} security, 💰 {total_cost} cost)")
         if total_savings > 0:
             report.append(f"Potential Monthly Savings: ${total_savings:,.2f}")
             report.append(f"Potential Annual Savings: ${total_savings * 12:,.2f}")
@@ -83,28 +96,65 @@ class CostOptimizationReporter:
                 report.append(f"  Total: {account_issues} issues")
             report.append("")
         
+        # Top cost savings
         if total_savings > 0:
-            report.append("TOP ISSUES BY SAVINGS")
+            report.append("💰 TOP COST SAVINGS")
             report.append("-" * 40)
             
-            all_issues = []
+            cost_issues = []
             for account_id, account_data in self.results.items():
                 for service, service_data in account_data.items():
                     for command, command_data in service_data.items():
                         savings = command_data.get('monthly_savings', 0)
                         if savings > 0:
-                            all_issues.append({
+                            cost_issues.append({
                                 'service': service,
                                 'command': command,
                                 'count': command_data['count'],
                                 'savings': savings
                             })
             
-            all_issues.sort(key=lambda x: x['savings'], reverse=True)
-            
-            for i, issue in enumerate(all_issues[:10], 1):
+            cost_issues.sort(key=lambda x: x['savings'], reverse=True)
+            for i, issue in enumerate(cost_issues[:10], 1):
                 report.append(f"  {i}. {issue['service'].upper()} {issue['command']}: ${issue['savings']:,.2f}/mo ({issue['count']} issues)")
-            
+            report.append("")
+        
+        # Top security issues by severity — deduplicated
+        security_by_issue = {}
+        for account_id, account_data in self.results.items():
+            for service, service_data in account_data.items():
+                for command, command_data in service_data.items():
+                    for item in command_data.get('items', []):
+                        item_type = (item.get('type') or item.get('Type') or '').lower()
+                        severity = (item.get('severity') or item.get('Severity') or '').lower()
+                        if item_type != 'cost' and severity in ['critical', 'high']:
+                            issue_text = item.get('Issue', '')
+                            key = f"{service.upper()}:{issue_text}"
+                            if key not in security_by_issue:
+                                security_by_issue[key] = {
+                                    'service': service.upper(),
+                                    'issue': issue_text,
+                                    'severity': severity,
+                                    'count': 0,
+                                    'resource': item.get('ResourceId') or item.get('ResourceName', '')
+                                }
+                            security_by_issue[key]['count'] += 1
+        
+        if security_by_issue:
+            report.append("🔐 TOP SECURITY FINDINGS")
+            report.append("-" * 40)
+            sorted_findings = sorted(security_by_issue.values(), key=lambda x: (0 if x['severity'] == 'critical' else 1, -x['count']))
+            shown = 0
+            for f in sorted_findings[:10]:
+                icon = '🔴' if f['severity'] == 'critical' else '🟠'
+                if f['count'] > 1:
+                    report.append(f"  {icon} {f['service']}: {f['issue']} ({f['count']} resources)")
+                else:
+                    report.append(f"  {icon} {f['service']}: {f['issue']} — {f['resource']}")
+                shown += 1
+            remaining = len(sorted_findings) - shown
+            if remaining > 0:
+                report.append(f"  ... and {remaining} more critical/high finding types")
             report.append("")
         
         report.append("=" * 80)

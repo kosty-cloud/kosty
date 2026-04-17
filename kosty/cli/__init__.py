@@ -27,7 +27,6 @@ from .vpc_commands import vpc
 from .guardduty_commands import guardduty
 from .config_commands import awsconfig
 from .secretsmanager_commands import secretsmanager
-from .bedrock_commands import bedrock_cmd
 from .kms_commands import kms
 from .acm_commands import acm
 from .elasticache_commands import elasticache
@@ -251,7 +250,6 @@ cli.add_command(vpc)
 cli.add_command(guardduty)
 cli.add_command(awsconfig)
 cli.add_command(secretsmanager)
-cli.add_command(bedrock_cmd)
 cli.add_command(kms)
 cli.add_command(acm)
 cli.add_command(elasticache)

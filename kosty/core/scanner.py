@@ -209,7 +209,6 @@ class ComprehensiveScanner:
             else:
                 print(f"  {svc_name.upper():>12}     ❌ {count}")
         print("─" * 60)
-        print(f"💰 Ready to generate cost optimization reports")
         print("=" * 60)
         
         return self.reporter
