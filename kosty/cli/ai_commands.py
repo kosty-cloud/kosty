@@ -155,6 +155,24 @@ def bedrock_check_profiles(ctx, profile, organization, region, max_workers, regi
     execute_service_command(ctx, BedrockAuditService, 'check_no_inference_profiles', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
+@bedrock.command('check-tpm-quota')
+@common_options
+@click.pass_context
+def bedrock_check_tpm(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Check if Bedrock TPM quota usage is above 80%"""
+    from ..services.bedrock_audit import BedrockAuditService
+    execute_service_command(ctx, BedrockAuditService, 'check_tpm_quota_high_usage', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@bedrock.command('check-cross-account-model-access')
+@common_options
+@click.pass_context
+def bedrock_check_cross_account(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Check S3 bucket policies on custom model training data for cross-account access"""
+    from ..services.bedrock_audit import BedrockAuditService
+    execute_service_command(ctx, BedrockAuditService, 'check_cross_account_model_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
 # --- SageMaker subgroup ---
 
 @ai_audit.group()
