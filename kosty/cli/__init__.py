@@ -35,6 +35,7 @@ from .sns_commands import sns
 from .sqs_commands import sqs
 from .ecs_commands import ecs
 from .ssm_commands import ssm
+from .ai_commands import ai_audit
 
 @click.group(invoke_without_command=True)
 @click.option('--config-file', help='Path to configuration file (default: ./kosty.yaml or ~/.kosty/config.yaml)')
@@ -258,6 +259,7 @@ cli.add_command(sns)
 cli.add_command(sqs)
 cli.add_command(ecs)
 cli.add_command(ssm)
+cli.add_command(ai_audit)
 
 if __name__ == '__main__':
     cli()

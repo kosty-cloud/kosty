@@ -7,7 +7,7 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-**Scan 30 AWS services. Find cost waste. Detect security gaps. One command.**
+**Scan 30+ AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
 
 [Quick Start](#-quick-start) • [Key Features](#-key-features) • [Service Coverage](#-service-coverage) • [Documentation](docs/DOCUMENTATION.md)
 
@@ -20,11 +20,14 @@
 ```bash
 pip install kosty
 
-# Full audit — cost + security across 30 services
+# Full audit — cost + security across 30+ services
 kosty audit --output all
 
 # External attack surface mapping
 kosty public-exposure --output console
+
+# AI/ML audit — Bedrock + SageMaker
+kosty ai audit --output console
 
 # IAM privilege escalation detection (21 patterns)
 kosty iam check-privilege-escalation --deep
@@ -76,6 +79,21 @@ kosty waf audit
 kosty apigateway security-audit
 ```
 
+### 🤖 AI/ML Audit
+
+Dedicated `kosty ai` command for Bedrock and SageMaker workloads. Catches the invisible waste and security gaps that standard audits miss.
+
+```bash
+kosty ai audit                              # full Bedrock + SageMaker
+kosty ai bedrock check-no-guardrails        # prompt injection protection
+kosty ai bedrock check-shadow-ai            # unapproved AI usage
+kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
+```
+
+**Bedrock** (8 checks) — guardrails, shadow AI detection, VPC endpoints, prompt caching, inference profiles, custom model encryption, logging, budget limits
+
+**SageMaker** (7 checks) — idle endpoints, zombie notebooks, Spot training, checkpointing, VPC endpoints, internet access, root access
+
 ### 💰 Cost Optimization
 
 Real dollar savings for 11 services — not just recommendations, actual monthly amounts:
@@ -109,7 +127,7 @@ open dashboard/index.html   # visualize savings
 | **Security** | IAM, WAFv2, GuardDuty, KMS | Privilege escalation, MFA, key rotation, threat detection |
 | **Management** | CloudWatch, Backup, CloudTrail, Config | Logging, audit trail, drift detection |
 | **Application** | API Gateway | WAF, auth, throttling, TLS, CloudFront bypass |
-| **AI/ML** | Bedrock | Invocation logging, budget limits |
+| **AI/ML** | Bedrock, SageMaker | Guardrails, shadow AI, idle endpoints, prompt caching, VPC endpoints |
 | **Secrets** | Secrets Manager | Unused secrets, rotation |
 | **Messaging** | SNS, SQS | Encryption at rest and in transit |
 | **Cache** | ElastiCache | Encryption at rest and in transit |
