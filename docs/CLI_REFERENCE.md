@@ -5,7 +5,7 @@
 ### Global Commands
 
 #### `kosty audit`
-Comprehensive scan of all 28 AWS services.
+Comprehensive scan of all 30 AWS services.
 
 **Usage:**
 ```bash
@@ -403,6 +403,20 @@ kosty sns check-no-encryption
 ```bash
 kosty sqs audit
 kosty sqs check-no-encryption
+```
+
+### ECS Commands (2 total)
+
+```bash
+kosty ecs audit
+kosty ecs check-privileged-tasks
+```
+
+### SSM Commands (2 total)
+
+```bash
+kosty ssm audit
+kosty ssm check-non-compliant-patches
 ```
 
 ---

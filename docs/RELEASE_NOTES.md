@@ -2,7 +2,7 @@
 
 ## Version 1.9.2 - Foundational Security Services & Bedrock Audit (2025-01-XX)
 
-### 🌟 11 New Services
+### 🌟 13 New Services
 
 **CloudTrail** (3 checks)
 - `check-not-enabled` — No multi-region trail configured (CIS 3.1)
@@ -43,6 +43,12 @@
 **SQS** (1 check)
 - `check-no-encryption` — Queues without server-side encryption
 
+**ECS** (1 check)
+- `check-privileged-tasks` — Task definitions with privileged containers (container escape risk)
+
+**SSM** (1 check)
+- `check-non-compliant-patches` — Instances with missing security patches
+
 ### 🔧 Enhanced Checks
 
 **IAM `check-unused-roles`**
@@ -54,14 +60,17 @@
 - Cross-references IMDSv1 + low CPU utilization into a single `critical` finding
 - Instances that are both SSRF-vulnerable and wasting money get highest remediation priority
 
+**RDS `check-no-event-subscription`** (new)
+- Detects missing RDS event subscriptions for instance events
+
 **S3 `check-no-account-public-access-block`** (new)
 - Checks if account-level S3 Block Public Access is fully enabled
 - Flags as critical if not configured at all
 
 ### 📊 Summary
-- **Total services**: 28 (was 17)
-- **New checks this release**: 20+
-- **Total commands**: ~220+
+- **Total services**: 30 (was 17)
+- **New checks this release**: 25+
+- **Total commands**: ~240+
 
 ---
 
