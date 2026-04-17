@@ -197,7 +197,7 @@ class ServiceExecutor:
                 print(f"  🔍 {method_name}: {len(items)} issues")
                 
                 # Display detailed items
-                for item in items[:5]:  # Show first 5 items
+                for item in items:
                     if isinstance(item, dict):
                         resource_name = (item.get('ResourceName') or 
                                        item.get('Name') or
@@ -214,8 +214,7 @@ class ServiceExecutor:
                         severity = item.get('severity', item.get('Severity', 'Unknown'))
                         print(f"    • {resource_name}: {issue} [{severity}]")
                 
-                if len(items) > 5:
-                    print(f"    ... and {len(items) - 5} more issues")
+
             elif isinstance(items, list) and not items:
                 print(f"\n📊 Account: {account_id}")
                 print(f"  ✅ {method_name}: No issues found")
