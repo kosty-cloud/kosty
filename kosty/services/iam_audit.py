@@ -16,8 +16,8 @@ class IAMAuditService:
                                'find_privilege_escalation']
     
     # Cost Audit Methods
-    def find_unused_roles(self, session: boto3.Session, region: str, days: int = 90, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
-        """Find unused roles creating resources"""
+    def find_unused_roles(self, session: boto3.Session, region: str, days: int = 30, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find unused roles — flags admin roles as critical"""
         iam = session.client('iam')
         sts = session.client('sts')
         account_id = sts.get_caller_identity()['Account']
@@ -30,49 +30,62 @@ class IAMAuditService:
             for role in roles['Roles']:
                 role_name = role['RoleName']
                 
-                # Skip AWS service roles
                 if role_name.startswith('aws-') or role_name.startswith('AWSServiceRole'):
                     continue
                 
                 try:
-                    # Get role last activity
-                    role_details = iam.get_role(RoleName=role_name)
-                    last_used = role_details['Role'].get('RoleLastUsed', {}).get('LastUsedDate')
+                    role_details = iam.get_role(RoleName=role_name)['Role']
+                    last_used = role_details.get('RoleLastUsed', {}).get('LastUsedDate')
                     
-                    is_unused = False
-                    if not last_used:
-                        # Never used
-                        is_unused = True
-                    elif last_used.replace(tzinfo=None) < cutoff_date:
-                        # Not used recently
-                        is_unused = True
+                    is_unused = not last_used or last_used.replace(tzinfo=None) < cutoff_date
+                    if not is_unused:
+                        continue
                     
-                    if is_unused:
-                        unused_roles.append({
-                            'AccountId': account_id,
-                            'Region': region,
-                            'Service': 'IAM',
-                            'ResourceId': role_name,
-                            'ResourceName': role_name,
-                            'Issue': 'Unused role creating resources',
-                            'type': 'security',
-                            'Risk': 'HIGH',
-                            'severity': 'high',
-                            'Description': f"IAM role {role_name} unused for {days}+ days",
-                            'ARN': role['Arn'],
-                            'Details': {
-                                'RoleName': role_name,
-                                'RoleId': role['RoleId'],
-                                'CreateDate': role['CreateDate'].isoformat(),
-                                'LastUsed': last_used.isoformat() if last_used else 'Never'
-                            }
-                        })
+                    has_admin = self._role_has_admin(iam, role_name)
+                    severity = 'critical' if has_admin else 'high'
+                    issue = f'Unused admin role ({days}+ days)' if has_admin else f'Unused role ({days}+ days)'
+                    risk = 'Dormant admin role — prime target for privilege escalation' if has_admin else f'Stale role unused for {days}+ days'
+                    
+                    unused_roles.append({
+                        'AccountId': account_id,
+                        'Region': region,
+                        'Service': 'IAM',
+                        'ResourceId': role_name,
+                        'ResourceName': role_name,
+                        'Issue': issue,
+                        'type': 'security',
+                        'Risk': risk,
+                        'severity': severity,
+                        'ARN': role['Arn'],
+                        'check': 'unused_roles',
+                        'Details': {
+                            'RoleName': role_name,
+                            'RoleId': role['RoleId'],
+                            'CreateDate': role['CreateDate'].isoformat(),
+                            'LastUsed': last_used.isoformat() if last_used else 'Never',
+                            'HasAdminAccess': has_admin
+                        }
+                    })
                 except Exception:
                     continue
         except Exception as e:
             print(f"Error checking unused roles: {e}")
         
         return unused_roles
+    
+    def _role_has_admin(self, iam, role_name: str) -> bool:
+        """Check if a role has AdministratorAccess or Action:*/Resource:*"""
+        try:
+            for p in iam.list_attached_role_policies(RoleName=role_name).get('AttachedPolicies', []):
+                if p['PolicyArn'].endswith('/AdministratorAccess'):
+                    return True
+            for pname in iam.list_role_policies(RoleName=role_name).get('PolicyNames', []):
+                doc = iam.get_role_policy(RoleName=role_name, PolicyName=pname)['PolicyDocument']
+                if self._has_wildcard_permissions(doc):
+                    return True
+        except Exception:
+            pass
+        return False
     
     # Security Audit Methods
     def find_root_access_keys(self, session: boto3.Session, region: str,  config_manager=None, **kwargs) -> List[Dict[str, Any]]:

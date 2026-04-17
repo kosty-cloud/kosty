@@ -22,6 +22,12 @@ from .backup_commands import backup
 from .snapshots_commands import snapshots
 from .waf_commands import waf
 from .public_exposure_commands import public_exposure
+from .cloudtrail_commands import cloudtrail
+from .vpc_commands import vpc
+from .guardduty_commands import guardduty
+from .config_commands import awsconfig
+from .secretsmanager_commands import secretsmanager
+from .bedrock_commands import bedrock_cmd
 
 @click.group(invoke_without_command=True)
 @click.option('--config-file', help='Path to configuration file (default: ./kosty.yaml or ~/.kosty/config.yaml)')
@@ -232,6 +238,12 @@ cli.add_command(backup)
 cli.add_command(snapshots)
 cli.add_command(waf)
 cli.add_command(public_exposure)
+cli.add_command(cloudtrail)
+cli.add_command(vpc)
+cli.add_command(guardduty)
+cli.add_command(awsconfig)
+cli.add_command(secretsmanager)
+cli.add_command(bedrock_cmd)
 
 if __name__ == '__main__':
     cli()

@@ -9,7 +9,8 @@ class EC2AuditService:
         self.cost_checks = ['find_stopped', 'find_idle', 'find_oversized', 'find_previous_generation']
         self.security_checks = ['find_ssh_open', 'find_rdp_open', 'find_database_ports_open', 
                                'find_public_non_web', 'find_old_ami', 'find_imdsv1', 
-                               'find_unencrypted_ebs', 'find_no_recent_backup']
+                               'find_unencrypted_ebs', 'find_no_recent_backup',
+                               'find_imdsv1_oversized']
     
     @staticmethod
     def _enrich_instance_context(instance: Dict[str, Any]) -> Dict[str, Any]:
@@ -666,6 +667,67 @@ class EC2AuditService:
         
         return no_backup_instances
     
+    def find_imdsv1_oversized(self, session: boto3.Session, region: str, cpu_threshold: int = 20, days: int = 14, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Cross-reference: instances running IMDSv1 AND oversized — highest remediation priority"""
+        ec2 = session.client('ec2', region_name=region)
+        cloudwatch = session.client('cloudwatch', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        try:
+            instances = ec2.describe_instances(
+                Filters=[{'Name': 'instance-state-name', 'Values': ['running']}]
+            )
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(days=days)
+
+            for res in instances['Reservations']:
+                for instance in res['Instances']:
+                    if config_manager:
+                        tags = get_resource_tags(instance, 'ec2')
+                        if should_exclude_resource_by_tags(tags, config_manager):
+                            continue
+
+                    http_tokens = instance.get('MetadataOptions', {}).get('HttpTokens', 'optional')
+                    if http_tokens != 'optional':
+                        continue
+
+                    instance_id = instance['InstanceId']
+                    try:
+                        metrics = cloudwatch.get_metric_statistics(
+                            Namespace='AWS/EC2', MetricName='CPUUtilization',
+                            Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
+                            StartTime=start_time, EndTime=end_time,
+                            Period=3600, Statistics=['Average']
+                        )
+                        if not metrics['Datapoints']:
+                            continue
+                        avg_cpu = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
+                        if avg_cpu >= cpu_threshold:
+                            continue
+
+                        results.append({
+                            'AccountId': account_id,
+                            'InstanceId': instance_id,
+                            'InstanceType': instance['InstanceType'],
+                            'ARN': f"arn:aws:ec2:{region}:{account_id}:instance/{instance_id}",
+                            'Region': region,
+                            'AvgCPU': round(avg_cpu, 2),
+                            'Issue': f'IMDSv1 + Oversized ({round(avg_cpu, 1)}% CPU) — remediate first',
+                            'type': 'security',
+                            'Risk': 'SSRF-vulnerable instance wasting money — highest priority to right-size and harden',
+                            'severity': 'critical',
+                            'Service': 'EC2',
+                            'check': 'imdsv1_oversized'
+                        })
+                    except Exception:
+                        continue
+        except Exception as e:
+            print(f"Error checking IMDSv1+oversized combo: {e}")
+
+        return results
+
     # Audit Methods
     def cost_audit(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Run all cost-related audits"""
@@ -726,3 +788,6 @@ class EC2AuditService:
     
     def check_no_recent_backup(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_recent_backup(session, region, **kwargs)
+
+    def check_imdsv1_oversized(self, session: boto3.Session, region: str, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_imdsv1_oversized(session, region, **kwargs)
