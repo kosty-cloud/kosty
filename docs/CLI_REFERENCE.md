@@ -353,17 +353,51 @@ kosty secretsmanager check-unused-secrets [--days INT]
 kosty secretsmanager check-no-rotation
 ```
 
-### Bedrock Commands (5 total)
+### AI/ML Commands — `kosty ai`
 
-#### Audit Commands
+#### Top-Level (Bedrock + SageMaker combined)
+```bash
+kosty ai audit [--days INT]
+kosty ai cost-audit [--days INT]
+kosty ai security-audit
+```
+
+#### Bedrock Subcommands
+```bash
+kosty ai bedrock audit
+kosty ai bedrock cost-audit
+kosty ai bedrock security-audit
+kosty ai bedrock check-no-logging
+kosty ai bedrock check-no-budget-limits
+kosty ai bedrock check-no-guardrails
+kosty ai bedrock check-shadow-ai
+kosty ai bedrock check-no-vpc-endpoint
+kosty ai bedrock check-custom-model-no-kms
+kosty ai bedrock check-no-prompt-caching
+kosty ai bedrock check-no-inference-profiles
+```
+
+#### SageMaker Subcommands
+```bash
+kosty ai sagemaker audit [--days INT]
+kosty ai sagemaker cost-audit [--days INT]
+kosty ai sagemaker security-audit
+kosty ai sagemaker check-idle-endpoints [--days INT]
+kosty ai sagemaker check-zombie-notebooks
+kosty ai sagemaker check-no-spot-training
+kosty ai sagemaker check-no-checkpointing
+kosty ai sagemaker check-no-vpc-endpoint
+kosty ai sagemaker check-notebook-direct-internet
+kosty ai sagemaker check-notebook-root-access
+```
+
+### Standalone Bedrock Commands
+
+These are also available directly (included in `kosty audit` full scan):
 ```bash
 kosty bedrock audit
 kosty bedrock cost-audit
 kosty bedrock security-audit
-```
-
-#### Individual Checks
-```bash
 kosty bedrock check-no-logging
 kosty bedrock check-no-budget-limits
 ```

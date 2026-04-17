@@ -1,6 +1,6 @@
 # Kosty — Service Coverage
 
-30 AWS services. 180+ checks. Full list below.
+30+ AWS services. 200+ checks. Full list below.
 
 ---
 
@@ -224,11 +224,28 @@
 
 ## AI/ML
 
-### Bedrock (2 checks)
+### Bedrock (8 checks)
 | Check | Type | Severity |
 |-------|------|----------|
 | `check-no-logging` | Security | High |
 | `check-no-budget-limits` | Cost | High |
+| `check-no-guardrails` | Security | High |
+| `check-shadow-ai` | Security | Medium |
+| `check-no-vpc-endpoint` | Security | Medium |
+| `check-custom-model-no-kms` | Security | Medium |
+| `check-no-prompt-caching` | Cost | Medium |
+| `check-no-inference-profiles` | Cost | Low |
+
+### SageMaker (7 checks)
+| Check | Type | Severity |
+|-------|------|----------|
+| `check-idle-endpoints` | Cost | Critical |
+| `check-zombie-notebooks` | Cost | Medium |
+| `check-no-spot-training` | Cost | Medium |
+| `check-no-checkpointing` | Cost | High |
+| `check-no-vpc-endpoint` | Security | Medium |
+| `check-notebook-direct-internet` | Security | High |
+| `check-notebook-root-access` | Security | Medium |
 
 ## Secrets & Encryption
 

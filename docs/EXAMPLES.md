@@ -70,11 +70,32 @@ kosty iam audit --deep
 kosty waf audit
 kosty kms audit
 kosty acm audit
-kosty bedrock audit
 kosty sns audit
 kosty sqs audit
 kosty ecs audit
 kosty ssm audit
+```
+
+## AI/ML
+
+```bash
+# Full Bedrock + SageMaker
+kosty ai audit
+kosty ai cost-audit
+kosty ai security-audit
+
+# Bedrock only
+kosty ai bedrock audit
+kosty ai bedrock check-no-guardrails
+kosty ai bedrock check-shadow-ai
+kosty ai bedrock check-no-vpc-endpoint
+kosty ai bedrock check-no-prompt-caching
+
+# SageMaker only
+kosty ai sagemaker audit
+kosty ai sagemaker check-idle-endpoints --days 7
+kosty ai sagemaker check-zombie-notebooks
+kosty ai sagemaker check-notebook-direct-internet
 ```
 
 ## Organization

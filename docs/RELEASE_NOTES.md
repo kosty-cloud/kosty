@@ -1,5 +1,44 @@
 # 🚀 Kosty Release Notes
 
+## Version 2.0.0 - AI/ML Audit: Bedrock & SageMaker (2025-XX-XX)
+
+### 🤖 New Command: `kosty ai`
+
+Dedicated AI/ML audit covering Bedrock and SageMaker. Detects GenAI cost waste, shadow AI usage, and security misconfigurations that standard audits miss entirely.
+
+```bash
+kosty ai audit                              # full Bedrock + SageMaker
+kosty ai bedrock check-no-guardrails        # prompt injection protection
+kosty ai bedrock check-shadow-ai            # unapproved AI usage
+kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
+```
+
+**Bedrock** (8 checks)
+- `check-no-logging` — Model invocation logging disabled
+- `check-no-budget-limits` — No AWS Budget for Bedrock spend
+- `check-no-guardrails` — No Guardrails configured (prompt injection, PII leakage)
+- `check-shadow-ai` — IAM roles with bedrock/sagemaker permissions not tagged as approved
+- `check-no-vpc-endpoint` — Bedrock runtime traffic over public internet
+- `check-custom-model-no-kms` — Custom models not encrypted with customer-managed KMS
+- `check-no-prompt-caching` — Cache-compatible models available but caching not verified
+- `check-no-inference-profiles` — No Application Inference Profiles for cost attribution
+
+**SageMaker** (7 checks)
+- `check-idle-endpoints` — Endpoints with zero invocations (GPU running 24/7 for nothing)
+- `check-zombie-notebooks` — Running notebook instances (billed even when idle)
+- `check-no-spot-training` — Long training jobs not using Spot instances (up to 90% savings)
+- `check-no-checkpointing` — Spot training without checkpointing (preemption = lost progress)
+- `check-no-vpc-endpoint` — SageMaker API calls over public internet
+- `check-notebook-direct-internet` — Notebooks with direct internet access (exfiltration risk)
+- `check-notebook-root-access` — Notebooks with root access (container escape risk)
+
+### 📊 Summary
+- **Total services**: 31 (was 30)
+- **New checks**: 15 (Bedrock 8 + SageMaker 7)
+- **Total checks**: ~200+
+
+---
+
 ## Version 1.9.2 - Foundational Security Services & Bedrock Audit (2025-01-XX)
 
 ### 🌟 13 New Services
