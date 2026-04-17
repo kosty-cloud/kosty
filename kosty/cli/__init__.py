@@ -22,6 +22,19 @@ from .backup_commands import backup
 from .snapshots_commands import snapshots
 from .waf_commands import waf
 from .public_exposure_commands import public_exposure
+from .cloudtrail_commands import cloudtrail
+from .vpc_commands import vpc
+from .guardduty_commands import guardduty
+from .config_commands import awsconfig
+from .secretsmanager_commands import secretsmanager
+from .bedrock_commands import bedrock_cmd
+from .kms_commands import kms
+from .acm_commands import acm
+from .elasticache_commands import elasticache
+from .sns_commands import sns
+from .sqs_commands import sqs
+from .ecs_commands import ecs
+from .ssm_commands import ssm
 
 @click.group(invoke_without_command=True)
 @click.option('--config-file', help='Path to configuration file (default: ./kosty.yaml or ~/.kosty/config.yaml)')
@@ -232,6 +245,19 @@ cli.add_command(backup)
 cli.add_command(snapshots)
 cli.add_command(waf)
 cli.add_command(public_exposure)
+cli.add_command(cloudtrail)
+cli.add_command(vpc)
+cli.add_command(guardduty)
+cli.add_command(awsconfig)
+cli.add_command(secretsmanager)
+cli.add_command(bedrock_cmd)
+cli.add_command(kms)
+cli.add_command(acm)
+cli.add_command(elasticache)
+cli.add_command(sns)
+cli.add_command(sqs)
+cli.add_command(ecs)
+cli.add_command(ssm)
 
 if __name__ == '__main__':
     cli()

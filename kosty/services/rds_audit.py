@@ -10,7 +10,7 @@ class RDSAuditService:
                            'find_no_performance_insights']
         self.security_checks = ['find_publicly_accessible', 'find_unencrypted_storage', 'find_default_username',
                                'find_wide_cidr_sg', 'find_disabled_backups', 'find_outdated_engine', 'find_no_ssl_enforcement',
-                               'find_no_auto_minor_upgrade']
+                               'find_no_auto_minor_upgrade', 'find_no_event_subscription']
     
     # Cost Audit Methods
     def find_idle_instances(self, session: boto3.Session, region: str, days: int = 7, cpu_threshold: int = 5, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
@@ -80,11 +80,19 @@ class RDSAuditService:
             end_time = datetime.utcnow()
             start_time = end_time - timedelta(days=days)
             
+            min_class_cache = {}
+            
             for instance in instances['DBInstances']:
                 if instance['DBInstanceStatus'] != 'available':
                     continue
                     
                 db_instance_id = instance['DBInstanceIdentifier']
+                instance_class = instance['DBInstanceClass']
+                engine = instance['Engine']
+                engine_version = instance.get('EngineVersion', '')
+                
+                if self._is_smallest_instance_class(rds, engine, engine_version, instance_class, min_class_cache):
+                    continue
                 
                 try:
                     # Get CPU metrics
@@ -148,6 +156,31 @@ class RDSAuditService:
         
         return oversized_instances
     
+    # Instance size ordering for comparison
+    _SIZE_ORDER = ['micro', 'small', 'medium', 'large', 'xlarge', '2xlarge', '4xlarge', '8xlarge', '12xlarge', '16xlarge', '24xlarge']
+
+    def _is_smallest_instance_class(self, rds, engine: str, engine_version: str, current_class: str, cache: dict) -> bool:
+        """Check if instance is already the smallest available for its engine via describe_orderable_db_instance_options"""
+        cache_key = f"{engine}:{engine_version}"
+        if cache_key not in cache:
+            try:
+                smallest = None
+                smallest_rank = 999
+                paginator = rds.get_paginator('describe_orderable_db_instance_options')
+                for page in paginator.paginate(Engine=engine, EngineVersion=engine_version):
+                    for opt in page['OrderableDBInstanceOptions']:
+                        cls = opt['DBInstanceClass']
+                        size = cls.split('.')[-1]
+                        rank = self._SIZE_ORDER.index(size) if size in self._SIZE_ORDER else 999
+                        if rank < smallest_rank:
+                            smallest_rank = rank
+                            smallest = cls
+                cache[cache_key] = smallest
+            except Exception:
+                cache[cache_key] = None
+
+        return cache[cache_key] and current_class == cache[cache_key]
+
     def find_unused_read_replicas(self, session: boto3.Session, region: str, days: int = 7, read_threshold: int = 100, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         """Find unused read replicas (<100 reads/day)"""
         rds = session.client('rds', region_name=region)
@@ -706,3 +739,35 @@ class RDSAuditService:
     
     def check_no_performance_insights(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_performance_insights(session, region, **kwargs)
+
+    def find_no_event_subscription(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find RDS instances without event subscriptions for critical events"""
+        rds = session.client('rds', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        try:
+            subs = rds.describe_event_subscriptions()['EventSubscriptionsList']
+            has_instance_sub = any(
+                s.get('SourceType') in ['db-instance', None] and s.get('Enabled', False)
+                for s in subs
+            )
+
+            if not has_instance_sub:
+                results.append({
+                    'AccountId': account_id, 'Region': region, 'Service': 'RDS',
+                    'ResourceId': 'rds-event-subscriptions',
+                    'ResourceName': 'RDS Event Subscriptions',
+                    'Issue': 'No RDS event subscription for instance events',
+                    'type': 'security',
+                    'Risk': 'Failovers, maintenance, and configuration changes go unnoticed',
+                    'severity': 'medium', 'check': 'no_event_subscription'
+                })
+        except Exception as e:
+            print(f"Error checking RDS event subscriptions: {e}")
+
+        return results
+
+    def check_no_event_subscription(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_event_subscription(session, region, **kwargs)

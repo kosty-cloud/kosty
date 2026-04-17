@@ -5,7 +5,7 @@
 ### Global Commands
 
 #### `kosty audit`
-Comprehensive scan of all 17 AWS services.
+Comprehensive scan of all 30 AWS services.
 
 **Usage:**
 ```bash
@@ -293,6 +293,130 @@ kosty apigateway check-http-api-no-jwt
 kosty apigateway check-custom-domain-no-tls12
 kosty apigateway check-missing-request-validation
 kosty apigateway check-cloudfront-bypass
+```
+
+### CloudTrail Commands (6 total)
+
+#### Audit Commands
+```bash
+kosty cloudtrail audit
+kosty cloudtrail security-audit
+```
+
+#### Individual Checks
+```bash
+kosty cloudtrail check-not-enabled
+kosty cloudtrail check-no-log-validation
+kosty cloudtrail check-no-encryption
+```
+
+### VPC Commands (5 total)
+
+#### Audit Commands
+```bash
+kosty vpc audit
+kosty vpc security-audit
+```
+
+#### Individual Checks
+```bash
+kosty vpc check-no-flow-logs
+kosty vpc check-default-sg-open
+```
+
+### GuardDuty Commands (2 total)
+
+```bash
+kosty guardduty audit
+kosty guardduty check-not-enabled
+```
+
+### AWS Config Commands (2 total)
+
+```bash
+kosty config audit
+kosty config check-not-enabled
+```
+
+### Secrets Manager Commands (6 total)
+
+#### Audit Commands
+```bash
+kosty secretsmanager audit [--days INT]
+kosty secretsmanager cost-audit [--days INT]
+kosty secretsmanager security-audit
+```
+
+#### Individual Checks
+```bash
+kosty secretsmanager check-unused-secrets [--days INT]
+kosty secretsmanager check-no-rotation
+```
+
+### Bedrock Commands (5 total)
+
+#### Audit Commands
+```bash
+kosty bedrock audit
+kosty bedrock cost-audit
+kosty bedrock security-audit
+```
+
+#### Individual Checks
+```bash
+kosty bedrock check-no-logging
+kosty bedrock check-no-budget-limits
+```
+
+### KMS Commands (3 total)
+
+```bash
+kosty kms audit
+kosty kms check-no-key-rotation
+```
+
+### ACM Commands (3 total)
+
+```bash
+kosty acm audit [--days INT]
+kosty acm check-expiring-certificates [--days INT]
+```
+
+### ElastiCache Commands (4 total)
+
+```bash
+kosty elasticache audit
+kosty elasticache security-audit
+kosty elasticache check-no-encryption-at-rest
+kosty elasticache check-no-encryption-in-transit
+```
+
+### SNS Commands (2 total)
+
+```bash
+kosty sns audit
+kosty sns check-no-encryption
+```
+
+### SQS Commands (2 total)
+
+```bash
+kosty sqs audit
+kosty sqs check-no-encryption
+```
+
+### ECS Commands (2 total)
+
+```bash
+kosty ecs audit
+kosty ecs check-privileged-tasks
+```
+
+### SSM Commands (2 total)
+
+```bash
+kosty ssm audit
+kosty ssm check-non-compliant-patches
 ```
 
 ---
