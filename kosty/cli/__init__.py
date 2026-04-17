@@ -28,6 +28,11 @@ from .guardduty_commands import guardduty
 from .config_commands import awsconfig
 from .secretsmanager_commands import secretsmanager
 from .bedrock_commands import bedrock_cmd
+from .kms_commands import kms
+from .acm_commands import acm
+from .elasticache_commands import elasticache
+from .sns_commands import sns
+from .sqs_commands import sqs
 
 @click.group(invoke_without_command=True)
 @click.option('--config-file', help='Path to configuration file (default: ./kosty.yaml or ~/.kosty/config.yaml)')
@@ -244,6 +249,11 @@ cli.add_command(guardduty)
 cli.add_command(awsconfig)
 cli.add_command(secretsmanager)
 cli.add_command(bedrock_cmd)
+cli.add_command(kms)
+cli.add_command(acm)
+cli.add_command(elasticache)
+cli.add_command(sns)
+cli.add_command(sqs)
 
 if __name__ == '__main__':
     cli()

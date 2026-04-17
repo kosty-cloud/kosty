@@ -9,7 +9,7 @@ class S3AuditService:
         self.security_checks = ['find_public_read', 'find_public_write', 'find_no_encryption', 
                                'find_no_versioning', 'find_no_logging', 'find_wildcard_policy', 
                                'find_public_snapshots', 'find_no_mfa_delete', 'find_no_object_lock',
-                               'find_no_cross_region_replication']
+                               'find_no_cross_region_replication', 'find_no_account_public_access_block']
     
     # Cost Audit Methods
     def find_empty(self, session: boto3.Session, region: str, config_manager=None) -> List[Dict[str, Any]]:
@@ -563,3 +563,47 @@ class S3AuditService:
     
     def check_no_cross_region_replication(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
         return self.find_no_cross_region_replication(session, region)
+
+    def find_no_account_public_access_block(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Check if account-level S3 Block Public Access is fully enabled"""
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        s3control = session.client('s3control', region_name=region)
+        results = []
+
+        try:
+            pab = s3control.get_public_access_block(AccountId=account_id)
+            config = pab['PublicAccessBlockConfiguration']
+
+            missing = []
+            for setting in ['BlockPublicAcls', 'IgnorePublicAcls', 'BlockPublicPolicy', 'RestrictPublicBuckets']:
+                if not config.get(setting, False):
+                    missing.append(setting)
+
+            if missing:
+                results.append({
+                    'AccountId': account_id, 'Region': region, 'Service': 'S3',
+                    'ResourceId': 'account-public-access-block',
+                    'ResourceName': f'Account {account_id}',
+                    'Issue': f'Account-level S3 Block Public Access incomplete: {", ".join(missing)}',
+                    'type': 'security',
+                    'Risk': 'New buckets can be made public accidentally',
+                    'severity': 'high', 'check': 'no_account_public_access_block'
+                })
+        except s3control.exceptions.NoSuchPublicAccessBlockConfiguration:
+            results.append({
+                'AccountId': account_id, 'Region': region, 'Service': 'S3',
+                'ResourceId': 'account-public-access-block',
+                'ResourceName': f'Account {account_id}',
+                'Issue': 'Account-level S3 Block Public Access not configured',
+                'type': 'security',
+                'Risk': 'No guardrail against public bucket creation',
+                'severity': 'critical', 'check': 'no_account_public_access_block'
+            })
+        except Exception as e:
+            print(f"Error checking account public access block: {e}")
+
+        return results
+
+    def check_no_account_public_access_block(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        return self.find_no_account_public_access_block(session, region)
