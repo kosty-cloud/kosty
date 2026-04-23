@@ -1,0 +1,107 @@
+{
+  "scan_timestamp": "2026-04-23T17:44:02.972721",
+  "method": "ai_audit",
+  "total_issues": 8,
+  "results": {
+    "123456789012": [
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "bedrock-budget",
+        "ResourceName": "Bedrock Budget",
+        "Issue": "No AWS Budget configured for Bedrock spend",
+        "type": "cost",
+        "Risk": "Stolen API key or runaway automation = unlimited GenAI spend with no alert",
+        "severity": "high",
+        "check": "no_budget_limits"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "prompt-caching",
+        "ResourceName": "Prompt Caching",
+        "Issue": "21 cache-compatible models available \u2014 verify prompt caching is enabled in your application",
+        "type": "cost",
+        "Risk": "Up to 90% savings on repeated system prompts and RAG contexts if caching is enabled",
+        "severity": "medium",
+        "check": "no_prompt_caching"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "bedrock-logging",
+        "ResourceName": "Bedrock Logging",
+        "Issue": "Bedrock model invocation logging not enabled",
+        "type": "security",
+        "Risk": "No audit trail on GenAI usage \u2014 prompt injection and data leakage go undetected",
+        "severity": "high",
+        "check": "no_logging"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "bedrock-guardrails",
+        "ResourceName": "Bedrock Guardrails",
+        "Issue": "No Bedrock Guardrails configured",
+        "type": "security",
+        "Risk": "No protection against prompt injection, PII leakage, or toxic content in model responses",
+        "severity": "high",
+        "check": "no_guardrails"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "CrowdStrikeCloudSecurityReaderRole",
+        "ResourceName": "CrowdStrikeCloudSecurityReaderRole",
+        "ARN": "arn:aws:iam::123456789012:role/CrowdStrikeCloudSecurityReaderRole",
+        "Issue": "IAM role with AI/ML permissions not tagged as approved project",
+        "type": "security",
+        "Risk": "Potential shadow AI usage \u2014 untracked GenAI spend and data exposure",
+        "severity": "medium",
+        "check": "shadow_ai"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "fabriq-diamond-diamond-ecs-task",
+        "ResourceName": "fabriq-diamond-diamond-ecs-task",
+        "ARN": "arn:aws:iam::123456789012:role/fabriq-diamond-diamond-ecs-task",
+        "Issue": "IAM role with AI/ML permissions not tagged as approved project",
+        "type": "security",
+        "Risk": "Potential shadow AI usage \u2014 untracked GenAI spend and data exposure",
+        "severity": "medium",
+        "check": "shadow_ai"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "Bedrock",
+        "ResourceId": "bedrock-vpc-endpoint",
+        "ResourceName": "Bedrock VPC Endpoint",
+        "Issue": "No VPC Interface Endpoint for Bedrock runtime",
+        "type": "security",
+        "Risk": "Model invocations traverse the public internet instead of staying within the VPC",
+        "severity": "medium",
+        "check": "no_vpc_endpoint"
+      },
+      {
+        "AccountId": "123456789012",
+        "Region": "eu-west-3",
+        "Service": "SageMaker",
+        "ResourceId": "sagemaker-vpc-endpoint",
+        "ResourceName": "SageMaker VPC Endpoint",
+        "Issue": "No VPC Interface Endpoint for SageMaker API",
+        "type": "security",
+        "Risk": "SageMaker API calls traverse the public internet",
+        "severity": "medium",
+        "check": "no_vpc_endpoint"
+      }
+    ]
+  }
+}
