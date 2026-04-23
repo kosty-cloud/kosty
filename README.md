@@ -58,7 +58,18 @@ kosty audit --organization --max-workers 20 --output all
 
 ## 📊 Visual Dashboard
 
-![Kosty Dashboard](dashboard/kosty_dashboard.png)
+![Kosty Dashboard](dashboard/kosty-dashboard-header.png)
+
+<table>
+<tr>
+<td><img src="dashboard/kosty_dashboard.png" alt="Kosty Dashboard" width="400"/></td>
+<td><img src="dashboard/kosty-ai-audit-dashboard.png" alt="AI Audit Dashboard" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Full Audit Dashboard</em></td>
+<td align="center"><em>AI/ML Audit Dashboard</em></td>
+</tr>
+</table>
 
 Upload your JSON report to the built-in dashboard for interactive charts, filtering, and cost breakdowns.
 
