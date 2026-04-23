@@ -15,6 +15,22 @@
 
 ---
 
+## ⚡ Why Kosty
+
+🌐 **External Attack Surface Mapping** — scan 15 resource types, classify exposure as unprotected / partially protected / protected
+
+🔐 **IAM Privilege Escalation Detection** — 21 known escalation patterns with optional `--deep` confirmation via SimulatePrincipalPolicy
+
+🤖 **GenAI Security & Cost Audit** — Bedrock guardrails, shadow AI detection, SageMaker idle GPU endpoints, prompt caching
+
+🏢 **Organization-Wide Scanning** — parallel audit across hundreds of AWS accounts with cross-account role assumption
+
+🛡️ **200+ Security Checks** — WAF hardening, API Gateway auth/throttling/TLS, CloudTrail, GuardDuty, VPC Flow Logs, KMS rotation
+
+💰 **Real Dollar Savings** — not just recommendations, actual monthly amounts for 11 services ($280/mo per stopped m5.2xlarge, $700/mo per oversized db.r5.4xlarge)
+
+---
+
 ## 🎯 Quick Start
 
 ```bash
@@ -227,6 +243,3 @@ MIT License — see [LICENSE](LICENSE)
 ⭐ Star this repo if Kosty saved you money
 
 </div>
-
-
-
