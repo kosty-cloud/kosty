@@ -37,7 +37,14 @@ kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 ### 📊 Summary
 - **Total services**: 31 (was 30)
 - **New checks**: 17 (Bedrock 10 + SageMaker 7)
-- **Total checks**: ~200+
+- **Total checks**: ~210+
+
+### 📝 Report Improvements
+- Audit report now shows cost/security split: `Total Issues: 185 (🔐 169 security, 💰 16 cost)`
+- Security findings deduplicated and grouped by type with resource count
+- Separate `💰 TOP COST SAVINGS` and `🔐 TOP SECURITY FINDINGS` sections
+- Console output shows all issues (no longer truncated at 5)
+- Removed `kosty bedrock` standalone CLI — use `kosty ai bedrock` instead
 
 ---
 
@@ -207,7 +214,7 @@ kosty public-exposure --organization --output json
 - **Total services**: 17 (was 16)
 - **New checks this release**: 26+
 - **New standalone command**: `kosty public-exposure` (15 resource types)
-- **Total commands**: ~180+
+- **Total commands**: ~240+
 
 ### 📖 Documentation
 - Updated README.md with all new commands and examples
