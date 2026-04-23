@@ -65,7 +65,7 @@ Each finding is classified:
 
 ### 🔐 Security Audit
 
-180+ checks across 30 services. Highlights:
+200+ checks across 30+ services. Highlights:
 
 - **IAM Privilege Escalation** — detects 21 known escalation patterns with optional `--deep` confirmation via SimulatePrincipalPolicy
 - **WAF Hardening** — managed rules, rate limiting, bot control, logging, action mode

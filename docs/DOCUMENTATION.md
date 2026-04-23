@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-Kosty is a comprehensive AWS cost optimization and security audit CLI tool that helps you identify cost waste, security vulnerabilities, and compliance issues across 16 core AWS services. With 147 total commands, Kosty provides both high-level audits and granular individual checks for cost optimization and security hardening.
+Kosty is a comprehensive AWS cost optimization and security audit CLI tool that helps you identify cost waste, security vulnerabilities, and compliance issues across 30+ AWS services. With 200+ checks and dedicated commands for attack surface mapping and AI/ML workload auditing, Kosty provides both high-level audits and granular individual checks for cost optimization and security hardening.
 
 ### 🎯 What Kosty Audits
 - **💰 Cost Optimization**: Unused resources, oversized instances, idle services
@@ -326,7 +326,7 @@ Kosty now validates Organizations access upfront and provides clear error messag
 
 ### Global Commands
 ```bash
-kosty audit                    # Scan all 16 services
+kosty audit                    # Scan all 30+ services
 kosty audit --organization    # Organization-wide scan
 ```
 
