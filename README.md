@@ -7,6 +7,8 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
+> 🤖 **New in v2.0.0** — `kosty ai` now audits Bedrock and SageMaker workloads: guardrails, shadow AI detection, idle GPU endpoints, prompt caching, and more. [See what's new →](docs/RELEASE_NOTES.md)
+
 **Scan 30+ AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
 
 [Quick Start](#-quick-start) • [Key Features](#-key-features) • [Service Coverage](#-service-coverage) • [Documentation](docs/DOCUMENTATION.md)
