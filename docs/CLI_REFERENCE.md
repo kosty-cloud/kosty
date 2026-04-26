@@ -377,6 +377,8 @@ kosty ai bedrock check-no-prompt-caching
 kosty ai bedrock check-no-inference-profiles
 kosty ai bedrock check-tpm-quota
 kosty ai bedrock check-cross-account-model-access
+kosty ai bedrock check-model-sizing [--deep] [--days INT]
+kosty ai bedrock check-batch-eligible [--deep] [--days INT]
 ```
 
 #### SageMaker Subcommands
@@ -388,6 +390,7 @@ kosty ai sagemaker check-idle-endpoints [--days INT]
 kosty ai sagemaker check-zombie-notebooks
 kosty ai sagemaker check-no-spot-training
 kosty ai sagemaker check-no-checkpointing
+kosty ai sagemaker check-no-inference-components
 kosty ai sagemaker check-no-vpc-endpoint
 kosty ai sagemaker check-notebook-direct-internet
 kosty ai sagemaker check-notebook-root-access

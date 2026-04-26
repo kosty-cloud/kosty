@@ -13,7 +13,7 @@ kosty ai bedrock check-shadow-ai            # unapproved AI usage
 kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 ```
 
-**Bedrock** (10 checks)
+**Bedrock** (12 checks)
 - `check-no-logging` — Model invocation logging disabled
 - `check-no-budget-limits` — No AWS Budget for Bedrock spend
 - `check-no-guardrails` — No Guardrails configured (prompt injection, PII leakage)
@@ -24,19 +24,22 @@ kosty ai sagemaker check-idle-endpoints     # GPU instances burning cash
 - `check-no-inference-profiles` — No Application Inference Profiles for cost attribution
 - `check-tpm-quota` — TPM quota usage above 80% (approaching throttling)
 - `check-cross-account-model-access` — Training data S3 buckets with cross-account or wildcard access
+- `check-model-sizing [--deep] [--days]` — Premium models used for simple tasks (heuristic, requires --deep)
+- `check-batch-eligible [--deep] [--days]` — On-Demand burst workloads eligible for Batch Inference API (requires --deep)
 
-**SageMaker** (7 checks)
+**SageMaker** (8 checks)
 - `check-idle-endpoints` — Endpoints with zero invocations (GPU running 24/7 for nothing)
 - `check-zombie-notebooks` — Running notebook instances (billed even when idle)
 - `check-no-spot-training` — Long training jobs not using Spot instances (up to 90% savings)
 - `check-no-checkpointing` — Spot training without checkpointing (preemption = lost progress)
+- `check-no-inference-components` — GPU endpoints not using Inference Components (up to 80% savings)
 - `check-no-vpc-endpoint` — SageMaker API calls over public internet
 - `check-notebook-direct-internet` — Notebooks with direct internet access (exfiltration risk)
 - `check-notebook-root-access` — Notebooks with root access (container escape risk)
 
 ### 📊 Summary
 - **Total services**: 31 (was 30)
-- **New checks**: 17 (Bedrock 10 + SageMaker 7)
+- **New checks**: 20 (Bedrock 12 + SageMaker 8)
 - **Total checks**: ~210+
 
 ### 📝 Report Improvements
