@@ -285,6 +285,28 @@ def bedrock_check_cross_account(ctx, profile, organization, region, max_workers,
     execute_service_command(ctx, BedrockAuditService, 'check_cross_account_model_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
+@bedrock.command('check-model-sizing')
+@click.option('--deep', is_flag=True, help='Analyze CloudWatch Logs to detect premium models used for simple tasks')
+@click.option('--days', default=7, type=int, help='Days of logs to analyze (default: 7)')
+@common_options
+@click.pass_context
+def bedrock_check_model_sizing(ctx, deep, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Detect premium models used for simple tasks (requires --deep)"""
+    from ..services.bedrock_audit import BedrockAuditService
+    execute_service_command(ctx, BedrockAuditService, 'check_premium_model_for_simple_tasks', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, deep=deep, days=days)
+
+
+@bedrock.command('check-batch-eligible')
+@click.option('--deep', is_flag=True, help='Analyze CloudWatch Logs to detect batch-eligible workloads')
+@click.option('--days', default=7, type=int, help='Days of logs to analyze (default: 7)')
+@common_options
+@click.pass_context
+def bedrock_check_batch(ctx, deep, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Detect On-Demand workloads eligible for Batch Inference API (requires --deep)"""
+    from ..services.bedrock_audit import BedrockAuditService
+    execute_service_command(ctx, BedrockAuditService, 'check_on_demand_batch_eligible', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, deep=deep, days=days)
+
+
 # --- SageMaker subgroup ---
 
 @ai_audit.group()
@@ -385,3 +407,12 @@ def sagemaker_check_root(ctx, profile, organization, region, max_workers, region
     """Find notebooks with root access enabled"""
     from ..services.sagemaker_audit import SageMakerAuditService
     execute_service_command(ctx, SageMakerAuditService, 'check_notebook_root_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@sagemaker.command('check-no-inference-components')
+@common_options
+@click.pass_context
+def sagemaker_check_ic(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find GPU endpoints not using Inference Components (multi-model packing)"""
+    from ..services.sagemaker_audit import SageMakerAuditService
+    execute_service_command(ctx, SageMakerAuditService, 'check_no_inference_components', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
