@@ -224,7 +224,7 @@
 
 ## AI/ML
 
-### Bedrock (10 checks)
+### Bedrock (12 checks)
 | Check | Type | Severity |
 |-------|------|----------|
 | `check-no-logging` | Security | High |
@@ -237,14 +237,17 @@
 | `check-no-inference-profiles` | Cost | Low |
 | `check-tpm-quota` | Cost | Medium–High |
 | `check-cross-account-model-access` | Security | High |
+| `check-model-sizing [--deep] [--days]` | Cost | Medium |
+| `check-batch-eligible [--deep] [--days]` | Cost | Medium |
 
-### SageMaker (7 checks)
+### SageMaker (8 checks)
 | Check | Type | Severity |
 |-------|------|----------|
 | `check-idle-endpoints` | Cost | Critical |
 | `check-zombie-notebooks` | Cost | Medium |
 | `check-no-spot-training` | Cost | Medium |
 | `check-no-checkpointing` | Cost | High |
+| `check-no-inference-components` | Cost | Medium |
 | `check-no-vpc-endpoint` | Security | Medium |
 | `check-notebook-direct-internet` | Security | High |
 | `check-notebook-root-access` | Security | Medium |
