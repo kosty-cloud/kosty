@@ -7,7 +7,8 @@ class SageMakerAuditService:
     def __init__(self):
         self.cost_checks = [
             'find_idle_endpoints', 'find_zombie_notebooks',
-            'find_no_spot_training', 'find_no_checkpointing'
+            'find_no_spot_training', 'find_no_checkpointing',
+            'find_no_inference_components'
         ]
         self.security_checks = [
             'find_no_vpc_endpoint', 'find_notebook_direct_internet',
@@ -284,3 +285,49 @@ class SageMakerAuditService:
 
     def check_notebook_root_access(self, session, region, **kwargs):
         return self.find_notebook_root_access(session, region, **kwargs)
+
+    def find_no_inference_components(self, session: boto3.Session, region: str, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Find GPU endpoints not using Inference Components (multi-model packing)"""
+        sm = session.client('sagemaker', region_name=region)
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        gpu_families = ['ml.g4', 'ml.g5', 'ml.p3', 'ml.p4', 'ml.p5', 'ml.inf']
+
+        try:
+            endpoints = sm.list_endpoints(StatusEquals='InService')
+            for ep in endpoints.get('Endpoints', []):
+                try:
+                    detail = sm.describe_endpoint(EndpointName=ep['EndpointName'])
+                    variants = detail.get('ProductionVariants', [])
+
+                    for variant in variants:
+                        instance_type = variant.get('CurrentInstanceType', '')
+                        is_gpu = any(instance_type.startswith(f) for f in gpu_families)
+                        if not is_gpu:
+                            continue
+
+                        # Check if Inference Components are configured on this endpoint
+                        ics = sm.list_inference_components(EndpointNameEquals=ep['EndpointName'])
+                        if not ics.get('InferenceComponents', []):
+                            results.append({
+                                'AccountId': account_id, 'Region': region, 'Service': 'SageMaker',
+                                'ResourceId': ep['EndpointName'], 'ResourceName': ep['EndpointName'],
+                                'ARN': ep.get('EndpointArn', ''),
+                                'Issue': f'GPU endpoint ({instance_type}) not using Inference Components',
+                                'type': 'cost',
+                                'Risk': 'Inference Components allow multiple models per GPU — up to 80% cost reduction',
+                                'severity': 'medium', 'check': 'no_inference_components',
+                                'Details': {'InstanceType': instance_type}
+                            })
+                except Exception:
+                    continue
+        except Exception as e:
+            if 'AccessDeniedException' not in str(e):
+                print(f"Error checking SageMaker Inference Components: {e}")
+
+        return results
+
+    def check_no_inference_components(self, session, region, **kwargs):
+        return self.find_no_inference_components(session, region, **kwargs)

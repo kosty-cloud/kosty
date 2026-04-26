@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 class BedrockAuditService:
     def __init__(self):
-        self.cost_checks = ['find_no_budget_limits', 'find_no_prompt_caching', 'find_no_inference_profiles', 'find_tpm_quota_high_usage']
+        self.cost_checks = ['find_no_budget_limits', 'find_no_prompt_caching', 'find_no_inference_profiles', 'find_tpm_quota_high_usage', 'find_premium_model_for_simple_tasks', 'find_on_demand_batch_eligible']
         self.security_checks = [
             'find_no_logging', 'find_no_guardrails', 'find_shadow_ai',
             'find_no_vpc_endpoint', 'find_custom_model_no_kms',
@@ -425,3 +425,172 @@ class BedrockAuditService:
 
     def check_cross_account_model_access(self, session, region, **kwargs):
         return self.find_cross_account_model_access(session, region, **kwargs)
+
+    def find_premium_model_for_simple_tasks(self, session: boto3.Session, region: str, days: int = 7, deep: bool = False, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Flag premium models used for simple tasks based on token usage patterns"""
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        if config_manager:
+            days = config_manager.get_threshold('bedrock_log_days', days)
+
+        if not deep:
+            results.append({
+                'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                'ResourceId': 'model-sizing', 'ResourceName': 'Model Sizing Check',
+                'Issue': 'Run with --deep to analyze model usage patterns from CloudWatch Logs',
+                'type': 'cost', 'Risk': 'Up to 30% savings by routing simple tasks to lighter models',
+                'severity': 'info', 'check': 'premium_model_for_simple_tasks'
+            })
+            return results
+
+        try:
+            logs = session.client('logs', region_name=region)
+            bedrock = session.client('bedrock', region_name=region)
+
+            config = bedrock.get_model_invocation_logging_configuration()
+            log_group = config.get('loggingConfig', {}).get('cloudWatchConfig', {}).get('logGroupName', '')
+            if not log_group:
+                return results
+
+            end_time = int(datetime.utcnow().timestamp() * 1000)
+            start_time = int((datetime.utcnow() - timedelta(days=days)).timestamp() * 1000)
+
+            premium_models = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet']
+
+            query = logs.start_query(
+                logGroupName=log_group,
+                startTime=start_time, endTime=end_time,
+                queryString="""
+                    fields @timestamp, modelId, input.inputTokenCount, output.outputTokenCount
+                    | filter ispresent(modelId)
+                    | stats avg(input.inputTokenCount) as avgInput, avg(output.outputTokenCount) as avgOutput, count() as invocations by modelId
+                    | sort invocations desc
+                    | limit 20
+                """
+            )
+
+            import time
+            query_id = query['queryId']
+            for _ in range(30):
+                time.sleep(1)
+                result = logs.get_query_results(queryId=query_id)
+                if result['status'] == 'Complete':
+                    break
+
+            for row in result.get('results', []):
+                row_dict = {f['field']: f['value'] for f in row}
+                model_id = row_dict.get('modelId', '').lower()
+                avg_input = float(row_dict.get('avgInput', 0) or 0)
+                avg_output = float(row_dict.get('avgOutput', 0) or 0)
+                invocations = int(row_dict.get('invocations', 0) or 0)
+
+                is_premium = any(m in model_id for m in premium_models)
+                is_simple = avg_input < 500 and avg_output < 150
+
+                if is_premium and is_simple and invocations > 100:
+                    results.append({
+                        'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                        'ResourceId': model_id, 'ResourceName': model_id,
+                        'Issue': f'Premium model used for simple tasks (avg {round(avg_input)} input / {round(avg_output)} output tokens, {invocations} invocations)',
+                        'type': 'cost',
+                        'Risk': 'Consider routing to Claude Haiku or Titan Lite — up to 30% savings',
+                        'severity': 'medium', 'check': 'premium_model_for_simple_tasks',
+                        'Details': {
+                            'AvgInputTokens': round(avg_input),
+                            'AvgOutputTokens': round(avg_output),
+                            'Invocations': invocations,
+                            'Note': 'Heuristic analysis — verify before acting'
+                        }
+                    })
+        except Exception as e:
+            if 'AccessDeniedException' not in str(e):
+                print(f"Error checking model sizing: {e}")
+
+        return results
+
+    def find_on_demand_batch_eligible(self, session: boto3.Session, region: str, days: int = 7, deep: bool = False, config_manager=None, **kwargs) -> List[Dict[str, Any]]:
+        """Detect On-Demand workloads that could use Batch Inference API (50% cheaper)"""
+        sts = session.client('sts')
+        account_id = sts.get_caller_identity()['Account']
+        results = []
+
+        if config_manager:
+            days = config_manager.get_threshold('bedrock_log_days', days)
+
+        if not deep:
+            results.append({
+                'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                'ResourceId': 'batch-inference', 'ResourceName': 'Batch Inference Check',
+                'Issue': 'Run with --deep to analyze invocation patterns for batch eligibility',
+                'type': 'cost', 'Risk': '50% savings by switching burst workloads to Batch Inference API',
+                'severity': 'info', 'check': 'on_demand_batch_eligible'
+            })
+            return results
+
+        try:
+            logs = session.client('logs', region_name=region)
+            bedrock = session.client('bedrock', region_name=region)
+
+            config = bedrock.get_model_invocation_logging_configuration()
+            log_group = config.get('loggingConfig', {}).get('cloudWatchConfig', {}).get('logGroupName', '')
+            if not log_group:
+                return results
+
+            end_time = int(datetime.utcnow().timestamp() * 1000)
+            start_time = int((datetime.utcnow() - timedelta(days=days)).timestamp() * 1000)
+
+            query = logs.start_query(
+                logGroupName=log_group,
+                startTime=start_time, endTime=end_time,
+                queryString="""
+                    fields @timestamp, modelId
+                    | filter ispresent(modelId)
+                    | stats count() as invocations by modelId, datefloor(@timestamp, 1h) as hour
+                    | stats max(invocations) as peakHour, min(invocations) as quietHour, avg(invocations) as avgHour by modelId
+                    | filter peakHour > avgHour * 5
+                    | sort peakHour desc
+                    | limit 10
+                """
+            )
+
+            import time
+            query_id = query['queryId']
+            for _ in range(30):
+                time.sleep(1)
+                result = logs.get_query_results(queryId=query_id)
+                if result['status'] == 'Complete':
+                    break
+
+            for row in result.get('results', []):
+                row_dict = {f['field']: f['value'] for f in row}
+                model_id = row_dict.get('modelId', '')
+                peak = int(row_dict.get('peakHour', 0) or 0)
+                avg = float(row_dict.get('avgHour', 0) or 0)
+
+                if peak > 50 and avg > 0:
+                    results.append({
+                        'AccountId': account_id, 'Region': region, 'Service': 'Bedrock',
+                        'ResourceId': model_id, 'ResourceName': model_id,
+                        'Issue': f'Burst invocation pattern detected ({peak} req/h peak vs {round(avg)} avg) — batch-eligible',
+                        'type': 'cost',
+                        'Risk': 'Batch Inference API is 50% cheaper for non-real-time workloads',
+                        'severity': 'medium', 'check': 'on_demand_batch_eligible',
+                        'Details': {
+                            'PeakInvocationsPerHour': peak,
+                            'AvgInvocationsPerHour': round(avg),
+                            'Note': 'Heuristic analysis — verify workload is non-real-time before switching'
+                        }
+                    })
+        except Exception as e:
+            if 'AccessDeniedException' not in str(e):
+                print(f"Error checking batch eligibility: {e}")
+
+        return results
+
+    def check_premium_model_for_simple_tasks(self, session, region, **kwargs):
+        return self.find_premium_model_for_simple_tasks(session, region, **kwargs)
+
+    def check_on_demand_batch_eligible(self, session, region, **kwargs):
+        return self.find_on_demand_batch_eligible(session, region, **kwargs)
