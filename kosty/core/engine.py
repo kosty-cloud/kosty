@@ -48,16 +48,6 @@ class ScanEngine:
         """
         return self._loader.load_directory(path)
 
-    def load_legacy(self, services_dir: str) -> int:
-        """Load legacy kosty/services/*_audit.py files.
-
-        Args:
-            services_dir: Path to the legacy services directory.
-
-        Returns:
-            Number of modules loaded.
-        """
-        return self._loader.load_legacy_services(services_dir)
 
     def run(
         self,

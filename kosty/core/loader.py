@@ -82,31 +82,6 @@ class PluginLoader:
 
         return loaded
 
-    def load_legacy_services(self, services_dir: str) -> int:
-        """Import legacy *_audit.py service files.
-
-        Args:
-            services_dir: Path to kosty/services/ directory.
-
-        Returns:
-            Number of modules successfully loaded.
-        """
-        services_dir = os.path.abspath(services_dir)
-        if not os.path.isdir(services_dir):
-            return 0
-
-        loaded = 0
-        for filename in sorted(os.listdir(services_dir)):
-            if not filename.endswith('_audit.py') or filename.startswith('__'):
-                continue
-
-            filepath = os.path.join(services_dir, filename)
-            module_name = f"kosty.services.{filename[:-3]}"
-
-            if self._import_module(filepath, module_name):
-                loaded += 1
-
-        return loaded
 
     def _import_module(self, filepath: str, module_name: str) -> bool:
         """Import a single module by file path with isolation.

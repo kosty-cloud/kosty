@@ -11,7 +11,7 @@ from kosty.core.models import Finding, FindingType, Severity
 )
 def check_public_exposure(session, region, **kwargs):
     """Scan all publicly exposed resources and classify protection level."""
-    from kosty.services.public_exposure import PublicExposureService
+    from kosty.providers.aws.services.public_exposure.service import PublicExposureService
 
     svc = PublicExposureService()
     raw_results = svc.audit(session, region, **kwargs)
