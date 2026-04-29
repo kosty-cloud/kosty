@@ -60,7 +60,7 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
     ctx.obj['org_admin_account_id'] = org_admin_account_id
     
     if run_all:
-        from ..core.scanner import ComprehensiveScanner
+        from ..core.engine_scanner import EngineScanner
         from ..core.config import ConfigManager
         import asyncio
         
@@ -74,7 +74,7 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
             config_manager = None
             session = None
         
-        scanner = ComprehensiveScanner(organization, region, max_workers, cross_account_role, org_admin_account_id, config_manager=config_manager, session=session)
+        scanner = EngineScanner(organization, region, max_workers, cross_account_role, org_admin_account_id, config_manager=config_manager, session=session)
         reporter = asyncio.run(scanner.run_comprehensive_scan())
         
         # Generate reports based on output format
@@ -115,7 +115,7 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.pass_context
 def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles):
     """Quick comprehensive audit (same as --all)"""
-    from ..core.scanner import ComprehensiveScanner
+    from ..core.engine_scanner import EngineScanner
     from ..core.config import ConfigManager
     from ..core.multi_profile_runner import MultiProfileRunner
     import asyncio
@@ -192,7 +192,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
             return
         print("✅ Save location validated successfully")
     
-    scanner = ComprehensiveScanner(
+    scanner = EngineScanner(
         final_config.get('organization', False),
         reg_list,
         final_config.get('max_workers', 5),
