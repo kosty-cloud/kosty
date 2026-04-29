@@ -7,7 +7,7 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-> 🤖 **New in v2.0.0** — `kosty ai` now audits Bedrock and SageMaker workloads: guardrails, shadow AI detection, idle GPU endpoints, prompt caching, and more. [See what's new →](docs/RELEASE_NOTES.md)
+> 🧩 **v3.0.0 — Modular Platform** — Plugin-based engine. 151 checks, 32 services, fully extensible. [Architecture guide →](docs/ARCHITECTURE_V3.md)
 
 **Scan 30+ AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
 
@@ -226,13 +226,14 @@ Full configuration guide → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 | [Configuration](docs/CONFIGURATION.md) | YAML config, profiles, exclusions |
 | [Multi-Profile Guide](docs/MULTI_PROFILE_GUIDE.md) | Parallel multi-customer audits |
 | [Release Notes](docs/RELEASE_NOTES.md) | Version history |
+| [Architecture (v3)](docs/ARCHITECTURE_V3.md) | Plugin system, writing checks |
 
 ---
 
 ## 🤝 Contributing
 
 1. **Report Issues** — [Open an issue](https://github.com/kosty-cloud/kosty/issues)
-2. **Add Services** — Follow the pattern in `kosty/services/`
+2. **Add Checks** — Follow the plugin pattern in [`kosty/providers/aws/services/`](docs/ARCHITECTURE_V3.md)
 3. **Star the Repo** — Show your support
 
 ---

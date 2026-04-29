@@ -3,7 +3,7 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 
 
-@register_check(check_id="aws-iam-005", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find access keys older than 90 days", compliance_ids={"CIS": ["1.12"], "PCI": ["8.2.4"]})
+@register_check(check_id="aws-iam-005", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find access keys older than 90 days")
 def check_old_access_keys(session, region, days=90, **kwargs):
     """Flag keys that haven't been rotated — stale credentials."""
     iam = session.client('iam')
@@ -29,7 +29,7 @@ def check_old_access_keys(session, region, days=90, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-iam-006", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find active access keys unused for 90+ days", compliance_ids={"CIS": ["1.12"]})
+@register_check(check_id="aws-iam-006", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find active access keys unused for 90+ days")
 def check_unused_access_keys(session, region, days=90, **kwargs):
     """Flag dormant keys — attack surface with no business value."""
     iam = session.client('iam')
