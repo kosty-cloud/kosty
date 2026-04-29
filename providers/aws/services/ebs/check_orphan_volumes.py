@@ -1,0 +1,26 @@
+from kosty.core.registry import register_check
+from kosty.core.models import Finding, FindingType, Severity
+
+
+@register_check(check_id="aws-ebs-001", service="EBS", provider="aws", finding_type=FindingType.COST, description="Find detached EBS volumes")
+def check_orphan_volumes(session, region, **kwargs):
+    """Flag volumes in 'available' state — not attached to any instance."""
+    ec2 = session.client('ec2', region_name=region)
+    account_id = session.client('sts').get_caller_identity()['Account']
+    findings = []
+    try:
+        volumes = ec2.describe_volumes(Filters=[{'Name': 'status', 'Values': ['available']}])
+        for vol in volumes['Volumes']:
+            name = next((t['Value'] for t in vol.get('Tags', []) if t['Key'] == 'Name'), vol['VolumeId'])
+            findings.append(Finding(
+                check_id="aws-ebs-001", service="EBS",
+                resource_id=vol['VolumeId'], resource_name=name,
+                region=region, account_id=account_id,
+                issue=f"Orphaned volume ({vol['Size']}GB {vol['VolumeType']})",
+                severity=Severity.HIGH, finding_type=FindingType.COST,
+                risk=f"~${vol['Size'] * 0.10:.2f}/mo wasted",
+                monthly_savings=vol['Size'] * 0.10,
+            ))
+    except Exception:
+        pass
+    return findings
