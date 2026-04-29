@@ -3,7 +3,7 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 
 
-@register_check(check_id="aws-s3-004", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets with public read access via ACL")
+@register_check(check_id="aws-s3-004", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets with public read access via ACL", compliance_ids={"CIS": ["2.1.5"], "PCI": ["1.2.1"]})
 def check_public_read(session, region, **kwargs):
     """Flag buckets granting read to AllUsers or AuthenticatedUsers."""
     s3 = session.client('s3')
@@ -63,7 +63,7 @@ def check_public_write(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-006", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without encryption at rest")
+@register_check(check_id="aws-s3-006", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without encryption at rest", compliance_ids={"CIS": ["2.1.1"], "PCI": ["3.4"]})
 def check_no_encryption(session, region, **kwargs):
     """Flag buckets storing data without server-side encryption."""
     s3 = session.client('s3')

@@ -40,6 +40,7 @@ class CheckRegistry:
         finding_type: FindingType,
         description: str = "",
         requires_deep: bool = False,
+        compliance_ids: Dict = None,
     ) -> Callable:
         """Decorator factory that registers a check function.
 
@@ -50,6 +51,8 @@ class CheckRegistry:
             finding_type: Cost or Security.
             description: Human-readable description.
             requires_deep: Whether this check needs --deep flag.
+            compliance_ids: Optional mapping of framework to control IDs.
+                           Example: {"CIS": ["1.4"], "PCI": ["8.3.1"]}
 
         Returns:
             Decorator that registers the function and returns it unchanged.
@@ -63,6 +66,7 @@ class CheckRegistry:
                     finding_type=finding_type,
                     description=description,
                     requires_deep=requires_deep,
+                    compliance_ids=compliance_ids or {},
                 ),
                 'func': func,
             }
