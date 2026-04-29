@@ -44,12 +44,12 @@ def run_via_engine(
     Returns:
         Dict mapping account_id to list of legacy issue dicts.
     """
-    from providers.aws.adapter import adapt_all_legacy_services
+    from kosty.providers.aws.adapter import adapt_all_legacy_services
 
     engine = ScanEngine(max_workers=max_workers)
 
     # Load native plugins
-    plugins_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'providers', 'aws', 'services')
+    plugins_dir = os.path.join(os.path.dirname(__file__), '..', 'providers', 'aws', 'services')
     if os.path.isdir(plugins_dir):
         engine.load_plugins(plugins_dir)
 
