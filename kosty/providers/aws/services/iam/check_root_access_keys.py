@@ -2,7 +2,7 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 
 
-@register_check(check_id="aws-iam-002", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Check if root account has access keys", compliance_ids={"CIS": ["1.4"], "PCI": ["2.1"]})
+@register_check(check_id="aws-iam-002", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Check if root account has access keys")
 def check_root_access_keys(session, region, **kwargs):
     """Flag root access keys — should never exist."""
     iam = session.client('iam')

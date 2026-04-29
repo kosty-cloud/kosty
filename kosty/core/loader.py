@@ -2,7 +2,7 @@
 
 Supports multiple search paths for OSS/Pro gating:
 - OSS mode: loads from kosty/providers/aws/services/ only
-- SaaS mode: adds plugins/pro/ as a second path
+- Pro mode: adds plugins/pro/ as a second path
 
 Plugin loading failures are isolated. A broken plugin logs a warning
 but does not crash the scan. Duplicate check_ids are detected and reported.

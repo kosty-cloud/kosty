@@ -1,6 +1,6 @@
 """Scan Engine — the importable core of Kosty.
 
-This is what the SaaS imports. It orchestrates check discovery,
+This is what the Pro version imports. It orchestrates check discovery,
 execution, and result aggregation without any CLI dependency.
 
 Usage (programmatic):

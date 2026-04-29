@@ -14,7 +14,7 @@
 
 ## v3.0.0 — The Platform Engine
 
-Goal: Transform Kosty from a CLI tool into an importable scan engine with plugin-based architecture. This enables SaaS integration, premium gating, and future multi-provider support without modifying core logic.
+Goal: Transform Kosty from a CLI tool into an importable scan engine with plugin-based architecture. This enables Pro integration, premium gating, and future multi-provider support without modifying core logic.
 
 ### Phase 1: Core Engine
 
@@ -67,7 +67,7 @@ Goal: Transform Kosty from a CLI tool into an importable scan engine with plugin
 **Gating (OSS vs Pro):**
 - PluginLoader accepts multiple search paths
 - OSS: scans `providers/aws/services/` only
-- SaaS: scans `providers/aws/services/` + `plugins/pro/`
+- Pro: scans `providers/aws/services/` + `plugins/pro/`
 - No conditional logic in core — just additional paths
 
 **Backward Compatibility:**

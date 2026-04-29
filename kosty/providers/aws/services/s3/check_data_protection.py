@@ -87,7 +87,7 @@ def check_no_cross_region_replication(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-013", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Check account-level S3 Block Public Access", compliance_ids={"CIS": ["2.1.4"]})
+@register_check(check_id="aws-s3-013", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Check account-level S3 Block Public Access")
 def check_no_account_public_access_block(session, region, **kwargs):
     """Flag accounts without the global guardrail against public buckets."""
     account_id = session.client('sts').get_caller_identity()['Account']

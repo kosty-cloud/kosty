@@ -2,7 +2,7 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 
 
-@register_check(check_id="aws-iam-004", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find console users without MFA", compliance_ids={"CIS": ["1.10"], "PCI": ["8.3.1"]})
+@register_check(check_id="aws-iam-004", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find console users without MFA")
 def check_all_users_mfa(session, region, **kwargs):
     """Flag users with console access but no second factor."""
     iam = session.client('iam')

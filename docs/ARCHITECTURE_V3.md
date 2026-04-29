@@ -4,7 +4,7 @@
 
 Kosty v3 introduces a plugin-based scan engine. The core is now an importable library that discovers, loads, and executes checks from any directory. This decouples the scan logic from the CLI and enables:
 
-- **SaaS integration** — import the engine, inject a session, get JSON results
+- **Pro integration** — import the engine, inject a session, get JSON results
 - **Premium gating** — load additional plugin paths for paid features
 - **Progressive migration** — legacy services work alongside native plugins via an adapter
 
@@ -134,43 +134,96 @@ Abstract base class. Each cloud provider implements `get_session()`, `get_region
 
 ## Writing a New Plugin
 
-### File Structure
+### Step 1: Create the directory
 
 ```
-providers/aws/services/my_service/
-├── __init__.py          # empty
-└── checks.py            # check functions with @register_check
+kosty/providers/aws/services/my_service/
+├── __init__.py                    # empty file
+└── check_something.py             # one check per file
 ```
 
-### Check Function Contract
+### Step 2: Write the check
 
 ```python
+from kosty.core.registry import register_check
+from kosty.core.models import Finding, FindingType, Severity
+
+
 @register_check(
-    check_id="aws-myservice-001",      # unique, prefixed by provider
-    service="MyService",                # display name
-    provider="aws",                     # provider filter
-    finding_type=FindingType.SECURITY,  # SECURITY or COST
-    description="What this check does",
+    check_id="aws-myservice-001",       # unique across all plugins
+    service="MyService",                 # groups checks in CLI output
+    provider="aws",                      # provider filter
+    finding_type=FindingType.SECURITY,   # SECURITY or COST
+    description="Short description for CLI help",
 )
 def check_something(session, region, **kwargs):
-    """One-line docstring explaining the check."""
-    # session = boto3.Session (or equivalent)
-    # region = target region string
-    # kwargs may contain: deep, config_manager, days, etc.
-    
+    """One-line docstring explaining what this flags."""
+    client = session.client('myservice', region_name=region)
+    account_id = session.client('sts').get_caller_identity()['Account']
     findings = []
-    # ... your logic ...
-    findings.append(Finding(...))
-    return findings  # always return a list
+
+    try:
+        resources = client.list_resources()
+        for resource in resources.get('Items', []):
+            if resource_is_bad(resource):
+                findings.append(Finding(
+                    check_id="aws-myservice-001",
+                    service="MyService",
+                    resource_id=resource['Id'],
+                    region=region,
+                    account_id=account_id,
+                    issue="What is wrong",
+                    severity=Severity.HIGH,
+                    finding_type=FindingType.SECURITY,
+                    risk="Why it matters",
+                    arn=resource.get('Arn', ''),
+                ))
+    except Exception:
+        pass  # never raise — return empty list on failure
+
+    return findings
+```
+
+### Step 3: Register the CLI command (optional)
+
+Add to `kosty/cli/{service}_commands.py`:
+
+```python
+@myservice.command('check-something')
+@common_options
+@click.pass_context
+def myservice_check_something(ctx, profile, ...):
+    """Short description"""
+    execute_engine_command(ctx, 'MyService', None, output, ..., check_id='aws-myservice-001')
 ```
 
 ### Rules
 
 1. Always return `List[Finding]`, even if empty
-2. Never raise exceptions — catch and return empty list
-3. Use `session.client(service, region_name=region)` for boto3 calls
-4. Check ID format: `{provider}-{service}-{number:03d}`
-5. One check per logical concern (don't bundle unrelated checks)
+2. Never raise exceptions — wrap in try/except, return `[]`
+3. Use `session.client(service, region_name=region)` for boto3
+4. Check ID format: `aws-{service}-{number:03d}`
+5. One check per file (or closely related checks in one file)
+6. The `compliance_ids` field is reserved for the Pro version
+
+### Finding Fields Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `check_id` | ✅ | Must match the decorator |
+| `service` | ✅ | Service display name |
+| `resource_id` | ✅ | AWS resource identifier |
+| `region` | ✅ | AWS region |
+| `account_id` | ✅ | AWS account ID |
+| `issue` | ✅ | Human-readable problem statement |
+| `severity` | ✅ | CRITICAL / HIGH / MEDIUM / LOW / INFO |
+| `finding_type` | ✅ | SECURITY or COST |
+| `risk` | Optional | Why this matters (impact) |
+| `arn` | Optional | Full ARN of the resource |
+| `resource_name` | Optional | Friendly name (defaults to resource_id) |
+| `details` | Optional | Dict of extra context (flattened in JSON output) |
+| `monthly_savings` | Optional | For COST findings only |
+| `compliance_ids` | Reserved | Pro version — maps to CIS/PCI/GDPR controls |
 
 ## Gating (OSS vs Premium)
 
@@ -180,27 +233,26 @@ The engine loads plugins from directories. No conditional logic in core.
 # OSS mode (default)
 engine.load_plugins('providers/aws/services')
 
-# Premium mode (SaaS adds a second path)
+# Premium mode (Pro adds a second path)
 engine.load_plugins('providers/aws/services')
 engine.load_plugins('/opt/kosty-pro/plugins')
 ```
 
-Premium plugins follow the exact same format. They just live in a private repo that's mounted/installed only in the SaaS environment.
+Premium plugins follow the exact same format. They just live in a private repo that's mounted/installed only in the Pro environment.
 
 ## Current State (v3.0.0)
 
-- **150 native plugin checks** across 31 services in `providers/aws/services/`
-- **CLI `kosty audit` wired to engine** via `EngineScanner` (replaces `ComprehensiveScanner`)
-- **Individual service commands** (`kosty ec2 audit`, etc.) still route through legacy `*AuditService` classes
-- **Legacy files retained** in `kosty/services/` for backward compatibility with individual commands
-- **Adapter available** but not needed for the main audit path
+- **151 native plugin checks** across 32 services in `kosty/providers/aws/services/`
+- **CLI fully wired to engine** — `kosty audit`, all service commands, `kosty ai`, `kosty public-exposure`
+- **Legacy files retained** in `kosty/services/` (dead code, kept for reference)
+- **Zero legacy execution paths** — everything runs through the plugin registry
 
 ## Migration Path
 
-| Stage | Status | What happens |
-|-------|--------|-------------|
-| Phase 1 | ✅ Done | Core engine, registry, loader, models, provider |
-| Phase 2 | ✅ Done | All 150 checks migrated to native plugins |
-| Phase 3 | ✅ Done | CLI `kosty audit` wired to engine |
-| Phase 4 | Planned | Wire individual service commands to engine |
+| Stage | Status | What happened |
+|-------|--------|---------------|
+| Phase 1 | ✅ | Core engine, registry, loader, models, provider |
+| Phase 2 | ✅ | All 151 checks migrated to native plugins |
+| Phase 3 | ✅ | CLI `kosty audit` wired to EngineScanner |
+| Phase 4 | ✅ | All individual service commands wired to engine |
 | Phase 5 | Planned | Remove legacy `kosty/services/` files |
