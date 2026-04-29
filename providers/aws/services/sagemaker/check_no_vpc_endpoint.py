@@ -1,0 +1,23 @@
+from kosty.core.registry import register_check
+from kosty.core.models import Finding, FindingType, Severity
+
+
+@register_check(check_id="aws-sagemaker-005", service="SageMaker", provider="aws", finding_type=FindingType.SECURITY, description="Check if VPC endpoint exists for SageMaker API")
+def check_no_vpc_endpoint(session, region, **kwargs):
+    """Flag accounts where SageMaker API calls traverse the public internet."""
+    ec2 = session.client('ec2', region_name=region)
+    account_id = session.client('sts').get_caller_identity()['Account']
+    findings = []
+    try:
+        eps = ec2.describe_vpc_endpoints(Filters=[{'Name': 'service-name', 'Values': [f'com.amazonaws.{region}.sagemaker.api']}])
+        if not eps.get('VpcEndpoints', []):
+            findings.append(Finding(
+                check_id="aws-sagemaker-005", service="SageMaker",
+                resource_id="sagemaker-vpc-endpoint", region=region, account_id=account_id,
+                issue="No VPC endpoint for SageMaker API",
+                severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
+                risk="API calls traverse the public internet",
+            ))
+    except Exception:
+        pass
+    return findings
