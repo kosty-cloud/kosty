@@ -1,0 +1,46 @@
+import json
+from kosty.core.registry import register_check
+from kosty.core.models import Finding, FindingType, Severity
+
+
+@register_check(check_id="aws-iam-009", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies with Action:* or Resource:*")
+def check_wildcard_policies(session, region, **kwargs):
+    """Flag overly permissive policies granting god-mode access."""
+    iam = session.client('iam')
+    account_id = session.client('sts').get_caller_identity()['Account']
+    findings = []
+    try:
+        for user in iam.list_users()['Users']:
+            try:
+                for pname in iam.list_user_policies(UserName=user['UserName']).get('PolicyNames', []):
+                    doc = iam.get_user_policy(UserName=user['UserName'], PolicyName=pname)['PolicyDocument']
+                    if _has_wildcard(doc):
+                        findings.append(Finding(
+                            check_id="aws-iam-009", service="IAM",
+                            resource_id=user['UserName'], region=region, account_id=account_id,
+                            issue=f"Policy '{pname}' uses Action:* or Resource:*",
+                            severity=Severity.HIGH, finding_type=FindingType.SECURITY,
+                            risk="Privilege escalation risk", arn=user['Arn'],
+                        ))
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return findings
+
+
+def _has_wildcard(doc):
+    if isinstance(doc, str):
+        doc = json.loads(doc)
+    for stmt in doc.get('Statement', []):
+        if stmt.get('Effect') != 'Allow':
+            continue
+        actions = stmt.get('Action', [])
+        resources = stmt.get('Resource', [])
+        if not isinstance(actions, list):
+            actions = [actions]
+        if not isinstance(resources, list):
+            resources = [resources]
+        if '*' in actions or '*' in resources:
+            return True
+    return False
