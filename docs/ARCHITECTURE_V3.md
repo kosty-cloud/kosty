@@ -42,8 +42,7 @@ Kosty v3 introduces a plugin-based scan engine. The core is now an importable li
 ┌─────────▼──────────────────────────────────────────┐
 │              Registered Checks                       │
 │  aws-cloudtrail-001, aws-guardduty-001, ...         │
-│  aws-iam-001 ... aws-iam-018 (via adapter)          │
-│  aws-s3-001 ... aws-s3-013 (via adapter)            │
+│  150 native checks across 31 services               │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -188,12 +187,20 @@ engine.load_plugins('/opt/kosty-pro/plugins')
 
 Premium plugins follow the exact same format. They just live in a private repo that's mounted/installed only in the SaaS environment.
 
+## Current State (v3.0.0)
+
+- **150 native plugin checks** across 31 services in `providers/aws/services/`
+- **CLI `kosty audit` wired to engine** via `EngineScanner` (replaces `ComprehensiveScanner`)
+- **Individual service commands** (`kosty ec2 audit`, etc.) still route through legacy `*AuditService` classes
+- **Legacy files retained** in `kosty/services/` for backward compatibility with individual commands
+- **Adapter available** but not needed for the main audit path
+
 ## Migration Path
 
-| Stage | What happens |
-|-------|-------------|
-| Current | Legacy services work via adapter. Native plugins coexist. |
-| Next | Migrate services one at a time to `providers/aws/services/` |
-| Final | Remove adapter. All checks are native plugins. |
-
-The adapter ensures zero downtime during migration. Both paths produce identical results.
+| Stage | Status | What happens |
+|-------|--------|-------------|
+| Phase 1 | ✅ Done | Core engine, registry, loader, models, provider |
+| Phase 2 | ✅ Done | All 150 checks migrated to native plugins |
+| Phase 3 | ✅ Done | CLI `kosty audit` wired to engine |
+| Phase 4 | Planned | Wire individual service commands to engine |
+| Phase 5 | Planned | Remove legacy `kosty/services/` files |
