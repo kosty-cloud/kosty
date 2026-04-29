@@ -1,17 +1,17 @@
 import click
-import asyncio
 import json
+import os
 from datetime import datetime
-from .utils import common_options, execute_service_command
-from ..core.executor import ServiceExecutor
+from .utils import common_options, execute_engine_command, _ensure_plugins_loaded, _output_findings
 from ..core.config import ConfigManager
 
 
-def _get_ai_executor_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
-    """Resolve config and CLI params for AI audit execution"""
+def _get_session_and_regions(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
+    """Resolve session and region list from CLI args + config."""
+    import boto3
     from .utils import get_profile_from_context, get_effective_params
-    profile_name = get_profile_from_context(ctx, profile)
 
+    profile_name = get_profile_from_context(ctx, profile)
     try:
         config_manager = ConfigManager(config_file=ctx.obj.get('config_file'), profile=profile_name)
         session = config_manager.get_aws_session()
@@ -20,103 +20,103 @@ def _get_ai_executor_params(ctx, profile, organization, region, max_workers, reg
             'max_workers': max_workers, 'cross_account_role': cross_account_role,
             'org_admin_account_id': org_admin_account_id
         })
-
         if final_config.get('regions'):
             reg_list = [r.strip() for r in final_config['regions'].split(',')] if isinstance(final_config['regions'], str) else final_config['regions']
         elif final_config.get('region'):
             reg_list = [final_config['region']]
         else:
             reg_list = ['us-east-1']
-
-        return {
-            'org': final_config.get('organization', False),
-            'reg_list': reg_list,
-            'workers': final_config.get('max_workers', 10),
-            'role_name': final_config.get('cross_account_role', 'OrganizationAccountAccessRole'),
-            'admin_account': final_config.get('org_admin_account_id'),
-            'config_manager': config_manager,
-            'session': session
-        }
+        workers = final_config.get('max_workers', 10)
+        return session, reg_list, workers, config_manager
     except Exception:
-        config_manager = None
-        session = None
-        org, reg_list, workers, role_name, admin_account = get_effective_params(
-            ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id
-        )
-        return {
-            'org': org, 'reg_list': reg_list, 'workers': workers,
-            'role_name': role_name, 'admin_account': admin_account,
-            'config_manager': config_manager, 'session': session
-        }
+        _, reg_list, workers, _, _ = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+        return boto3.Session(), reg_list, workers, None
 
 
-async def _run_combined_ai_audit(params, method, output, save_to, **kwargs):
-    """Run Bedrock + SageMaker, merge results, output once"""
-    from ..services.bedrock_audit import BedrockAuditService
-    from ..services.sagemaker_audit import SageMakerAuditService
+def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, **kwargs):
+    """Run Bedrock + SageMaker via engine, merge results, output once."""
+    import boto3
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from ..core.registry import registry
+    from ..core.models import FindingType
 
-    combined_results = {}
+    session, reg_list, workers, config_manager = _get_session_and_regions(
+        ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id
+    )
 
-    for label, service_class in [('Bedrock', BedrockAuditService), ('SageMaker', SageMakerAuditService)]:
-        print(f"\n🤖 {label} Audit")
-        print("─" * 40)
+    _ensure_plugins_loaded()
 
-        service = service_class()
-        executor = ServiceExecutor(
-            service, params['org'], params['reg_list'], params['workers'],
-            params['role_name'], params['admin_account'],
-            config_manager=params['config_manager'], session=params['session']
-        )
-        results = await executor.execute(method, 'console', **kwargs)
+    # Determine type filter
+    finding_type_filter = None
+    if method == 'cost_audit':
+        finding_type_filter = FindingType.COST
+    elif method == 'security_audit':
+        finding_type_filter = FindingType.SECURITY
 
-        for account_id, items in results.items():
-            if account_id not in combined_results:
-                combined_results[account_id] = []
-            if isinstance(items, list):
-                combined_results[account_id].extend(items)
+    deep = kwargs.get('deep', False)
 
-    total = sum(len(v) for v in combined_results.values())
+    all_findings = []
+    for service_name in ['Bedrock', 'SageMaker']:
+        checks = registry.get_checks_by_service(service_name)
+        if finding_type_filter:
+            checks = [c for c in checks if c['metadata'].finding_type == finding_type_filter]
+        if not deep:
+            checks = [c for c in checks if not c['metadata'].requires_deep]
 
-    if output in ['json', 'csv', 'all']:
+        svc_findings = []
+        for rgn in reg_list:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {executor.submit(c['func'], session=session, region=rgn, config_manager=config_manager, **kwargs): c for c in checks}
+                for future in as_completed(futures):
+                    try:
+                        result = future.result()
+                        if isinstance(result, list):
+                            svc_findings.extend(result)
+                    except Exception:
+                        pass
+
+        print(f"\n🤖 {service_name} Audit: {len(svc_findings)} issues")
+        all_findings.extend(svc_findings)
+
+    # Output
+    total = len(all_findings)
+    items = [f.to_dict() for f in all_findings]
+
+    if output in ['console', 'all']:
+        if total > 0:
+            print(f"\n{'─' * 50}")
+            for item in items:
+                sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}.get(item.get('severity', ''), '⚪')
+                print(f"  {sev_icon} [{item.get('Service')}] {item.get('Issue')}")
+                print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
+
+    if output in ['json', 'all']:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        account_id = list(combined_results.keys())[0] if combined_results else 'unknown'
+        account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
+        filename = f"kosty_ai_{account_id}_{timestamp}.json"
+        if save_to:
+            os.makedirs(save_to, exist_ok=True)
+            filename = os.path.join(save_to, filename)
+        report = {'scan_timestamp': datetime.now().isoformat(), 'method': f'ai_{method}', 'total_issues': total, 'results': {account_id: items}}
+        with open(filename, 'w') as f:
+            json.dump(report, f, indent=2, default=str)
+        print(f"\n📄 AI audit JSON report saved: {filename}")
 
-        if output in ['json', 'all']:
-            json_output = {
-                'scan_timestamp': datetime.now().isoformat(),
-                'method': f'ai_{method}',
-                'total_issues': total,
-                'results': combined_results
-            }
-            filename = f"kosty_ai_{account_id}_{timestamp}.json"
-            if save_to:
-                import os
-                filepath = os.path.join(save_to, filename)
-                os.makedirs(save_to, exist_ok=True)
-            else:
-                filepath = filename
-            with open(filepath, 'w') as f:
-                json.dump(json_output, f, indent=2, default=str)
-            print(f"\n📄 AI audit JSON report saved: {filepath}")
-
-        if output in ['csv', 'all']:
-            import csv
-            from io import StringIO
-            filename = f"kosty_ai_{account_id}_{timestamp}.csv"
-            if save_to:
-                import os
-                filepath = os.path.join(save_to, filename)
-                os.makedirs(save_to, exist_ok=True)
-            else:
-                filepath = filename
-            all_items = [item for items in combined_results.values() for item in items if isinstance(item, dict)]
-            if all_items:
-                fieldnames = sorted(set().union(*(item.keys() for item in all_items)))
-                with open(filepath, 'w', newline='') as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
-                    writer.writeheader()
-                    writer.writerows(all_items)
-                print(f"📊 AI audit CSV report saved: {filepath}")
+    if output in ['csv', 'all']:
+        import csv
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
+        filename = f"kosty_ai_{account_id}_{timestamp}.csv"
+        if save_to:
+            os.makedirs(save_to, exist_ok=True)
+            filename = os.path.join(save_to, filename)
+        if items:
+            fieldnames = sorted(set().union(*(item.keys() for item in items)))
+            with open(filename, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+                writer.writeheader()
+                writer.writerows(items)
+            print(f"📊 AI audit CSV report saved: {filename}")
 
     print(f"\n🎯 AI Audit Total: {total} issues (Bedrock + SageMaker)")
 
@@ -136,8 +136,7 @@ def ai_audit(ctx):
 @click.pass_context
 def ai_full_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run full AI audit (Bedrock + SageMaker)"""
-    params = _get_ai_executor_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
-    asyncio.run(_run_combined_ai_audit(params, 'audit', output, save_to, days=days))
+    _run_combined_ai_audit(ctx, 'audit', output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days)
 
 
 @ai_audit.command('cost-audit')
@@ -146,8 +145,7 @@ def ai_full_audit(ctx, days, profile, organization, region, max_workers, regions
 @click.pass_context
 def ai_cost_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run AI cost audit (Bedrock + SageMaker)"""
-    params = _get_ai_executor_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
-    asyncio.run(_run_combined_ai_audit(params, 'cost_audit', output, save_to, days=days))
+    _run_combined_ai_audit(ctx, 'cost_audit', output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, days=days)
 
 
 @ai_audit.command('security-audit')
@@ -155,8 +153,7 @@ def ai_cost_audit(ctx, days, profile, organization, region, max_workers, regions
 @click.pass_context
 def ai_security_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run AI security audit (Bedrock + SageMaker)"""
-    params = _get_ai_executor_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
-    asyncio.run(_run_combined_ai_audit(params, 'security_audit', output, save_to))
+    _run_combined_ai_audit(ctx, 'security_audit', output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
 
 
 # --- Bedrock subgroup ---
@@ -173,8 +170,7 @@ def bedrock(ctx):
 @click.pass_context
 def bedrock_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run full Bedrock audit"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
 @bedrock.command('cost-audit')
@@ -182,8 +178,7 @@ def bedrock_audit(ctx, profile, organization, region, max_workers, regions, outp
 @click.pass_context
 def bedrock_cost(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run Bedrock cost audit"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
 @bedrock.command('security-audit')
@@ -191,8 +186,7 @@ def bedrock_cost(ctx, profile, organization, region, max_workers, regions, outpu
 @click.pass_context
 def bedrock_security(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run Bedrock security audit"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
 @bedrock.command('check-no-logging')
@@ -200,8 +194,7 @@ def bedrock_security(ctx, profile, organization, region, max_workers, regions, o
 @click.pass_context
 def bedrock_check_logging(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if Bedrock invocation logging is enabled"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_no_logging', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-001')
 
 
 @bedrock.command('check-no-budget-limits')
@@ -209,8 +202,7 @@ def bedrock_check_logging(ctx, profile, organization, region, max_workers, regio
 @click.pass_context
 def bedrock_check_budget(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if AWS Budget exists for Bedrock spend"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_no_budget_limits', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-002')
 
 
 @bedrock.command('check-no-guardrails')
@@ -218,8 +210,7 @@ def bedrock_check_budget(ctx, profile, organization, region, max_workers, region
 @click.pass_context
 def bedrock_check_guardrails(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if Bedrock Guardrails are configured"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_no_guardrails', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-003')
 
 
 @bedrock.command('check-shadow-ai')
@@ -227,8 +218,7 @@ def bedrock_check_guardrails(ctx, profile, organization, region, max_workers, re
 @click.pass_context
 def bedrock_check_shadow(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find IAM roles with AI permissions not tagged as approved"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_shadow_ai', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-004')
 
 
 @bedrock.command('check-no-vpc-endpoint')
@@ -236,8 +226,7 @@ def bedrock_check_shadow(ctx, profile, organization, region, max_workers, region
 @click.pass_context
 def bedrock_check_vpc(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if VPC endpoint exists for Bedrock"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_no_vpc_endpoint', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-005')
 
 
 @bedrock.command('check-custom-model-no-kms')
@@ -245,8 +234,7 @@ def bedrock_check_vpc(ctx, profile, organization, region, max_workers, regions, 
 @click.pass_context
 def bedrock_check_kms(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if custom models are encrypted with customer-managed KMS"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_custom_model_no_kms', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-006')
 
 
 @bedrock.command('check-no-prompt-caching')
@@ -254,8 +242,7 @@ def bedrock_check_kms(ctx, profile, organization, region, max_workers, regions, 
 @click.pass_context
 def bedrock_check_caching(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if prompt caching is being used"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_no_prompt_caching', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-007')
 
 
 @bedrock.command('check-no-inference-profiles')
@@ -263,8 +250,7 @@ def bedrock_check_caching(ctx, profile, organization, region, max_workers, regio
 @click.pass_context
 def bedrock_check_profiles(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if Application Inference Profiles are configured"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_no_inference_profiles', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-008')
 
 
 @bedrock.command('check-tpm-quota')
@@ -272,8 +258,7 @@ def bedrock_check_profiles(ctx, profile, organization, region, max_workers, regi
 @click.pass_context
 def bedrock_check_tpm(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if Bedrock TPM quota usage is above 80%"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_tpm_quota_high_usage', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-009')
 
 
 @bedrock.command('check-cross-account-model-access')
@@ -281,8 +266,7 @@ def bedrock_check_tpm(ctx, profile, organization, region, max_workers, regions, 
 @click.pass_context
 def bedrock_check_cross_account(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check S3 bucket policies on custom model training data for cross-account access"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_cross_account_model_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-010')
 
 
 @bedrock.command('check-model-sizing')
@@ -292,8 +276,7 @@ def bedrock_check_cross_account(ctx, profile, organization, region, max_workers,
 @click.pass_context
 def bedrock_check_model_sizing(ctx, deep, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Detect premium models used for simple tasks (requires --deep)"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_premium_model_for_simple_tasks', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, deep=deep, days=days)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-011', deep=deep, days=days)
 
 
 @bedrock.command('check-batch-eligible')
@@ -303,8 +286,7 @@ def bedrock_check_model_sizing(ctx, deep, days, profile, organization, region, m
 @click.pass_context
 def bedrock_check_batch(ctx, deep, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Detect On-Demand workloads eligible for Batch Inference API (requires --deep)"""
-    from ..services.bedrock_audit import BedrockAuditService
-    execute_service_command(ctx, BedrockAuditService, 'check_on_demand_batch_eligible', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, deep=deep, days=days)
+    execute_engine_command(ctx, 'Bedrock', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-bedrock-012', deep=deep, days=days)
 
 
 # --- SageMaker subgroup ---
@@ -322,8 +304,7 @@ def sagemaker(ctx):
 @click.pass_context
 def sagemaker_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run full SageMaker audit"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    execute_engine_command(ctx, 'SageMaker', 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 
 @sagemaker.command('cost-audit')
@@ -332,8 +313,7 @@ def sagemaker_audit(ctx, days, profile, organization, region, max_workers, regio
 @click.pass_context
 def sagemaker_cost(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run SageMaker cost audit"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    execute_engine_command(ctx, 'SageMaker', 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
 
 @sagemaker.command('security-audit')
@@ -341,8 +321,7 @@ def sagemaker_cost(ctx, days, profile, organization, region, max_workers, region
 @click.pass_context
 def sagemaker_security(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run SageMaker security audit"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
 @sagemaker.command('check-idle-endpoints')
@@ -351,8 +330,7 @@ def sagemaker_security(ctx, profile, organization, region, max_workers, regions,
 @click.pass_context
 def sagemaker_check_idle(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find endpoints with zero invocations"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_idle_endpoints', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-001', days=days)
 
 
 @sagemaker.command('check-zombie-notebooks')
@@ -360,8 +338,7 @@ def sagemaker_check_idle(ctx, days, profile, organization, region, max_workers, 
 @click.pass_context
 def sagemaker_check_notebooks(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find running notebook instances"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_zombie_notebooks', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-002')
 
 
 @sagemaker.command('check-no-spot-training')
@@ -369,8 +346,7 @@ def sagemaker_check_notebooks(ctx, profile, organization, region, max_workers, r
 @click.pass_context
 def sagemaker_check_spot(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find training jobs not using Spot instances"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_no_spot_training', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-003')
 
 
 @sagemaker.command('check-no-checkpointing')
@@ -378,8 +354,7 @@ def sagemaker_check_spot(ctx, profile, organization, region, max_workers, region
 @click.pass_context
 def sagemaker_check_checkpoint(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find Spot training jobs without checkpointing"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_no_checkpointing', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-004')
 
 
 @sagemaker.command('check-no-vpc-endpoint')
@@ -387,8 +362,7 @@ def sagemaker_check_checkpoint(ctx, profile, organization, region, max_workers, 
 @click.pass_context
 def sagemaker_check_vpc(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Check if VPC endpoint exists for SageMaker"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_no_vpc_endpoint', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-005')
 
 
 @sagemaker.command('check-notebook-direct-internet')
@@ -396,8 +370,7 @@ def sagemaker_check_vpc(ctx, profile, organization, region, max_workers, regions
 @click.pass_context
 def sagemaker_check_internet(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find notebooks with direct internet access"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_notebook_direct_internet', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-006')
 
 
 @sagemaker.command('check-notebook-root-access')
@@ -405,8 +378,7 @@ def sagemaker_check_internet(ctx, profile, organization, region, max_workers, re
 @click.pass_context
 def sagemaker_check_root(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find notebooks with root access enabled"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_notebook_root_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-007')
 
 
 @sagemaker.command('check-no-inference-components')
@@ -414,5 +386,4 @@ def sagemaker_check_root(ctx, profile, organization, region, max_workers, region
 @click.pass_context
 def sagemaker_check_ic(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find GPU endpoints not using Inference Components (multi-model packing)"""
-    from ..services.sagemaker_audit import SageMakerAuditService
-    execute_service_command(ctx, SageMakerAuditService, 'check_no_inference_components', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'SageMaker', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-sagemaker-008')

@@ -1,5 +1,5 @@
 import click
-from .utils import common_options, execute_service_command
+from .utils import common_options, execute_engine_command
 
 
 @click.group()
@@ -13,15 +13,30 @@ def ecs(ctx):
 @common_options
 @click.pass_context
 def ecs_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Run ECS audit"""
-    from ..services.ecs_audit import ECSAuditService
-    execute_service_command(ctx, ECSAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    """Run ECS complete audit"""
+    execute_engine_command(ctx, 'ECS', 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 
-@ecs.command('check-privileged-tasks')
+@ecs.command('cost-audit')
+@common_options
+@click.pass_context
+def ecs_cost_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Run ECS cost optimization audit"""
+    execute_engine_command(ctx, 'ECS', 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@ecs.command('security-audit')
+@common_options
+@click.pass_context
+def ecs_security_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Run ECS security audit"""
+    execute_engine_command(ctx, 'ECS', 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+
+
+@ecs.command('check-privileged')
 @common_options
 @click.pass_context
 def ecs_check_privileged(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Find task definitions with privileged containers"""
-    from ..services.ecs_audit import ECSAuditService
-    execute_service_command(ctx, ECSAuditService, 'check_privileged_tasks', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    """Find privileged task definitions"""
+    execute_engine_command(ctx, 'ECS', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-ecs-001')
+
