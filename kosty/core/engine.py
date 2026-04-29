@@ -158,9 +158,15 @@ class ScanEngine:
             List of Findings produced by the check.
         """
         func = check['func']
+        metadata = check['metadata']
         try:
             result = func(session=session, region=region, **kwargs)
             if isinstance(result, list):
+                # Inject compliance_ids from metadata into findings
+                if metadata.compliance_ids:
+                    for f in result:
+                        if hasattr(f, 'compliance_ids') and not f.compliance_ids:
+                            f.compliance_ids = metadata.compliance_ids
                 return result
             return []
         except Exception:

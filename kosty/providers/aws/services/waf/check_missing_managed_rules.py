@@ -8,6 +8,7 @@ from kosty.core.models import Finding, FindingType, Severity
     provider="aws",
     finding_type=FindingType.SECURITY,
     description="Verify presence of AWS Managed Rules (CRS, IP Rep, SQLi, Known Bad Inputs)",
+    compliance_ids={"PCI": ["6.6"]},
 )
 def check_missing_managed_rules(session, region, **kwargs):
     """Flag ACLs missing critical managed rule groups."""

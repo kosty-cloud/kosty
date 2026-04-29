@@ -164,6 +164,12 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
                 try:
                     result = future.result()
                     if isinstance(result, list):
+                        # Inject compliance_ids from metadata
+                        check_entry = next((c for c in checks if futures[future] == c['metadata'].check_id), None)
+                        if check_entry and check_entry['metadata'].compliance_ids:
+                            for f in result:
+                                if hasattr(f, 'compliance_ids') and not f.compliance_ids:
+                                    f.compliance_ids = check_entry['metadata'].compliance_ids
                         all_findings.extend(result)
                 except Exception:
                     pass
