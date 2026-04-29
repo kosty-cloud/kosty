@@ -179,7 +179,7 @@ def _ensure_plugins_loaded():
         return
     from ..core.loader import PluginLoader
     loader = PluginLoader()
-    plugins_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'providers', 'aws', 'services')
+    plugins_dir = os.path.join(os.path.dirname(__file__), '..', 'providers', 'aws', 'services')
     plugins_dir = os.path.abspath(plugins_dir)
     if os.path.isdir(plugins_dir):
         loader.load_directory(plugins_dir)
