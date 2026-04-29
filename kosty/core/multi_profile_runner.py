@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .config import ConfigManager
-from .scanner import ComprehensiveScanner
+from .engine_scanner import EngineScanner
 
 
 class MultiProfileRunner:
@@ -51,7 +51,7 @@ class MultiProfileRunner:
             session = config_manager.get_aws_session()
             
             # Run scan
-            scanner = ComprehensiveScanner(
+            scanner = EngineScanner(
                 final_config.get('organization', False),
                 reg_list,
                 final_config.get('max_workers', 5),

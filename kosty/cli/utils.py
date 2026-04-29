@@ -3,7 +3,6 @@ import asyncio
 import json
 import os
 from datetime import datetime
-from ..core.executor import ServiceExecutor
 from ..core.config import ConfigManager
 
 def common_options(f):
@@ -43,52 +42,6 @@ def get_effective_params(ctx, organization, region, max_workers, regions=None, c
         cross_account_role or 'OrganizationAccountAccessRole',
         org_admin_account_id
     )
-
-def execute_service_command(ctx, service_class, method, output, organization, region, max_workers, regions, cross_account_role=None, org_admin_account_id=None, save_to=None, profile=None, **kwargs):
-    """Execute a service command with common parameters"""
-    profile_name = get_profile_from_context(ctx, profile)
-    
-    try:
-        config_manager = ConfigManager(
-            config_file=ctx.obj.get('config_file'),
-            profile=profile_name
-        )
-        session = config_manager.get_aws_session()
-        
-        # Merge config with CLI args (CLI takes priority)
-        final_config = config_manager.merge_with_cli_args({
-            'organization': organization,
-            'region': region,
-            'regions': regions,
-            'max_workers': max_workers,
-            'cross_account_role': cross_account_role,
-            'org_admin_account_id': org_admin_account_id
-        })
-        
-        # Handle regions priority
-        if final_config.get('regions'):
-            if isinstance(final_config['regions'], str):
-                reg_list = [r.strip() for r in final_config['regions'].split(',')]
-            else:
-                reg_list = final_config['regions']
-        elif final_config.get('region'):
-            reg_list = [final_config['region']]
-        else:
-            reg_list = ['us-east-1']
-        
-        org = final_config.get('organization', False)
-        workers = final_config.get('max_workers', 10)
-        role_name = final_config.get('cross_account_role', 'OrganizationAccountAccessRole')
-        admin_account = final_config.get('org_admin_account_id')
-        
-    except Exception:
-        config_manager = None
-        session = None
-        org, reg_list, workers, role_name, admin_account = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
-    
-    service = service_class()
-    executor = ServiceExecutor(service, org, reg_list, workers, role_name, admin_account, config_manager=config_manager, session=session)
-    asyncio.run(executor.execute(method, output, save_to=save_to, **kwargs))
 
 
 def execute_engine_command(ctx, service_name, method, output, organization, region, max_workers, regions, cross_account_role=None, org_admin_account_id=None, save_to=None, profile=None, check_id=None, **kwargs):
