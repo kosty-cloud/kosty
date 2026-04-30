@@ -16,7 +16,7 @@ import boto3
 from .engine import ScanEngine
 from .registry import registry
 from .reporter import CostOptimizationReporter
-from .models import Finding, FindingType
+from .models import Finding
 from .scan_progress import SingleAccountProgress, MultiAccountProgress
 
 
@@ -158,7 +158,6 @@ class EngineScanner:
                 if not self.config_manager.should_exclude_account(a)
             ]
 
-        from .registry import registry
         checks = registry.get_checks_by_provider('aws')
         total_checks = len(checks) * len(self.regions)
 

@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .registry import registry
 from .loader import PluginLoader
-from .models import Finding, ScanResult, Severity, FindingType
+from .models import Finding, ScanResult
 
 
 class ScanEngine:
