@@ -2,11 +2,11 @@
 
 ## Overview
 
-Kosty v3 introduces a plugin-based scan engine. The core is now an importable library that discovers, loads, and executes checks from any directory. This decouples the scan logic from the CLI and enables:
+Kosty v3 is a plugin-based scan engine. Each check is an independent Python function that self-registers at import time. The core is an importable library — no CLI dependency.
 
 - **Pro integration** — import the engine, inject a session, get JSON results
 - **Premium gating** — load additional plugin paths for paid features
-- **Progressive migration** — legacy services work alongside native plugins via an adapter
+- **Extensible** — drop a `.py` file in the plugins directory, it's live
 
 ## Architecture Diagram
 
@@ -14,6 +14,12 @@ Kosty v3 introduces a plugin-based scan engine. The core is now an importable li
 ┌─────────────────────────────────────────────────────────────┐
 │                         CLI Layer                             │
 │  (kosty audit, kosty ai, kosty public-exposure)             │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    EngineScanner                              │
+│  - Progress display (SingleAccount / MultiAccount)           │
+│  - Feeds results into CostOptimizationReporter               │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
@@ -26,23 +32,21 @@ Kosty v3 introduces a plugin-based scan engine. The core is now an importable li
                            │
           ┌────────────────┼────────────────┐
           │                │                │
-┌─────────▼────┐  ┌───────▼──────┐  ┌──────▼───────┐
-│ CheckRegistry │  │ PluginLoader │  │    Bridge    │
-│ (singleton)   │  │ (importlib)  │  │ (legacy CLI) │
-└─────────┬────┘  └───────┬──────┘  └──────────────┘
+┌─────────▼────┐  ┌───────▼──────┐  ┌──────▼───────────────┐
+│ CheckRegistry │  │ PluginLoader │  │ session_utils         │
+│ (singleton)   │  │ (importlib)  │  │ (cached account_id)  │
+└─────────┬────┘  └───────┬──────┘  └──────────────────────┘
           │                │
           │    ┌───────────▼───────────────────────┐
           │    │        Plugin Sources              │
           │    │                                    │
-          │    │  providers/aws/services/  (native) │
-          │    │  kosty/services/ (legacy adapter)  │
-          │    │  /opt/pro/plugins/ (premium, opt)  │
+          │    │  kosty/providers/aws/services/     │
+          │    │  /opt/kosty-pro/plugins/ (Pro)     │
           │    └────────────────────────────────────┘
           │
 ┌─────────▼──────────────────────────────────────────┐
 │              Registered Checks                       │
-│  aws-cloudtrail-001, aws-guardduty-001, ...         │
-│  150 native checks across 31 services               │
+│  151 native checks across 32 services               │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -55,28 +59,20 @@ Global singleton. Checks self-register at import time via the `@register_check` 
 ```python
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 @register_check(
-    check_id="aws-s3-001",
+    check_id="aws-s3-004",
     service="S3",
     provider="aws",
     finding_type=FindingType.SECURITY,
     description="Detect publicly readable S3 buckets",
 )
 def check_public_read(session, region, **kwargs):
+    s3 = session.client('s3')
+    account_id = get_account_id(session)
     findings = []
     # ... boto3 logic ...
-    findings.append(Finding(
-        check_id="aws-s3-001",
-        service="S3",
-        resource_id=bucket_name,
-        region=region,
-        account_id=account_id,
-        issue="Public read access enabled",
-        severity=Severity.CRITICAL,
-        finding_type=FindingType.SECURITY,
-        risk="Data breach — complete bucket exposure",
-    ))
     return findings
 ```
 
@@ -88,8 +84,8 @@ Recursively imports `.py` files from a directory. On import, decorated functions
 from kosty.core.engine import ScanEngine
 
 engine = ScanEngine()
-engine.load_plugins('providers/aws/services')        # OSS checks
-engine.load_plugins('/opt/kosty-pro/plugins')        # Premium (if present)
+engine.load_plugins('kosty/providers/aws/services')       # OSS checks
+engine.load_plugins('/opt/kosty-pro/plugins')             # Pro (if present)
 ```
 
 ### ScanEngine (`kosty/core/engine.py`)
@@ -98,11 +94,10 @@ The importable core. No CLI dependency. Runs checks in parallel and returns stru
 
 ```python
 from kosty.core.engine import ScanEngine
-from providers.aws.adapter import adapt_all_legacy_services
+import boto3
 
 engine = ScanEngine(max_workers=20)
-engine.load_plugins('providers/aws/services')
-adapt_all_legacy_services('kosty/services')
+engine.load_plugins('kosty/providers/aws/services')
 
 result = engine.run(
     session=boto3.Session(),
@@ -117,15 +112,11 @@ for finding in result.findings:
     print(finding.to_dict())
 ```
 
-### Service Adapter (`providers/aws/adapter.py`)
-
-Wraps legacy `*_audit.py` files into the registry without modifying them. Each `find_*` method becomes a registered check with an auto-generated ID (e.g., `aws-iam-001`).
-
 ### Data Models (`kosty/core/models.py`)
 
-- `Finding` — single audit finding (replaces legacy issue dicts)
+- `Finding` — single audit finding with standardized fields
 - `CheckMetadata` — describes a registered check
-- `ScanResult` — aggregated scan output
+- `ScanResult` — aggregated scan output with helper properties
 - `Severity` / `FindingType` — enums for type safety
 
 ### Provider Interface (`kosty/core/provider.py`)
@@ -147,6 +138,7 @@ kosty/providers/aws/services/my_service/
 ```python
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(
@@ -159,7 +151,7 @@ from kosty.core.models import Finding, FindingType, Severity
 def check_something(session, region, **kwargs):
     """One-line docstring explaining what this flags."""
     client = session.client('myservice', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     try:
@@ -201,7 +193,7 @@ def myservice_check_something(ctx, profile, ...):
 
 1. Always return `List[Finding]`, even if empty
 2. Never raise exceptions — wrap in try/except, return `[]`
-3. Use `session.client(service, region_name=region)` for boto3
+3. Use `get_account_id(session)` — never call STS directly
 4. Check ID format: `aws-{service}-{number:03d}`
 5. One check per file (or closely related checks in one file)
 6. The `compliance_ids` field is reserved for the Pro version
@@ -225,34 +217,25 @@ def myservice_check_something(ctx, profile, ...):
 | `monthly_savings` | Optional | For COST findings only |
 | `compliance_ids` | Reserved | Pro version — maps to CIS/PCI/GDPR controls |
 
-## Gating (OSS vs Premium)
+## Gating (OSS vs Pro)
 
 The engine loads plugins from directories. No conditional logic in core.
 
 ```python
 # OSS mode (default)
-engine.load_plugins('providers/aws/services')
+engine.load_plugins('kosty/providers/aws/services')
 
-# Premium mode (Pro adds a second path)
-engine.load_plugins('providers/aws/services')
+# Pro mode (adds a second path)
+engine.load_plugins('kosty/providers/aws/services')
 engine.load_plugins('/opt/kosty-pro/plugins')
 ```
 
-Premium plugins follow the exact same format. They just live in a private repo that's mounted/installed only in the Pro environment.
+Pro plugins follow the exact same format. They live in a private repo that's mounted/installed only in the Pro environment.
 
 ## Current State (v3.0.0)
 
-- **151 native plugin checks** across 32 services in `kosty/providers/aws/services/`
-- **CLI fully wired to engine** — `kosty audit`, all service commands, `kosty ai`, `kosty public-exposure`
-- **Legacy files retained** in `kosty/services/` (dead code, kept for reference)
-- **Zero legacy execution paths** — everything runs through the plugin registry
-
-## Migration Path
-
-| Stage | Status | What happened |
-|-------|--------|---------------|
-| Phase 1 | ✅ | Core engine, registry, loader, models, provider |
-| Phase 2 | ✅ | All 151 checks migrated to native plugins |
-| Phase 3 | ✅ | CLI `kosty audit` wired to EngineScanner |
-| Phase 4 | ✅ | All individual service commands wired to engine |
-| Phase 5 | Planned | Remove legacy `kosty/services/` files |
+- **151 native plugin checks** across 32 services
+- **CLI fully wired to engine** — zero legacy execution paths
+- **1 STS call per scan** via `session_utils.get_account_id()` cache
+- **Progress bars** on TTY (silent when piped)
+- **All legacy code removed** — no `kosty/services/`, no adapter, no bridge

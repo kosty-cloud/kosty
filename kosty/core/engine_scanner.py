@@ -11,7 +11,10 @@ import sys
 import asyncio
 from typing import List, Any
 
+import boto3
+
 from .engine import ScanEngine
+from .registry import registry
 from .reporter import CostOptimizationReporter
 from .models import Finding, FindingType
 from .scan_progress import SingleAccountProgress, MultiAccountProgress
@@ -55,8 +58,6 @@ class EngineScanner:
 
     async def run_comprehensive_scan(self) -> CostOptimizationReporter:
         """Run all registered checks and return a populated reporter."""
-        import boto3
-
         print("🚀 KOSTY - AWS Cost Optimization Comprehensive Scan")
         print("=" * 60)
 
@@ -68,7 +69,6 @@ class EngineScanner:
         # Determine excluded services
         excluded = []
         if self.config_manager:
-            from .registry import registry
             all_services = set(
                 c['metadata'].service.lower()
                 for c in registry.get_checks_by_provider('aws')
@@ -80,8 +80,6 @@ class EngineScanner:
             if excluded:
                 print(f"⚠️  {', '.join(s.upper() for s in excluded)} service(s) excluded by config")
 
-        # Count services that will run
-        from .registry import registry
         active_checks = registry.get_checks_by_provider('aws')
         active_services = set(c['metadata'].service for c in active_checks)
         if excluded:
@@ -107,11 +105,8 @@ class EngineScanner:
 
     async def _run_single_account_scan(self, excluded_services: List[str]):
         """Run engine against a single account."""
-        import boto3
-
         session = self.session or boto3.Session()
 
-        from .registry import registry
         checks = registry.get_checks_by_provider('aws')
         if excluded_services:
             excl_lower = set(s.lower() for s in excluded_services)
@@ -150,8 +145,6 @@ class EngineScanner:
 
     async def _run_organization_scan(self, excluded_services: List[str]):
         """Run engine across all organization accounts."""
-        import boto3
-
         session = self.session or boto3.Session()
 
         accounts = await self._list_org_accounts(session)
@@ -234,7 +227,6 @@ class EngineScanner:
     async def _validate_organization_access(self) -> bool:
         """Validate organization access before starting scan."""
         try:
-            import boto3
             validation_session = self.session or boto3.Session()
 
             if self.org_admin_account_id:
@@ -278,8 +270,6 @@ class EngineScanner:
 
     async def _assume_role(self, session, account_id: str):
         """Assume cross-account role and return new session."""
-        import boto3
-
         sts = session.client('sts')
         loop = asyncio.get_event_loop()
         assumed = await loop.run_in_executor(

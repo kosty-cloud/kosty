@@ -145,7 +145,7 @@ open dashboard/index.html   # visualize savings
 
 ## 📊 Service Coverage
 
-**30 services**, organized by category:
+**32 services**, organized by category:
 
 | Category | Services | Key Checks |
 |----------|----------|------------|
@@ -220,7 +220,7 @@ Full configuration guide → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 | Guide | Description |
 |-------|-------------|
 | [Full Documentation](docs/DOCUMENTATION.md) | Complete user guide |
-| [Service Coverage](docs/SERVICES.md) | All 30 services and their checks |
+| [Service Coverage](docs/SERVICES.md) | All 32 services and their checks |
 | [CLI Reference](docs/CLI_REFERENCE.md) | Every command and option |
 | [Examples](docs/EXAMPLES.md) | Detailed usage examples |
 | [Configuration](docs/CONFIGURATION.md) | YAML config, profiles, exclusions |

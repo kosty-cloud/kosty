@@ -2,45 +2,17 @@ import click
 import json
 import os
 from datetime import datetime
-from .utils import common_options, execute_engine_command, _ensure_plugins_loaded, _output_findings
+from .utils import common_options, execute_engine_command, _ensure_plugins_loaded, _resolve_scan_params
 from ..core.config import ConfigManager
-
-
-def _get_session_and_regions(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
-    """Resolve session and region list from CLI args + config."""
-    import boto3
-    from .utils import get_profile_from_context, get_effective_params
-
-    profile_name = get_profile_from_context(ctx, profile)
-    try:
-        config_manager = ConfigManager(config_file=ctx.obj.get('config_file'), profile=profile_name)
-        session = config_manager.get_aws_session()
-        final_config = config_manager.merge_with_cli_args({
-            'organization': organization, 'region': region, 'regions': regions,
-            'max_workers': max_workers, 'cross_account_role': cross_account_role,
-            'org_admin_account_id': org_admin_account_id
-        })
-        if final_config.get('regions'):
-            reg_list = [r.strip() for r in final_config['regions'].split(',')] if isinstance(final_config['regions'], str) else final_config['regions']
-        elif final_config.get('region'):
-            reg_list = [final_config['region']]
-        else:
-            reg_list = ['us-east-1']
-        workers = final_config.get('max_workers', 10)
-        return session, reg_list, workers, config_manager
-    except Exception:
-        _, reg_list, workers, _, _ = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
-        return boto3.Session(), reg_list, workers, None
 
 
 def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, **kwargs):
     """Run Bedrock + SageMaker via engine, merge results, output once."""
-    import boto3
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from ..core.registry import registry
     from ..core.models import FindingType
 
-    session, reg_list, workers, config_manager = _get_session_and_regions(
+    session, reg_list, workers, config_manager = _resolve_scan_params(
         ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id
     )
 
