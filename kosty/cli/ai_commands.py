@@ -3,7 +3,6 @@ import json
 import os
 from datetime import datetime
 from .utils import common_options, execute_engine_command, _ensure_plugins_loaded, _resolve_scan_params
-from ..core.config import ConfigManager
 
 
 def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, **kwargs):

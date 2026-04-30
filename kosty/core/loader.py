@@ -20,10 +20,8 @@ from dataclasses import dataclass, field
 class LoadResult:
     """Summary of a plugin loading operation."""
     loaded: int = 0
-    skipped: int = 0
     failed: int = 0
     errors: List[str] = field(default_factory=list)
-    duplicates: List[str] = field(default_factory=list)
 
 
 class PluginLoader:
@@ -34,11 +32,10 @@ class PluginLoader:
     what's inside the modules — it just triggers the import.
     """
 
-    def __init__(self, timeout_seconds: int = 10):
+    def __init__(self):
         self._loaded_paths: List[str] = []
         self._errors: List[str] = []
         self._loaded_modules: Dict[str, str] = {}  # module_name -> filepath
-        self._timeout = timeout_seconds
 
     def load_directory(self, path: str, package_prefix: str = "kosty_plugins") -> int:
         """Recursively import all .py files from a directory.
