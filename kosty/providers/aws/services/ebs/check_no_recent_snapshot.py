@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ebs-006", service="EBS", provider="aws", finding_type=FindingType.SECURITY, description="Find in-use volumes with no recent snapshot")
 def check_no_recent_snapshot(session, region, days=7, **kwargs):
     """Flag volumes without a backup in the last 7 days."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)

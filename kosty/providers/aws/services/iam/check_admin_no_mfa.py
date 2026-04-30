@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-iam-008", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find admin users without MFA")
 def check_admin_no_mfa(session, region, **kwargs):
     """Flag users with AdministratorAccess but no MFA — one phish away from total compromise."""
     iam = session.client('iam')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for user in iam.list_users()['Users']:

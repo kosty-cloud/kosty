@@ -1,6 +1,7 @@
 import boto3
 from typing import List, Dict, Any
 import json
+from kosty.providers.aws.session_utils import get_account_id
 
 
 class PublicExposureService:
@@ -27,7 +28,7 @@ class PublicExposureService:
         return results
 
     def _get_account_id(self, session: boto3.Session) -> str:
-        return session.client('sts').get_caller_identity()['Account']
+        return get_account_id(session)
 
     def _get_waf_acl_resource_arns(self, session: boto3.Session, region: str) -> set:
         """Collect all resource ARNs protected by WAF"""

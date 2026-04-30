@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-rds-004", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find Multi-AZ on dev/test")
 def check_multi_az_non_prod(session, region, **kwargs):
     """Flag Multi-AZ on non-production — double cost for no benefit."""
     rds = session.client('rds', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for db in rds.describe_db_instances()['DBInstances']:

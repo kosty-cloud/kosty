@@ -17,7 +17,6 @@ Usage (programmatic):
     )
 """
 
-import boto3
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 

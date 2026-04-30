@@ -12,7 +12,6 @@ import os
 import sys
 import importlib
 import importlib.util
-import signal
 from typing import List, Dict, Any
 from dataclasses import dataclass, field
 
@@ -60,8 +59,6 @@ class PluginLoader:
             return 0
 
         from .registry import registry
-        before_count = registry.count
-
         loaded = 0
         for root, _dirs, files in os.walk(path):
             for filename in sorted(files):

@@ -27,6 +27,7 @@ EMPTY = "-"
 
 
 def _bar(done: int, total: int) -> str:
+    """Render a fixed-width ASCII progress bar."""
     if total == 0:
         return EMPTY * BAR_WIDTH
     filled = int(BAR_WIDTH * done / total)
@@ -34,6 +35,10 @@ def _bar(done: int, total: int) -> str:
 
 
 def _is_tty() -> bool:
+    """Return True only when stderr is an interactive terminal.
+
+    Guards all rendering so piped output (--output json > file) stays clean.
+    """
     return hasattr(sys.stderr, 'isatty') and sys.stderr.isatty()
 
 
@@ -96,7 +101,6 @@ class MultiAccountProgress:
         self._total = total_checks
         self._done: Dict[str, int] = {a: 0 for a in accounts}
         self._lock = threading.Lock()
-        self._lines_drawn = 0
         self._active = _is_tty()
         if self._active:
             # Reserve lines

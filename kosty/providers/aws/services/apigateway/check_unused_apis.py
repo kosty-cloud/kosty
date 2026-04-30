@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-apigateway-001", service="APIGateway", provider="aws", finding_type=FindingType.COST, description="Find APIs with zero requests")
@@ -8,7 +9,7 @@ def check_unused_apis(session, region, days=30, **kwargs):
     """Flag REST APIs generating no traffic — pure cost."""
     apigw = session.client('apigateway', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.utcnow()

@@ -1,18 +1,15 @@
-"""Engine-based scanner — replaces ComprehensiveScanner for `kosty audit`.
+"""Engine-based scanner — the execution path for `kosty audit`.
 
-Uses the plugin engine (ScanEngine) to discover and run checks, then feeds
-results into the existing CostOptimizationReporter for backward-compatible
-output (console, JSON, CSV, dashboard).
-
-This is the production path for v3.0.0. The legacy ComprehensiveScanner
-remains available as a fallback but is no longer the default.
+Orchestrates the full scan lifecycle: plugin loading, check execution,
+progress display, and result aggregation into CostOptimizationReporter.
+This is the only scanner in v3.0.0 — the legacy ComprehensiveScanner
+has been removed.
 """
 
 import os
 import sys
 import asyncio
-from typing import List, Optional, Any
-from concurrent.futures import ThreadPoolExecutor
+from typing import List, Any
 
 from .engine import ScanEngine
 from .reporter import CostOptimizationReporter
@@ -220,14 +217,16 @@ class EngineScanner:
         print("=" * 60)
 
     def _feed_reporter(self, findings: List[Finding]):
-        """Convert findings to legacy format and feed into reporter."""
-        # Group by (account_id, service)
-        grouped = {}
+        """Group findings by (account, service) and push into the reporter.
+
+        The reporter expects add_results(service, command, items, account_id).
+        We use 'audit' as the command name so the reporter's summary logic
+        treats all findings as coming from a full audit run.
+        """
+        grouped: dict = {}
         for f in findings:
             key = (f.account_id or 'current', f.service.lower())
-            if key not in grouped:
-                grouped[key] = []
-            grouped[key].append(f.to_dict())
+            grouped.setdefault(key, []).append(f.to_dict())
 
         for (account_id, service), items in grouped.items():
             self.reporter.add_results(service, 'audit', items, account_id)

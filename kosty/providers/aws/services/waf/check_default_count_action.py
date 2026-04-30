@@ -1,5 +1,6 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(
@@ -12,7 +13,7 @@ from kosty.core.models import Finding, FindingType, Severity
 def check_default_count_action(session, region, **kwargs):
     """Flag ACLs where critical rule groups log but don't block."""
     waf = session.client('wafv2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     critical_groups = ['AWSManagedRulesCommonRuleSet', 'AWSManagedRulesSQLiRuleSet', 'AWSManagedRulesKnownBadInputsRuleSet']

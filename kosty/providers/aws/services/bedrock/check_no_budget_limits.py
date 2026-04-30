@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-002", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Check if AWS Budget exists for Bedrock spend")
 def check_no_budget_limits(session, region, **kwargs):
     """Flag accounts with no spend guardrail on GenAI usage."""
     budgets = session.client('budgets', region_name='us-east-1')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         resp = budgets.describe_budgets(AccountId=account_id)

@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sagemaker-006", service="SageMaker", provider="aws", finding_type=FindingType.SECURITY, description="Find notebooks with direct internet access")
 def check_notebook_direct_internet(session, region, **kwargs):
     """Flag notebooks that can reach any external endpoint — data exfiltration path."""
     sm = session.client('sagemaker', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for nb in sm.list_notebook_instances().get('NotebookInstances', []):

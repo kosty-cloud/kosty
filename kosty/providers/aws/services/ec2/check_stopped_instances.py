@@ -2,13 +2,14 @@ import re
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ec2-001", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find instances stopped for 7+ days")
 def check_stopped_instances(session, region, days=7, **kwargs):
     """Flag stopped instances still incurring EBS and EIP costs."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)

@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-008", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Check if Application Inference Profiles are configured")
 def check_no_inference_profiles(session, region, **kwargs):
     """Flag accounts with no cost attribution mechanism for GenAI spend."""
     bedrock = session.client('bedrock', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         profiles = bedrock.list_inference_profiles()

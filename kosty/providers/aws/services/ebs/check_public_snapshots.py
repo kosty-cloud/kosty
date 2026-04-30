@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ebs-005", service="EBS", provider="aws", finding_type=FindingType.SECURITY, description="Find public EBS snapshots")
 def check_public_snapshots(session, region, **kwargs):
     """Flag snapshots shared with all AWS accounts."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for snap in ec2.describe_snapshots(OwnerIds=[account_id])['Snapshots']:

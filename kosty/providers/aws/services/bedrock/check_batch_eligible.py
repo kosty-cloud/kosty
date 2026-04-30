@@ -2,12 +2,13 @@ import time
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-012", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Detect On-Demand workloads eligible for Batch Inference", requires_deep=True)
 def check_on_demand_batch_eligible(session, region, days=7, deep=False, **kwargs):
     """Heuristic: flag burst invocation patterns that could use the 50%-cheaper Batch API."""
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     if not deep:

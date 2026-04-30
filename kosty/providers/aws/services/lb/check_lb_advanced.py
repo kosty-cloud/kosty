@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-lb-003", service="LB", provider="aws", finding_type=FindingType.COST, description="Find underutilized load balancers")
@@ -8,7 +9,7 @@ def check_underutilized_lbs(session, region, days=7, **kwargs):
     """Flag ALBs with very low request count — possibly unnecessary."""
     elb = session.client('elbv2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.utcnow()
@@ -43,7 +44,7 @@ def check_underutilized_lbs(session, region, days=7, **kwargs):
 def check_deprecated_tls(session, region, **kwargs):
     """Flag listeners accepting TLS 1.0 or 1.1 connections."""
     elb = session.client('elbv2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     deprecated_policies = ['ELBSecurityPolicy-2016-08', 'ELBSecurityPolicy-TLS-1-0-2015-04', 'ELBSecurityPolicy-TLS-1-1-2017-01']
     try:
@@ -72,7 +73,7 @@ def check_deprecated_tls(session, region, **kwargs):
 def check_no_access_logs(session, region, **kwargs):
     """Flag load balancers with no access logging — blind to abuse patterns."""
     elb = session.client('elbv2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for lb in elb.describe_load_balancers()['LoadBalancers']:
@@ -99,7 +100,7 @@ def check_no_access_logs(session, region, **kwargs):
 def check_classic_lbs(session, region, **kwargs):
     """Flag CLBs — deprecated, more expensive, fewer features than ALB/NLB."""
     elb_classic = session.client('elb', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for lb in elb_classic.describe_load_balancers().get('LoadBalancerDescriptions', []):

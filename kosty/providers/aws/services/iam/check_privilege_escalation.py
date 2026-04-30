@@ -1,6 +1,7 @@
 import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 # 21 known privilege escalation patterns
@@ -33,7 +34,7 @@ ESCALATION_PATTERNS = {
 def check_privilege_escalation(session, region, deep=False, **kwargs):
     """Scan all principals for known escalation vectors. Use --deep for SimulatePrincipalPolicy confirmation."""
     iam = session.client('iam')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     principals = []

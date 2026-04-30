@@ -1,5 +1,6 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(
@@ -14,7 +15,7 @@ def check_unused_nat_gateways(session, region, days=7, **kwargs):
     from datetime import datetime, timedelta
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     try:

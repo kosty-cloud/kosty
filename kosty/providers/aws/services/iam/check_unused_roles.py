@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-iam-001", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find unused IAM roles (admin roles flagged critical)")
 def check_unused_roles(session, region, days=30, **kwargs):
     """Flag roles not used in 30+ days. Admin roles get critical severity."""
     iam = session.client('iam')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)

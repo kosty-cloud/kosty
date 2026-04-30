@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-rds-010", service="RDS", provider="aws", finding_type=FindingType.SECURITY, description="Find default master usernames")
 def check_default_username(session, region, **kwargs):
     """Flag databases using predictable admin usernames."""
     rds = session.client('rds', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     defaults = ['admin', 'root', 'postgres', 'mysql', 'sa', 'master']
     try:

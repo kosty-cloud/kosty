@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-s3-001", service="S3", provider="aws", finding_type=FindingType.COST, description="Find empty S3 buckets")
 def check_empty_buckets(session, region, **kwargs):
     """Flag buckets with zero objects."""
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for bucket in s3.list_buckets()['Buckets']:
@@ -33,7 +34,7 @@ def check_empty_buckets(session, region, **kwargs):
 def check_incomplete_uploads(session, region, **kwargs):
     """Flag buckets with abandoned multipart uploads consuming storage."""
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for bucket in s3.list_buckets()['Buckets']:
@@ -60,7 +61,7 @@ def check_incomplete_uploads(session, region, **kwargs):
 def check_no_lifecycle(session, region, **kwargs):
     """Flag buckets with data but no expiration or transition rules."""
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for bucket in s3.list_buckets()['Buckets']:

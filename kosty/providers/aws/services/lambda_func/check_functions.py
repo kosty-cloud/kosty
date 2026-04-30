@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-lambda-001", service="Lambda", provider="aws", finding_type=FindingType.COST, description="Find Lambda functions with 0 invocations")
@@ -8,7 +9,7 @@ def check_unused_functions(session, region, days=30, **kwargs):
     """Flag functions generating no traffic."""
     lam = session.client('lambda', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.now(timezone.utc)
@@ -40,7 +41,7 @@ def check_unused_functions(session, region, days=30, **kwargs):
 def check_public_functions(session, region, **kwargs):
     """Flag functions with resource policies allowing wildcard principals."""
     lam = session.client('lambda', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for func in lam.list_functions()['Functions']:
@@ -68,7 +69,7 @@ def check_public_functions(session, region, **kwargs):
 def check_outdated_runtime(session, region, **kwargs):
     """Flag functions on EOL runtimes missing security patches."""
     lam = session.client('lambda', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     outdated = ['python2.7', 'python3.6', 'python3.7', 'nodejs8.10', 'nodejs10.x', 'nodejs12.x', 'dotnetcore2.1', 'dotnetcore3.1', 'go1.x', 'ruby2.5', 'ruby2.7']
     try:

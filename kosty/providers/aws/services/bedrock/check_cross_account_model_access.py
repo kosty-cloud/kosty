@@ -1,6 +1,7 @@
 import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-010", service="Bedrock", provider="aws", finding_type=FindingType.SECURITY, description="Check training data S3 buckets for cross-account access")
@@ -8,7 +9,7 @@ def check_cross_account_model_access(session, region, **kwargs):
     """Flag custom model training data accessible by external accounts."""
     bedrock = session.client('bedrock', region_name=region)
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         checked = set()

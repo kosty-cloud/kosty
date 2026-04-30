@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-eip-002", service="EIP", provider="aws", finding_type=FindingType.COST, description="Find EIPs attached to stopped instances")
 def check_eips_on_stopped_instances(session, region, **kwargs):
     """Flag EIPs billing on instances that aren't running."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for addr in ec2.describe_addresses().get('Addresses', []):
@@ -38,7 +39,7 @@ def check_eips_on_stopped_instances(session, region, **kwargs):
 def check_eips_with_dangerous_sg(session, region, **kwargs):
     """Flag public IPs on instances with SSH/RDP open to the world."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for addr in ec2.describe_addresses().get('Addresses', []):

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(
@@ -13,7 +14,7 @@ from kosty.core.models import Finding, FindingType, Severity
 def check_unused_custom_metrics(session, region, days=30, max_metrics=50, **kwargs):
     """Flag custom metrics with no datapoints — billed at $0.30/mo each."""
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     config_manager = kwargs.get('config_manager')

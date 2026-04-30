@@ -44,91 +44,101 @@ def get_effective_params(ctx, organization, region, max_workers, regions=None, c
     )
 
 
-def execute_engine_command(ctx, service_name, method, output, organization, region, max_workers, regions, cross_account_role=None, org_admin_account_id=None, save_to=None, profile=None, check_id=None, **kwargs):
-    """Execute a service command via the plugin engine."""
+def _resolve_scan_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
+    """Resolve session, region list, and worker count from CLI args + config.
+
+    Config file values are the baseline; CLI args take priority.
+    Falls back to boto3 defaults if config loading fails.
+    """
     import boto3
-    from ..core.registry import registry
-    from ..core.models import FindingType
-
     profile_name = get_profile_from_context(ctx, profile)
-
     try:
         config_manager = ConfigManager(
             config_file=ctx.obj.get('config_file'),
             profile=profile_name
         )
         session = config_manager.get_aws_session()
-        final_config = config_manager.merge_with_cli_args({
+        final = config_manager.merge_with_cli_args({
             'organization': organization, 'region': region, 'regions': regions,
             'max_workers': max_workers, 'cross_account_role': cross_account_role,
             'org_admin_account_id': org_admin_account_id
         })
-        if final_config.get('regions'):
-            reg_list = [r.strip() for r in final_config['regions'].split(',')] if isinstance(final_config['regions'], str) else final_config['regions']
-        elif final_config.get('region'):
-            reg_list = [final_config['region']]
+        if final.get('regions'):
+            reg_list = [r.strip() for r in final['regions'].split(',')] if isinstance(final['regions'], str) else final['regions']
+        elif final.get('region'):
+            reg_list = [final['region']]
         else:
             reg_list = ['us-east-1']
-        workers = final_config.get('max_workers', 10)
+        return session, reg_list, final.get('max_workers', 10), config_manager
     except Exception:
-        config_manager = None
-        session = None
-        _, reg_list, workers, _, _ = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
+        _, reg_list, workers, _, _ = get_effective_params(
+            ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id
+        )
+        return boto3.Session(), reg_list, workers, None
 
-    if session is None:
-        session = boto3.Session()
 
-    # Ensure plugins are loaded
+def _run_checks(checks, session, reg_list, workers, config_manager, **kwargs):
+    """Execute a list of checks across regions and return all findings.
+
+    Injects compliance_ids from check metadata into each finding so plugins
+    don't need to repeat the mapping in their Finding constructors.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    all_findings = []
+    for rgn in reg_list:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(c['func'], session=session, region=rgn,
+                                config_manager=config_manager, **kwargs): c
+                for c in checks
+            }
+            for future in as_completed(futures):
+                check = futures[future]
+                try:
+                    result = future.result()
+                    if isinstance(result, list):
+                        if check['metadata'].compliance_ids:
+                            for f in result:
+                                if hasattr(f, 'compliance_ids') and not f.compliance_ids:
+                                    f.compliance_ids = check['metadata'].compliance_ids
+                        all_findings.extend(result)
+                except Exception:
+                    pass
+    return all_findings
+
+
+def execute_engine_command(ctx, service_name, method, output, organization, region,
+                           max_workers, regions, cross_account_role=None,
+                           org_admin_account_id=None, save_to=None, profile=None,
+                           check_id=None, **kwargs):
+    """Resolve config, select checks, run them, and display results."""
+    from ..core.registry import registry
+    from ..core.models import FindingType
+
+    session, reg_list, workers, config_manager = _resolve_scan_params(
+        ctx, profile, organization, region, max_workers, regions,
+        cross_account_role, org_admin_account_id
+    )
+
     _ensure_plugins_loaded()
 
-    # Get checks to run
     if check_id:
-        # Single check by ID
         entry = registry.get_check(check_id)
         checks = [entry] if entry else []
     else:
-        # All checks for service, optionally filtered by type
         checks = registry.get_checks_by_service(service_name)
         if method == 'cost_audit':
             checks = [c for c in checks if c['metadata'].finding_type == FindingType.COST]
         elif method == 'security_audit':
             checks = [c for c in checks if c['metadata'].finding_type == FindingType.SECURITY]
 
-    # Filter deep checks
     deep = kwargs.get('deep', False)
     if not deep:
         checks = [c for c in checks if not c['metadata'].requires_deep]
 
-    # Run checks
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    all_findings = []
-    for rgn in reg_list:
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {}
-            for check in checks:
-                future = executor.submit(
-                    check['func'], session=session, region=rgn,
-                    config_manager=config_manager, **kwargs
-                )
-                futures[future] = check['metadata'].check_id
-
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    if isinstance(result, list):
-                        # Inject compliance_ids from metadata
-                        check_entry = next((c for c in checks if futures[future] == c['metadata'].check_id), None)
-                        if check_entry and check_entry['metadata'].compliance_ids:
-                            for f in result:
-                                if hasattr(f, 'compliance_ids') and not f.compliance_ids:
-                                    f.compliance_ids = check_entry['metadata'].compliance_ids
-                        all_findings.extend(result)
-                except Exception:
-                    pass
-
-    # Output
-    _output_findings(all_findings, service_name, output, save_to)
+    findings = _run_checks(checks, session, reg_list, workers, config_manager, **kwargs)
+    _output_findings(findings, service_name, output, save_to)
 
 
 def _ensure_plugins_loaded():
