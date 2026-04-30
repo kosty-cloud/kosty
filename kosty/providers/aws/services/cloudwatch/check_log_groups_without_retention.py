@@ -1,5 +1,6 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(
@@ -12,7 +13,7 @@ from kosty.core.models import Finding, FindingType, Severity
 def check_log_groups_without_retention(session, region, **kwargs):
     """Flag log groups growing indefinitely with no expiration."""
     logs = session.client('logs', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
 
     try:

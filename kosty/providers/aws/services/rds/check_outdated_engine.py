@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-rds-013", service="RDS", provider="aws", finding_type=FindingType.SECURITY, description="Find outdated engine versions")
 def check_outdated_engine(session, region, **kwargs):
     """Flag databases on EOL engine versions."""
     rds = session.client('rds', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     old_versions = {'mysql': ['5.6', '5.7.0'], 'postgres': ['9.', '10.', '11.0'], 'oracle': ['11.', '12.1']}
     try:

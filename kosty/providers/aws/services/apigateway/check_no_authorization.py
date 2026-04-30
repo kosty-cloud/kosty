@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-apigateway-003", service="APIGateway", provider="aws", finding_type=FindingType.SECURITY, description="Find endpoints with no authorization")
 def check_no_authorization(session, region, **kwargs):
     """Flag methods where AUTH_TYPE is NONE — open to anyone."""
     apigw = session.client('apigateway', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for api in apigw.get_rest_apis().get('items', []):

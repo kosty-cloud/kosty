@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ec2-003", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find oversized instances (<20% CPU)")
@@ -8,7 +9,7 @@ def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwar
     """Flag instances consistently underutilizing their allocated compute."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.utcnow()

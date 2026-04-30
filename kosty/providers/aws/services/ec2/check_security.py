@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ec2-010", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances using IMDSv1")
 def check_imdsv1(session, region, **kwargs):
     """Flag instances vulnerable to SSRF-based credential theft (Capital One vector)."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         instances = ec2.describe_instances()
@@ -31,7 +32,7 @@ def check_imdsv1(session, region, **kwargs):
 def check_unencrypted_ebs(session, region, **kwargs):
     """Flag instances with at least one unencrypted attached volume."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         instances = ec2.describe_instances()
@@ -62,7 +63,7 @@ def check_unencrypted_ebs(session, region, **kwargs):
 def check_no_recent_backup(session, region, days=30, **kwargs):
     """Flag instances without a recent AMI — no recovery point available."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)
@@ -95,7 +96,7 @@ def check_imdsv1_oversized(session, region, days=14, cpu_threshold=20, **kwargs)
     """Cross-reference: SSRF-vulnerable AND wasting money — highest remediation priority."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.utcnow()

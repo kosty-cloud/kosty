@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-009", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Check if TPM quota usage is above 80%")
 def check_tpm_quota_high_usage(session, region, threshold=80, **kwargs):
     """Flag models approaching throttling limits."""
     sq = session.client('service-quotas', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for page in sq.get_paginator('list_service_quotas').paginate(ServiceCode='bedrock'):

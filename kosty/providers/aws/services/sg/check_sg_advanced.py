@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sg-004", service="SG", provider="aws", finding_type=FindingType.SECURITY, description="Find SGs with database ports open to 0.0.0.0/0")
 def check_database_ports_open(session, region, **kwargs):
     """Flag SGs exposing MySQL, PostgreSQL, MSSQL, MongoDB to the internet."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     db_ports = [3306, 5432, 1433, 27017]
     try:
@@ -34,7 +35,7 @@ def check_database_ports_open(session, region, **kwargs):
 def check_wide_cidr_rules(session, region, **kwargs):
     """Flag overly permissive CIDR ranges granting access to huge IP blocks."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for sg in ec2.describe_security_groups()['SecurityGroups']:
@@ -62,7 +63,7 @@ def check_wide_cidr_rules(session, region, **kwargs):
 def check_complex_security_groups(session, region, rule_threshold=50, **kwargs):
     """Flag SGs with too many rules — hard to audit and likely misconfigured."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for sg in ec2.describe_security_groups()['SecurityGroups']:

@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sg-001", service="SG", provider="aws", finding_type=FindingType.SECURITY, description="Find security groups with SSH/RDP open to 0.0.0.0/0")
 def check_ssh_rdp_open(session, region, **kwargs):
     """Flag SGs allowing admin port access from the internet."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for sg in ec2.describe_security_groups()['SecurityGroups']:
@@ -34,7 +35,7 @@ def check_ssh_rdp_open(session, region, **kwargs):
 def check_all_ports_open(session, region, **kwargs):
     """Flag SGs with unrestricted inbound access."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for sg in ec2.describe_security_groups()['SecurityGroups']:
@@ -59,7 +60,7 @@ def check_all_ports_open(session, region, **kwargs):
 def check_unused_security_groups(session, region, **kwargs):
     """Flag orphaned SGs adding clutter and confusion."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         all_sgs = {sg['GroupId'] for sg in ec2.describe_security_groups()['SecurityGroups']}

@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-lb-001", service="LB", provider="aws", finding_type=FindingType.COST, description="Find load balancers with no healthy targets")
 def check_no_healthy_targets(session, region, **kwargs):
     """Flag ALBs/NLBs routing to nothing — pure waste."""
     elb = session.client('elbv2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for lb in elb.describe_load_balancers()['LoadBalancers']:
@@ -38,7 +39,7 @@ def check_no_healthy_targets(session, region, **kwargs):
 def check_http_without_redirect(session, region, **kwargs):
     """Flag listeners accepting plaintext HTTP without forcing TLS."""
     elb = session.client('elbv2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for lb in elb.describe_load_balancers()['LoadBalancers']:

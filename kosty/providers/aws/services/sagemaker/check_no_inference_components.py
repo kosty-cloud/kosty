@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sagemaker-008", service="SageMaker", provider="aws", finding_type=FindingType.COST, description="Find GPU endpoints not using Inference Components")
 def check_no_inference_components(session, region, **kwargs):
     """Flag endpoints wasting GPU capacity — IC allows multi-model packing."""
     sm = session.client('sagemaker', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     gpu_families = ['ml.g4', 'ml.g5', 'ml.p3', 'ml.p4', 'ml.p5', 'ml.inf']
     try:

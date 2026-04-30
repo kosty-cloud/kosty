@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-lambda-004", service="Lambda", provider="aws", finding_type=FindingType.COST, description="Find over-provisioned Lambda memory")
@@ -8,7 +9,7 @@ def check_over_provisioned_memory(session, region, days=30, **kwargs):
     """Flag functions with high memory allocation but low duration — likely over-provisioned."""
     lam = session.client('lambda', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.now(timezone.utc)
@@ -46,7 +47,7 @@ def check_over_provisioned_memory(session, region, days=30, **kwargs):
 def check_long_timeout(session, region, **kwargs):
     """Flag functions with excessive timeout — consider ECS/Fargate for long-running tasks."""
     lam = session.client('lambda', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for func in lam.list_functions()['Functions']:

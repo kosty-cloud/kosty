@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-iam-016", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find Lambda functions sharing execution roles")
 def check_shared_lambda_roles(session, region, **kwargs):
     """Flag functions sharing a role — blast radius expansion on compromise."""
     lam = session.client('lambda', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         role_map = {}
@@ -34,7 +35,7 @@ def check_shared_lambda_roles(session, region, **kwargs):
 def check_multiple_active_keys(session, region, **kwargs):
     """Flag users with more than one active key — increases attack surface."""
     iam = session.client('iam')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for user in iam.list_users()['Users']:

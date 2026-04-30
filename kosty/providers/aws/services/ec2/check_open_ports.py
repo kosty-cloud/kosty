@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ec2-005", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with SSH open to 0.0.0.0/0")
 def check_ssh_open(session, region, **kwargs):
     """Flag instances reachable on port 22 from the entire internet."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         sgs = ec2.describe_security_groups()
@@ -38,7 +39,7 @@ def check_ssh_open(session, region, **kwargs):
 def check_rdp_open(session, region, **kwargs):
     """Flag instances reachable on port 3389 from the entire internet."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         sgs = ec2.describe_security_groups()
@@ -70,7 +71,7 @@ def check_rdp_open(session, region, **kwargs):
 def check_database_ports_open(session, region, **kwargs):
     """Flag instances exposing MySQL/PostgreSQL/MSSQL/MongoDB to the world."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     db_ports = [3306, 5432, 1433, 27017]
     try:

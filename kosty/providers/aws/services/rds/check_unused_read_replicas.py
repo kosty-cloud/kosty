@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-rds-003", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find unused read replicas")
@@ -8,7 +9,7 @@ def check_unused_read_replicas(session, region, days=7, **kwargs):
     """Flag replicas with near-zero read traffic."""
     rds = session.client('rds', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.utcnow()

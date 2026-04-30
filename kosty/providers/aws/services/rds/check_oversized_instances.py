@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-rds-002", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find oversized RDS instances (<20% CPU)")
@@ -8,7 +9,7 @@ def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwar
     """Flag databases consistently underutilizing allocated compute. Skips smallest available instance per engine."""
     rds = session.client('rds', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     size_order = ['micro', 'small', 'medium', 'large', 'xlarge', '2xlarge', '4xlarge', '8xlarge', '12xlarge', '16xlarge']
     min_cache = {}

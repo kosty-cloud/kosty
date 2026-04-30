@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-backup-002", service="Backup", provider="aws", finding_type=FindingType.COST, description="Find cross-region backup for dev/test environments")
 def check_cross_region_backup_dev_test(session, region, **kwargs):
     """Flag cross-region backup plans on non-production resources."""
     backup = session.client('backup', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         plans = backup.list_backup_plans().get('BackupPlansList', [])

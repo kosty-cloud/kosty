@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ebs-007", service="EBS", provider="aws", finding_type=FindingType.COST, description="Find volumes with very low I/O")
@@ -8,7 +9,7 @@ def check_low_io_volumes(session, region, days=7, iops_threshold=10, **kwargs):
     """Flag in-use volumes barely doing any I/O — likely oversized."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         end = datetime.utcnow()

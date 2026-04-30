@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sagemaker-004", service="SageMaker", provider="aws", finding_type=FindingType.COST, description="Find Spot training jobs without checkpointing")
 def check_no_checkpointing(session, region, **kwargs):
     """Flag Spot jobs that lose all progress on preemption."""
     sm = session.client('sagemaker', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.utcnow() - timedelta(days=30)

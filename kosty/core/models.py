@@ -63,6 +63,8 @@ class Finding:
         - CLI reporter
         - Future compliance module (check_id, compliance_ids)
         """
+        # Both casings kept for backward compat with the legacy reporter
+        # and the dashboard, which uses mixed-case field names.
         d = {
             'AccountId': self.account_id,
             'Region': self.region,
@@ -81,7 +83,9 @@ class Finding:
             'check': self.check_id,
             'monthly_savings': self.monthly_savings,
         }
-        # Flatten details to root level for backward compat
+        # details is a free-form dict plugins use for resource-specific context
+        # (e.g. instance_type, avg_cpu). Flattened here so consumers don't need
+        # to know about the nesting.
         if self.details:
             d.update(self.details)
         # Include compliance mapping if present

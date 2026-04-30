@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sagemaker-005", service="SageMaker", provider="aws", finding_type=FindingType.SECURITY, description="Check if VPC endpoint exists for SageMaker API")
 def check_no_vpc_endpoint(session, region, **kwargs):
     """Flag accounts where SageMaker API calls traverse the public internet."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         eps = ec2.describe_vpc_endpoints(Filters=[{'Name': 'service-name', 'Values': [f'com.amazonaws.{region}.sagemaker.api']}])

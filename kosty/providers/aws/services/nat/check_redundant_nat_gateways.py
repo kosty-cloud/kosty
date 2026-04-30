@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-nat-002", service="NAT", provider="aws", finding_type=FindingType.COST, description="Find redundant NAT Gateways in same AZ")
 def check_redundant_nat_gateways(session, region, **kwargs):
     """Flag multiple NAT Gateways in the same subnet — one is enough per AZ."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         gateways = ec2.describe_nat_gateways(Filters=[{'Name': 'state', 'Values': ['available']}])['NatGateways']

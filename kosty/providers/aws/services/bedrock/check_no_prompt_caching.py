@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-007", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Check if prompt caching is being used")
 def check_no_prompt_caching(session, region, **kwargs):
     """Flag accounts with cache-compatible models but no caching verified."""
     bedrock = session.client('bedrock', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         models = bedrock.list_foundation_models()

@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-apigateway-006", service="APIGateway", provider="aws", finding_type=FindingType.SECURITY, description="Find private APIs without resource policy")
 def check_private_api_no_policy(session, region, **kwargs):
     """Flag private APIs accessible from any VPC endpoint without restriction."""
     apigw = session.client('apigateway', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for api in apigw.get_rest_apis().get('items', []):

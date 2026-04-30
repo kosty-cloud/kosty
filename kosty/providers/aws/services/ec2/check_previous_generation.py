@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-ec2-004", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find previous generation instance types")
 def check_previous_generation(session, region, **kwargs):
     """Flag instances on old families (t2, m4, c4, etc.) — 10-20% more expensive than current gen."""
     ec2 = session.client('ec2', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     previous_gen = ['t2', 'm4', 'c4', 'r4', 'm3', 'c3', 'r3', 't1', 'm1', 'c1']
     try:

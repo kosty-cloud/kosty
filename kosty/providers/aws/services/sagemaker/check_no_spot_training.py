@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-sagemaker-003", service="SageMaker", provider="aws", finding_type=FindingType.COST, description="Find training jobs not using Spot instances")
 def check_no_spot_training(session, region, **kwargs):
     """Flag long training jobs paying full On-Demand price."""
     sm = session.client('sagemaker', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.utcnow() - timedelta(days=30)

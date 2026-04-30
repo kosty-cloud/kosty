@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-iam-007", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find inactive users with active keys")
 def check_inactive_users(session, region, days=90, **kwargs):
     """Flag users who haven't logged in but still have active credentials."""
     iam = session.client('iam')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)

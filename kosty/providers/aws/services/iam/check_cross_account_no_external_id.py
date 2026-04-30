@@ -1,13 +1,14 @@
 import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-iam-012", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find cross-account roles without ExternalId")
 def check_cross_account_no_external_id(session, region, **kwargs):
     """Flag roles assumable by external accounts without confused deputy protection."""
     iam = session.client('iam')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for role in iam.list_roles()['Roles']:

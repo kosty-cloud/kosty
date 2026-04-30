@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-s3-010", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without MFA delete")
 def check_no_mfa_delete(session, region, **kwargs):
     """Flag buckets where versioned objects can be deleted without MFA."""
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for bucket in s3.list_buckets()['Buckets']:
@@ -33,7 +34,7 @@ def check_no_mfa_delete(session, region, **kwargs):
 def check_no_object_lock(session, region, **kwargs):
     """Flag buckets without immutability protection."""
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for bucket in s3.list_buckets()['Buckets']:
@@ -63,7 +64,7 @@ def check_no_object_lock(session, region, **kwargs):
 def check_no_cross_region_replication(session, region, **kwargs):
     """Flag buckets with no DR replication configured."""
     s3 = session.client('s3')
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         for bucket in s3.list_buckets()['Buckets']:
@@ -90,7 +91,7 @@ def check_no_cross_region_replication(session, region, **kwargs):
 @register_check(check_id="aws-s3-013", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Check account-level S3 Block Public Access")
 def check_no_account_public_access_block(session, region, **kwargs):
     """Flag accounts without the global guardrail against public buckets."""
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     s3control = session.client('s3control', region_name=region)
     findings = []
     try:

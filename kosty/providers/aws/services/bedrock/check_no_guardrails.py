@@ -1,12 +1,13 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
+from kosty.providers.aws.session_utils import get_account_id
 
 
 @register_check(check_id="aws-bedrock-003", service="Bedrock", provider="aws", finding_type=FindingType.SECURITY, description="Check if Bedrock Guardrails are configured")
 def check_no_guardrails(session, region, **kwargs):
     """Flag accounts with no protection against prompt injection or PII leakage."""
     bedrock = session.client('bedrock', region_name=region)
-    account_id = session.client('sts').get_caller_identity()['Account']
+    account_id = get_account_id(session)
     findings = []
     try:
         if not bedrock.list_guardrails().get('guardrails', []):
