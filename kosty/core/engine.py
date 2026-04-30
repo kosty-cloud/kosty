@@ -57,6 +57,7 @@ class ScanEngine:
         provider: str = "aws",
         deep: bool = False,
         config_manager: Any = None,
+        on_check_complete=None,
         **kwargs,
     ) -> ScanResult:
         """Execute all registered checks and return aggregated results.
@@ -68,6 +69,8 @@ class ScanEngine:
             provider: Provider name filter (default: "aws").
             deep: Whether to run checks that require --deep.
             config_manager: Optional config manager for thresholds/exclusions.
+            on_check_complete: Optional callback(service: str) called after
+                               each check completes. Used for progress display.
 
         Returns:
             ScanResult with all findings and any errors.
@@ -85,7 +88,9 @@ class ScanEngine:
         for region in regions:
             region_findings = self._run_checks_for_region(
                 checks, session, region, deep=deep,
-                config_manager=config_manager, **kwargs
+                config_manager=config_manager,
+                on_check_complete=on_check_complete,
+                **kwargs
             )
             result.findings.extend(region_findings)
 
@@ -97,18 +102,10 @@ class ScanEngine:
         checks: List[Dict[str, Any]],
         session: Any,
         region: str,
+        on_check_complete=None,
         **kwargs,
     ) -> List[Finding]:
-        """Run all checks for a single region with thread pool.
-
-        Args:
-            checks: List of registered check entries.
-            session: Provider session.
-            region: Target region.
-
-        Returns:
-            List of Findings from all checks.
-        """
+        """Run all checks for a single region with thread pool."""
         findings = []
 
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
@@ -117,16 +114,18 @@ class ScanEngine:
                 future = executor.submit(
                     self._execute_check, check, session, region, **kwargs
                 )
-                futures[future] = check['metadata'].check_id
+                futures[future] = check['metadata']
 
             for future in as_completed(futures):
-                check_id = futures[future]
+                metadata = futures[future]
                 try:
                     check_findings = future.result()
                     findings.extend(check_findings)
-                except Exception as e:
-                    # Isolated failure — log but don't crash
+                except Exception:
                     pass
+                finally:
+                    if on_check_complete:
+                        on_check_complete(metadata.service)
 
         return findings
 

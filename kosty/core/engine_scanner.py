@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .engine import ScanEngine
 from .reporter import CostOptimizationReporter
 from .models import Finding, FindingType
-from .progress import ProgressBar
+from .scan_progress import SingleAccountProgress, MultiAccountProgress
 
 
 class EngineScanner:
@@ -114,10 +114,14 @@ class EngineScanner:
 
         session = self.session or boto3.Session()
 
-        # Determine service filter
-        services_filter = None
+        from .registry import registry
+        checks = registry.get_checks_by_provider('aws')
         if excluded_services:
-            services_filter = None  # engine handles all, we filter below
+            excl_lower = set(s.lower() for s in excluded_services)
+            checks = [c for c in checks if c['metadata'].service.lower() not in excl_lower]
+        total_checks = len(checks) * len(self.regions)
+
+        progress = SingleAccountProgress(total_checks)
 
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
@@ -128,19 +132,19 @@ class EngineScanner:
                 services=None,
                 deep=False,
                 config_manager=self.config_manager,
+                on_check_complete=progress.update,
             )
         )
 
-        # Filter out excluded services
+        progress.finish()
+
         findings = result.findings
         if excluded_services:
             excluded_lower = set(s.lower() for s in excluded_services)
             findings = [f for f in findings if f.service.lower() not in excluded_lower]
 
-        # Group findings by service and feed into reporter
         self._feed_reporter(findings)
 
-        # Print summary
         total = len(findings)
         print("\n" + "=" * 60)
         print("✅ Comprehensive scan completed!")
@@ -153,21 +157,23 @@ class EngineScanner:
 
         session = self.session or boto3.Session()
 
-        # Discover accounts
         accounts = await self._list_org_accounts(session)
         if not accounts:
             print("❌ No accounts found in organization")
             return
 
-        # Filter excluded accounts
         if self.config_manager:
             accounts = [
                 a for a in accounts
                 if not self.config_manager.should_exclude_account(a)
             ]
 
-        print(f"\n📋 Scanning {len(accounts)} accounts...")
-        progress = ProgressBar(len(accounts), "Scanning accounts")
+        from .registry import registry
+        checks = registry.get_checks_by_provider('aws')
+        total_checks = len(checks) * len(self.regions)
+
+        print(f"\n📋 Scanning {len(accounts)} accounts...\n")
+        progress = MultiAccountProgress(accounts, total_checks)
 
         semaphore = asyncio.Semaphore(self.max_workers)
         all_findings: List[Finding] = []
@@ -179,28 +185,28 @@ class EngineScanner:
                     loop = asyncio.get_event_loop()
                     result = await loop.run_in_executor(
                         None,
-                        lambda s=assumed_session: self._engine.run(
+                        lambda s=assumed_session, a=account_id: self._engine.run(
                             session=s,
                             regions=self.regions,
                             deep=False,
                             config_manager=self.config_manager,
+                            on_check_complete=lambda svc, aid=a: progress.update(aid),
                         )
                     )
                     return result.findings
                 except Exception as e:
                     print(f"  ✗ {account_id}: {e}", file=sys.stderr)
                     return []
-                finally:
-                    progress.update()
 
         tasks = [scan_account(acc) for acc in accounts]
         results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        progress.finish()
 
         for r in results:
             if isinstance(r, list):
                 all_findings.extend(r)
 
-        # Filter excluded
         if excluded_services:
             excluded_lower = set(s.lower() for s in excluded_services)
             all_findings = [f for f in all_findings if f.service.lower() not in excluded_lower]
