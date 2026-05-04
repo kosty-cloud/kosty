@@ -6,7 +6,7 @@ get_resource_tags() helper normalises the various tag formats returned
 by different AWS APIs into a consistent list.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 
 def should_exclude_resource_by_tags(resource: Dict[str, Any], config_manager) -> bool:
