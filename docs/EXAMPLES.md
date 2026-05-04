@@ -148,6 +148,35 @@ kosty audit --organization --verbose
 kosty ec2 check-stopped-instances --region eu-west-1 --verbose
 ```
 
+## Debug
+
+Add `--debug` to any command to print execution internals to stderr.
+Useful when a check returns no results and you want to know why.
+
+Output goes to stderr so it doesn't pollute JSON/CSV output:
+
+```bash
+# See which checks run, how long each takes, and any errors
+kosty audit --debug
+kosty ec2 audit --debug
+kosty ai audit --debug
+
+# Combine with verbose for maximum detail
+kosty audit --debug --verbose
+
+# Redirect stderr to a file for post-mortem analysis
+kosty audit --debug 2>debug.log
+
+# Separate findings from debug output
+kosty ec2 audit --output json --debug 2>debug.log
+```
+
+What `--debug` prints:
+- Plugin manifest load status and per-module load confirmation
+- Number of checks selected per service and region
+- Per-check result count and wall-clock time
+- Full exception type and message for any check that fails
+
 ## Report Integrity
 
 Local JSON and CSV reports are written with a `.sha256` sidecar. Verify

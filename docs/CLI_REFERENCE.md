@@ -480,6 +480,7 @@ kosty ssm check-non-compliant-patches
 - `--save-to TEXT` - S3, local path, or network share
 - `--profile TEXT` - Configuration profile from kosty.yaml
 - `--verbose` - Show full finding details: ARN, risk, monthly savings, check ID
+- `--debug` - Print check execution details, errors, and timing to stderr (for troubleshooting)
 
 ---
 
