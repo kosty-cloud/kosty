@@ -60,6 +60,7 @@ class SingleAccountProgress:
             sys.stderr.flush()
 
     def update(self, service: str = ""):
+        """Increment the counter and redraw the bar. Called after each check completes."""
         if not self._active:
             return
         with self._lock:
@@ -80,6 +81,7 @@ class SingleAccountProgress:
         sys.stderr.flush()
 
     def finish(self):
+        """Draw the final state of the bar and move to a new line."""
         if not self._active:
             return
         with self._lock:
@@ -107,6 +109,7 @@ class MultiAccountProgress:
             sys.stderr.flush()
 
     def update(self, account_id: str):
+        """Increment the counter for one account and redraw all bars."""
         if not self._active:
             return
         with self._lock:
@@ -132,6 +135,7 @@ class MultiAccountProgress:
         sys.stderr.flush()
 
     def finish(self):
+        """Draw the final state of all bars."""
         if not self._active:
             return
         with self._lock:
