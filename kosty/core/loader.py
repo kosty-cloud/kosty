@@ -6,6 +6,22 @@ Supports multiple search paths for OSS/Pro gating:
 
 Plugin loading failures are isolated. A broken plugin logs a warning
 but does not crash the scan. Duplicate check_ids are detected and reported.
+
+Security note — plugin execution model:
+    exec_module() runs arbitrary Python code with the same privileges as the
+    Kosty process, which typically holds live AWS credentials. This is
+    intentional: plugins need boto3 access to call AWS APIs.
+
+    The implication is that the providers/ directory is part of the trust
+    boundary. Treat it like any other executable code in your project:
+    - Keep it under version control
+    - Review changes before merging
+    - Ensure the directory is not world-writable on shared systems
+      (chmod 755 providers/ is the right posture)
+
+    For the Pro version, plugin integrity is verified against a signed
+    manifest before loading. The OSS version relies on standard VCS
+    controls and file system permissions.
 """
 
 import os
