@@ -111,7 +111,13 @@ class EngineScanner:
         if excluded_services:
             excl_lower = set(s.lower() for s in excluded_services)
             checks = [c for c in checks if c['metadata'].service.lower() not in excl_lower]
-        total_checks = len(checks) * len(self.regions)
+
+        global_checks = [c for c in checks if c['metadata'].region_scope == 'global']
+        regional_checks = [c for c in checks if c['metadata'].region_scope != 'global']
+        non_deep = [c for c in checks if not c['metadata'].requires_deep]
+        non_deep_global = [c for c in non_deep if c['metadata'].region_scope == 'global']
+        non_deep_regional = [c for c in non_deep if c['metadata'].region_scope != 'global']
+        total_checks = len(non_deep_regional) * len(self.regions) + len(non_deep_global)
 
         progress = SingleAccountProgress(total_checks)
 
@@ -159,7 +165,10 @@ class EngineScanner:
             ]
 
         checks = registry.get_checks_by_provider('aws')
-        total_checks = len(checks) * len(self.regions)
+        non_deep = [c for c in checks if not c['metadata'].requires_deep]
+        non_deep_global = [c for c in non_deep if c['metadata'].region_scope == 'global']
+        non_deep_regional = [c for c in non_deep if c['metadata'].region_scope != 'global']
+        total_checks = len(non_deep_regional) * len(self.regions) + len(non_deep_global)
 
         print(f"\n📋 Scanning {len(accounts)} accounts...\n")
         progress = MultiAccountProgress(accounts, total_checks)
