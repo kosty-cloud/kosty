@@ -9,7 +9,7 @@ has been removed.
 import os
 import sys
 import asyncio
-from typing import List, Any
+from typing import List
 
 import boto3
 
@@ -174,6 +174,7 @@ class EngineScanner:
         all_findings: List[Finding] = []
 
         async def scan_account(account_id: str):
+            """Scan one account under the org semaphore and return its findings."""
             async with semaphore:
                 try:
                     assumed_session = await self._assume_role(session, account_id)
