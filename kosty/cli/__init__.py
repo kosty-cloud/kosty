@@ -81,8 +81,9 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--profiles', is_flag=True, help='Run audit on all profiles from config file')
 @click.option('--max-parallel-profiles', type=int, default=3, help='Max profiles to run in parallel (default: 3)')
 @click.option('--verbose', is_flag=True, help='Show full finding details (ARN, risk, savings, check ID)')
+@click.option('--debug', is_flag=True, help='Print check execution details, errors, and timing to stderr')
 @click.pass_context
-def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles, verbose):
+def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles, verbose, debug):
     """Run a full audit across all 32 services (cost + security)."""
     from ..core.engine_scanner import EngineScanner
     from ..core.config import ConfigManager
@@ -90,6 +91,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
 
     ctx.ensure_object(dict)
     ctx.obj['verbose'] = verbose
+    ctx.obj['debug'] = debug
 
     if profiles:
         runner = MultiProfileRunner(config_file=ctx.obj.get('config_file'))
@@ -152,6 +154,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
         final_config.get('org_admin_account_id'),
         config_manager=config_manager,
         session=session,
+        debug=debug,
     )
     reporter = asyncio.run(scanner.run_comprehensive_scan())
 

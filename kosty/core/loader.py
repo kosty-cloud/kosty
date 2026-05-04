@@ -55,16 +55,18 @@ class PluginLoader:
         self._loaded_modules: Dict[str, str] = {}  # module_name -> filepath
         self._manifest: Optional[Dict[str, str]] = None  # rel_path -> sha256
 
-    def load_directory(self, path: str, package_prefix: str = "kosty_plugins") -> int:
+    def load_directory(self, path: str, package_prefix: str = "kosty_plugins", debug: bool = False) -> int:
         """Recursively import all .py files from a directory.
 
         Args:
             path: Absolute or relative path to scan.
             package_prefix: Module namespace prefix for imported modules.
+            debug: Print each loaded module and any integrity warnings to stderr.
 
         Returns:
             Number of modules successfully loaded.
         """
+        import sys
         path = os.path.abspath(path)
         if not os.path.isdir(path):
             self._errors.append(f"Directory not found: {path}")
@@ -74,6 +76,11 @@ class PluginLoader:
             return 0
 
         self._manifest = self._load_manifest(path)
+        if debug:
+            if self._manifest is not None:
+                print(f"[DEBUG] loader: manifest loaded ({len(self._manifest)} entries) from {path}", file=sys.stderr)
+            else:
+                print(f"[DEBUG] loader: no manifest found in {path}", file=sys.stderr)
 
         from .registry import registry
         loaded = 0
@@ -86,11 +93,17 @@ class PluginLoader:
                 rel_path = os.path.relpath(filepath, path)
                 module_name = f"{package_prefix}.{rel_path[:-3].replace(os.sep, '.')}"
 
-                if self._import_module(filepath, module_name):
+                if self._import_module(filepath, module_name, debug=debug):
                     loaded += 1
+                    if debug:
+                        print(f"[DEBUG] loader: loaded {rel_path}", file=sys.stderr)
 
         self._loaded_paths.append(path)
         self._detect_duplicates(registry)
+
+        if debug:
+            print(f"[DEBUG] loader: {loaded} modules loaded, {len(self._errors)} errors", file=sys.stderr)
+
         return loaded
 
 
@@ -159,12 +172,13 @@ class PluginLoader:
 
         return True
 
-    def _import_module(self, filepath: str, module_name: str) -> bool:
+    def _import_module(self, filepath: str, module_name: str, debug: bool = False) -> bool:
         """Import a single module by file path with isolation.
 
         Args:
             filepath: Absolute path to the .py file.
             module_name: Fully qualified module name.
+            debug: Print integrity check results to stderr.
 
         Returns:
             True if import succeeded, False otherwise.

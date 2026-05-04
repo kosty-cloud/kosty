@@ -63,6 +63,7 @@ class EngineScanner:
         org_admin_account_id: str = None,
         config_manager=None,
         session=None,
+        debug: bool = False,
     ):
         """Set up the scanner, reporter, and engine, then load plugins.
 
@@ -77,6 +78,7 @@ class EngineScanner:
         self.org_admin_account_id = org_admin_account_id
         self.config_manager = config_manager
         self.session = session
+        self.debug = debug
 
         self.reporter = CostOptimizationReporter()
         self.reporter.set_scan_context(organization, org_admin_account_id)
@@ -91,7 +93,7 @@ class EngineScanner:
         )
         plugins_dir = os.path.abspath(plugins_dir)
         if os.path.isdir(plugins_dir):
-            self._engine.load_plugins(plugins_dir)
+            self._engine.load_plugins(plugins_dir, debug=self.debug)
 
     async def run_comprehensive_scan(self) -> CostOptimizationReporter:
         """Run all registered checks and return a populated reporter."""
@@ -164,6 +166,7 @@ class EngineScanner:
                 deep=False,
                 config_manager=self.config_manager,
                 on_check_complete=progress.update,
+                debug=self.debug,
             )
         )
 

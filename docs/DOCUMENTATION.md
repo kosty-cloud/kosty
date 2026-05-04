@@ -387,6 +387,7 @@ All commands support:
 - `--cross-account-role TEXT` - Role name for cross-account access (default: OrganizationAccountAccessRole)
 - `--org-admin-account-id TEXT` - Organization admin account ID
 - `--verbose` - Show full finding details: ARN, risk, monthly savings, check ID
+- `--debug` - Print check execution details, errors, and timing to stderr (for troubleshooting)
 
 Local JSON and CSV reports are written with a `.sha256` sidecar for integrity verification:
 ```bash

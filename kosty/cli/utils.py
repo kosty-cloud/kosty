@@ -13,6 +13,16 @@ from datetime import datetime
 from ..core.config import ConfigManager
 
 
+def _debug_callback(ctx, param, value):
+    """Store debug flag in ctx.obj so execute_engine_command can read it
+    without requiring every command function to forward it explicitly.
+    """
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['debug'] = value
+    return value
+
+
 def _verbose_callback(ctx, param, value):
     """Store verbose flag in ctx.obj so execute_engine_command can read it
     without requiring every command function to forward it explicitly.
@@ -40,6 +50,8 @@ def common_options(f):
     f = click.option('--org-admin-account-id', help='Organization admin account ID (if different from current account)')(f)
     f = click.option('--verbose', is_flag=True, expose_value=False, callback=_verbose_callback, is_eager=False,
                      help='Show full finding details (ARN, risk, savings, check ID)')(f)
+    f = click.option('--debug', is_flag=True, expose_value=False, callback=_debug_callback, is_eager=False,
+                     help='Print check execution details, errors, and timing to stderr')(f)
     return f
 
 def _resolve_scan_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
@@ -81,16 +93,20 @@ def _resolve_scan_params(ctx, profile, organization, region, max_workers, region
         return boto3.Session(), reg_list, max_workers or ctx.obj.get('max_workers', 10), None
 
 
-def _run_checks(checks, session, reg_list, workers, config_manager, **kwargs):
+def _run_checks(checks, session, reg_list, workers, config_manager, debug=False, **kwargs):
     """Execute a list of checks across regions and return all findings.
 
     Injects compliance_ids from check metadata into each finding so plugins
     don't need to repeat the mapping in their Finding constructors.
     """
+    import sys
+    import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     all_findings = []
     for rgn in reg_list:
+        if debug:
+            print(f"[DEBUG] region={rgn} checks={len(checks)}", file=sys.stderr)
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
                 executor.submit(c['func'], session=session, region=rgn,
@@ -99,6 +115,7 @@ def _run_checks(checks, session, reg_list, workers, config_manager, **kwargs):
             }
             for future in as_completed(futures):
                 check = futures[future]
+                t0 = time.monotonic()
                 try:
                     result = future.result()
                     if isinstance(result, list):
@@ -107,8 +124,21 @@ def _run_checks(checks, session, reg_list, workers, config_manager, **kwargs):
                                 if hasattr(f, 'compliance_ids') and not f.compliance_ids:
                                     f.compliance_ids = check['metadata'].compliance_ids
                         all_findings.extend(result)
-                except Exception:
-                    pass
+                        if debug:
+                            elapsed = time.monotonic() - t0
+                            print(
+                                f"[DEBUG] {check['metadata'].check_id} {rgn}"
+                                f" findings={len(result)} t={elapsed:.2f}s",
+                                file=sys.stderr,
+                            )
+                except Exception as e:
+                    if debug:
+                        elapsed = time.monotonic() - t0
+                        print(
+                            f"[DEBUG] {check['metadata'].check_id} {rgn}"
+                            f" ERROR {type(e).__name__}: {e} t={elapsed:.2f}s",
+                            file=sys.stderr,
+                        )
     return all_findings
 
 
@@ -117,7 +147,9 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
                            org_admin_account_id=None, save_to=None, profile=None,
                            check_id=None, **kwargs):
     """Resolve config, select checks, run them, and display results."""
+    import sys
     verbose = ctx.obj.get('verbose', False) if ctx.obj else False
+    debug = ctx.obj.get('debug', False) if ctx.obj else False
     from ..core.registry import registry
     from ..core.models import FindingType
 
@@ -142,7 +174,14 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
     if not deep:
         checks = [c for c in checks if not c['metadata'].requires_deep]
 
-    findings = _run_checks(checks, session, reg_list, workers, config_manager, **kwargs)
+    if debug:
+        print(
+            f"[DEBUG] service={service_name} method={method or check_id}"
+            f" checks={len(checks)} regions={reg_list} workers={workers}",
+            file=sys.stderr,
+        )
+
+    findings = _run_checks(checks, session, reg_list, workers, config_manager, debug=debug, **kwargs)
     _output_findings(findings, service_name, output, save_to, verbose=verbose)
 
 
