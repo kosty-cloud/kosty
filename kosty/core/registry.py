@@ -60,6 +60,7 @@ class CheckRegistry:
             Decorator that registers the function and returns it unchanged.
         """
         def decorator(func: Callable) -> Callable:
+            """Register func and return it unchanged so it stays callable directly."""
             self._checks[check_id] = {
                 'metadata': CheckMetadata(
                     check_id=check_id,
