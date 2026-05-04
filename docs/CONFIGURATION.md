@@ -227,7 +227,7 @@ exclude:
 
 **Effect**: Individual resources matching these patterns are skipped.
 
-#### 5. Tag Exclusions (NEW in v1.6.0)
+#### 5. Tag Exclusions
 
 ```yaml
 exclude:
