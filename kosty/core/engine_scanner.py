@@ -38,6 +38,12 @@ class EngineScanner:
         config_manager=None,
         session=None,
     ):
+        """Set up the scanner, reporter, and engine, then load plugins.
+
+        org_admin_account_id is only needed when the current credentials
+        don't have Organizations:ListAccounts — pass the management account
+        ID and the scanner will assume a role there first.
+        """
         self.organization = organization
         self.regions = regions if isinstance(regions, list) else [regions]
         self.max_workers = max_workers
