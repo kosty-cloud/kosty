@@ -103,7 +103,6 @@ class MultiAccountProgress:
         self._lock = threading.Lock()
         self._active = _is_tty()
         if self._active:
-            # Reserve lines
             sys.stderr.write("\n" * len(self._accounts))
             sys.stderr.flush()
 
