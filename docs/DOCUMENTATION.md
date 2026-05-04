@@ -362,7 +362,7 @@ Kosty now validates Organizations access upfront and provides clear error messag
 
 ### Global Commands
 ```bash
-kosty audit                    # Scan all 30+ services
+kosty audit                    # Scan all 32 services
 kosty audit --organization    # Organization-wide scan
 ```
 

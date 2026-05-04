@@ -238,4 +238,4 @@ Pro plugins follow the exact same format. They live in a private repo that's mou
 - **Global checks run once** — IAM and S3 checks have `region_scope='global'` and execute only on the first region, avoiding N duplicate scans in multi-region mode
 - **Plugin integrity** — SHA-256 manifest at `providers/aws/services/plugins.sha256` verified at load time
 - **Report integrity** — local JSON/CSV reports get a `.sha256` sidecar automatically
-- **All legacy code removed** — no `kosty/services/`, no adapter, no bridge
+- **All legacy code removed** — no `kosty/core/services/` (old monolithic classes), no adapter, no bridge

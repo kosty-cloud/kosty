@@ -38,7 +38,7 @@
 ```bash
 pip install kosty
 
-# Full audit — cost + security across 30+ services
+# Full audit — cost + security across 32 services
 kosty audit --output all
 
 # External attack surface mapping
