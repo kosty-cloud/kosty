@@ -41,6 +41,7 @@ class CheckRegistry:
         description: str = "",
         requires_deep: bool = False,
         compliance_ids: Dict = None,
+        region_scope: str = 'regional',
     ) -> Callable:
         """Decorator factory that registers a check function.
 
@@ -52,7 +53,8 @@ class CheckRegistry:
             description: Human-readable description.
             requires_deep: Whether this check needs --deep flag.
             compliance_ids: Optional mapping of framework to control IDs.
-                           Example: {"CIS": ["1.4"], "PCI": ["8.3.1"]}
+            region_scope: 'regional' (default) or 'global' — global checks
+                          run only once per scan regardless of region count.
 
         Returns:
             Decorator that registers the function and returns it unchanged.
@@ -67,6 +69,7 @@ class CheckRegistry:
                     description=description,
                     requires_deep=requires_deep,
                     compliance_ids=compliance_ids or {},
+                    region_scope=region_scope,
                 ),
                 'func': func,
             }

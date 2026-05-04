@@ -30,7 +30,7 @@ ESCALATION_PATTERNS = {
 }
 
 
-@register_check(check_id="aws-iam-018", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Detect privilege escalation paths (21 patterns)", requires_deep=True)
+@register_check(check_id="aws-iam-018", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Detect privilege escalation paths (21 patterns)", requires_deep=True, region_scope="global")
 def check_privilege_escalation(session, region, deep=False, **kwargs):
     """Scan all principals for known escalation vectors. Use --deep for SimulatePrincipalPolicy confirmation."""
     iam = session.client('iam')
@@ -39,14 +39,16 @@ def check_privilege_escalation(session, region, deep=False, **kwargs):
 
     principals = []
     try:
-        for user in iam.list_users()['Users']:
-            principals.append(('User', user['UserName'], user['Arn']))
+        for page in iam.get_paginator('list_users').paginate():
+            for user in page['Users']:
+                principals.append(('User', user['UserName'], user['Arn']))
     except Exception:
         pass
     try:
-        for role in iam.list_roles()['Roles']:
-            if not role['RoleName'].startswith('aws-') and not role['RoleName'].startswith('AWSServiceRole'):
-                principals.append(('Role', role['RoleName'], role['Arn']))
+        for page in iam.get_paginator('list_roles').paginate():
+            for role in page['Roles']:
+                if not role['RoleName'].startswith('aws-') and not role['RoleName'].startswith('AWSServiceRole'):
+                    principals.append(('Role', role['RoleName'], role['Arn']))
     except Exception:
         pass
 

@@ -208,11 +208,11 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
         print("\n" + reporter.generate_summary_report())
     
     if output in ['json', 'all']:
-        json_file = asyncio.run(reporter.save_json_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to))
+        json_file = reporter.save_json_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to)
         print(f"\n📄 Detailed JSON report saved: {json_file}")
     
     if output in ['csv', 'all']:
-        csv_file = asyncio.run(reporter.save_csv_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to))
+        csv_file = reporter.save_csv_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to)
         print(f"📊 CSV report saved: {csv_file}")
     
     if output == 'all':

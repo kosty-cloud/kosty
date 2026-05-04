@@ -3,7 +3,6 @@ import csv
 from datetime import datetime
 from typing import Dict, List, Any
 from pathlib import Path
-from .cost_calculator import CostCalculator
 
 class CostOptimizationReporter:
     def __init__(self):
@@ -11,7 +10,6 @@ class CostOptimizationReporter:
         self.scan_timestamp = datetime.now()
         self.organization = False
         self.org_admin_account_id = None
-        self.cost_calculator = CostCalculator()
     
     def set_scan_context(self, organization: bool = False, org_admin_account_id: str = None):
         """Set scan context for proper filename generation"""
@@ -26,11 +24,10 @@ class CostOptimizationReporter:
         if service not in self.results[account_id]:
             self.results[account_id][service] = {}
         
-        # Add cost information to findings
-        enriched_data = [self.cost_calculator.add_cost_to_finding(item) for item in data]
+        enriched_data = data
         
-        # Calculate total monthly savings
-        monthly_savings = sum(item.get('monthly_cost', 0) for item in enriched_data if item.get('monthly_cost') is not None)
+        # monthly_savings is set directly by plugins on Finding objects
+        monthly_savings = sum(item.get('monthly_savings', 0) for item in enriched_data)
             
         self.results[account_id][service][command] = {
             'count': len(enriched_data),
@@ -161,21 +158,17 @@ class CostOptimizationReporter:
         
         return "\n".join(report)
     
-    async def save_json_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None, save_to: str = None):
+    def save_json_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None, save_to: str = None):
         """Save detailed JSON report"""
+        import asyncio
         from .storage import StorageManager
         
         if not filename:
             timestamp = self.scan_timestamp.strftime('%Y%m%d_%H%M%S')
             
-            # Determine scope for filename
             if organization:
-                if org_admin_account_id:
-                    scope = f"org_{org_admin_account_id}"
-                else:
-                    scope = "org"
+                scope = f"org_{org_admin_account_id}" if org_admin_account_id else "org"
             else:
-                # Single account - get first account ID
                 account_id = list(self.results.keys())[0] if self.results else "unknown"
                 scope = account_id
             
@@ -189,7 +182,6 @@ class CostOptimizationReporter:
                 for command, command_data in service_data.items():
                     for item in command_data['items']:
                         if isinstance(item, dict):
-                            # Ensure required fields for dashboard
                             if 'Service' not in item:
                                 item['Service'] = service.upper()
                             if 'AccountId' not in item:
@@ -214,35 +206,29 @@ class CostOptimizationReporter:
         
         if save_to:
             storage_manager = StorageManager()
-            saved_location = await storage_manager.save_file(content, filename, save_to, 'json')
-            return saved_location
+            return asyncio.run(storage_manager.save_file(content, filename, save_to, 'json'))
         else:
             with open(filename, 'w') as f:
                 f.write(content)
             return filename
     
-    async def save_csv_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None, save_to: str = None):
+    def save_csv_report(self, filename: str = None, organization: bool = False, org_admin_account_id: str = None, save_to: str = None):
         """Save CSV report for spreadsheet analysis"""
+        import asyncio
         from .storage import StorageManager
         from io import StringIO
         
         if not filename:
             timestamp = self.scan_timestamp.strftime('%Y%m%d_%H%M%S')
             
-            # Determine scope for filename
             if organization:
-                if org_admin_account_id:
-                    scope = f"org_{org_admin_account_id}"
-                else:
-                    scope = "org"
+                scope = f"org_{org_admin_account_id}" if org_admin_account_id else "org"
             else:
-                # Single account - get first account ID
                 account_id = list(self.results.keys())[0] if self.results else "unknown"
                 scope = account_id
             
             filename = f"kosty_full_{scope}_{timestamp}.csv"
         
-        # Generate CSV content
         output = StringIO()
         writer = csv.writer(output)
         writer.writerow(['Account', 'Service', 'Command', 'Resource Count', 'Monthly Cost (USD)', 'Annual Cost (USD)', 'Details'])
@@ -253,17 +239,14 @@ class CostOptimizationReporter:
                     if command_data['count'] > 0:
                         details = '; '.join([
                             f"{item.get('InstanceId', item.get('VolumeId', item.get('FunctionName', item.get('ClusterName', item.get('resource_id', 'Resource')))))}"
-                            for item in command_data['items'][:5]  # First 5 items
+                            for item in command_data['items'][:5]
                         ])
                         
                         monthly_savings = command_data.get('monthly_savings', 0)
                         annual_savings = monthly_savings * 12 if monthly_savings > 0 else 0
                         
                         writer.writerow([
-                            account_id,
-                            service,
-                            command,
-                            command_data['count'],
+                            account_id, service, command, command_data['count'],
                             f"${monthly_savings:,.2f}" if monthly_savings > 0 else "N/A",
                             f"${annual_savings:,.2f}" if annual_savings > 0 else "N/A",
                             details
@@ -274,8 +257,7 @@ class CostOptimizationReporter:
         
         if save_to:
             storage_manager = StorageManager()
-            saved_location = await storage_manager.save_file(csv_content, filename, save_to, 'csv')
-            return saved_location
+            return asyncio.run(storage_manager.save_file(csv_content, filename, save_to, 'csv'))
         else:
             with open(filename, 'w', newline='') as f:
                 f.write(csv_content)

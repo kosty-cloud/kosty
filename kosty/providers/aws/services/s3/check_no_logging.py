@@ -4,7 +4,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-s3-008", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without access logging")
+@register_check(check_id="aws-s3-008", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without access logging", region_scope="global")
 def check_no_logging(session, region, **kwargs):
     """Flag buckets with no audit trail of who accessed what."""
     s3 = session.client('s3')

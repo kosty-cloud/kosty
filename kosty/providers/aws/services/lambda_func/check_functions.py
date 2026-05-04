@@ -14,24 +14,26 @@ def check_unused_functions(session, region, days=30, **kwargs):
     try:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
-        for func in lam.list_functions()['Functions']:
-            try:
-                metrics = cw.get_metric_statistics(
-                    Namespace='AWS/Lambda', MetricName='Invocations',
-                    Dimensions=[{'Name': 'FunctionName', 'Value': func['FunctionName']}],
-                    StartTime=start, EndTime=end, Period=86400, Statistics=['Sum']
-                )
-                if not metrics['Datapoints'] or sum(dp['Sum'] for dp in metrics['Datapoints']) == 0:
-                    findings.append(Finding(
-                        check_id="aws-lambda-001", service="Lambda",
-                        resource_id=func['FunctionName'], region=region, account_id=account_id,
-                        issue=f"0 invocations in {days} days",
-                        severity=Severity.LOW, finding_type=FindingType.COST,
-                        risk="Dead code — potential security surface with no business value",
-                        arn=func['FunctionArn'],
-                    ))
-            except Exception:
-                continue
+        paginator = lam.get_paginator('list_functions')
+        for page in paginator.paginate():
+            for func in page['Functions']:
+                try:
+                    metrics = cw.get_metric_statistics(
+                        Namespace='AWS/Lambda', MetricName='Invocations',
+                        Dimensions=[{'Name': 'FunctionName', 'Value': func['FunctionName']}],
+                        StartTime=start, EndTime=end, Period=86400, Statistics=['Sum']
+                    )
+                    if not metrics['Datapoints'] or sum(dp['Sum'] for dp in metrics['Datapoints']) == 0:
+                        findings.append(Finding(
+                            check_id="aws-lambda-001", service="Lambda",
+                            resource_id=func['FunctionName'], region=region, account_id=account_id,
+                            issue=f"0 invocations in {days} days",
+                            severity=Severity.LOW, finding_type=FindingType.COST,
+                            risk="Dead code — potential security surface with no business value",
+                            arn=func['FunctionArn'],
+                        ))
+                except Exception:
+                    continue
     except Exception:
         pass
     return findings
@@ -44,22 +46,24 @@ def check_public_functions(session, region, **kwargs):
     account_id = get_account_id(session)
     findings = []
     try:
-        for func in lam.list_functions()['Functions']:
-            try:
-                policy = lam.get_policy(FunctionName=func['FunctionName']).get('Policy', '{}')
-                if '"*"' in policy:
-                    findings.append(Finding(
-                        check_id="aws-lambda-002", service="Lambda",
-                        resource_id=func['FunctionName'], region=region, account_id=account_id,
-                        issue="Publicly accessible function",
-                        severity=Severity.HIGH, finding_type=FindingType.SECURITY,
-                        risk="Anyone can invoke this function",
-                        arn=func['FunctionArn'],
-                    ))
-            except lam.exceptions.ResourceNotFoundException:
-                continue
-            except Exception:
-                continue
+        paginator = lam.get_paginator('list_functions')
+        for page in paginator.paginate():
+            for func in page['Functions']:
+                try:
+                    policy = lam.get_policy(FunctionName=func['FunctionName']).get('Policy', '{}')
+                    if '"*"' in policy:
+                        findings.append(Finding(
+                            check_id="aws-lambda-002", service="Lambda",
+                            resource_id=func['FunctionName'], region=region, account_id=account_id,
+                            issue="Publicly accessible function",
+                            severity=Severity.HIGH, finding_type=FindingType.SECURITY,
+                            risk="Anyone can invoke this function",
+                            arn=func['FunctionArn'],
+                        ))
+                except lam.exceptions.ResourceNotFoundException:
+                    continue
+                except Exception:
+                    continue
     except Exception:
         pass
     return findings
@@ -73,16 +77,18 @@ def check_outdated_runtime(session, region, **kwargs):
     findings = []
     outdated = ['python2.7', 'python3.6', 'python3.7', 'nodejs8.10', 'nodejs10.x', 'nodejs12.x', 'dotnetcore2.1', 'dotnetcore3.1', 'go1.x', 'ruby2.5', 'ruby2.7']
     try:
-        for func in lam.list_functions()['Functions']:
-            if func.get('Runtime', '') in outdated:
-                findings.append(Finding(
-                    check_id="aws-lambda-003", service="Lambda",
-                    resource_id=func['FunctionName'], region=region, account_id=account_id,
-                    issue=f"Outdated runtime: {func['Runtime']}",
-                    severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
-                    risk="EOL runtime — no security patches",
-                    arn=func['FunctionArn'],
-                ))
+        paginator = lam.get_paginator('list_functions')
+        for page in paginator.paginate():
+            for func in page['Functions']:
+                if func.get('Runtime', '') in outdated:
+                    findings.append(Finding(
+                        check_id="aws-lambda-003", service="Lambda",
+                        resource_id=func['FunctionName'], region=region, account_id=account_id,
+                        issue=f"Outdated runtime: {func['Runtime']}",
+                        severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
+                        risk="EOL runtime — no security patches",
+                        arn=func['FunctionArn'],
+                    ))
     except Exception:
         pass
     return findings

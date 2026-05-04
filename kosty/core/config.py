@@ -22,7 +22,11 @@ VALID_REGIONS = [
 VALID_SERVICES = [
     'ec2', 's3', 'rds', 'lambda', 'ebs', 'iam', 'eip',
     'lb', 'nat', 'sg', 'cloudwatch', 'dynamodb',
-    'route53', 'apigateway', 'backup', 'snapshots'
+    'route53', 'apigateway', 'backup', 'snapshots',
+    'bedrock', 'sagemaker', 'waf', 'ecs', 'sns', 'sqs',
+    'kms', 'acm', 'elasticache', 'cloudtrail', 'vpc',
+    'guardduty', 'config', 'secretsmanager', 'ssm',
+    'publicexposure', 'public_exposure',
 ]
 
 # Hardcoded defaults

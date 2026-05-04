@@ -105,6 +105,7 @@ class CheckMetadata:
     description: str = ""
     requires_deep: bool = False
     compliance_ids: Dict[str, List[str]] = field(default_factory=dict)
+    region_scope: str = 'regional'  # 'regional' | 'global' — global checks run once per scan
 
 
 @dataclass

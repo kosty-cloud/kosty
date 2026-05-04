@@ -35,7 +35,7 @@ class StorageManager:
             # Test write access with a small test object
             test_key = f"{key_prefix}/kosty_access_test.txt" if key_prefix else "kosty_access_test.txt"
             
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             with ThreadPoolExecutor() as executor:
                 # Test put object
                 await loop.run_in_executor(
@@ -146,7 +146,7 @@ class StorageManager:
     
     async def _create_directory_with_timeout(self, directory: Path, timeout: int = 10):
         """Create directory with timeout for network paths"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with ThreadPoolExecutor() as executor:
             await asyncio.wait_for(
                 loop.run_in_executor(executor, lambda: directory.mkdir(parents=True, exist_ok=True)),
@@ -155,7 +155,7 @@ class StorageManager:
     
     async def _write_test_file_with_timeout(self, test_file: Path, timeout: int = 10):
         """Write and delete test file with timeout for network paths"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with ThreadPoolExecutor() as executor:
             # Write test file
             await asyncio.wait_for(
@@ -198,7 +198,7 @@ class StorageManager:
             s3_key = filename
         
         # Upload to S3
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with ThreadPoolExecutor() as executor:
             await loop.run_in_executor(
                 executor,
@@ -235,7 +235,7 @@ class StorageManager:
         
         # Write file (with timeout for network paths)
         if is_network_path:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             with ThreadPoolExecutor() as executor:
                 await asyncio.wait_for(
                     loop.run_in_executor(executor, lambda: final_path.write_text(content)),

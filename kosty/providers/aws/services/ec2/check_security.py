@@ -67,18 +67,27 @@ def check_no_recent_backup(session, region, days=30, **kwargs):
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)
+        # Fetch all account AMIs once, build a set of source instance IDs
+        images = ec2.describe_images(Owners=[account_id])
+        recent_instance_ids = set()
+        for img in images['Images']:
+            try:
+                created = datetime.strptime(img['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ')
+            except ValueError:
+                created = datetime.strptime(img['CreationDate'], '%Y-%m-%dT%H:%M:%SZ')
+            if created > cutoff:
+                # Tag 'SourceInstanceId' is set by create-image; also check Name tag
+                for tag in img.get('Tags', []):
+                    if tag['Key'] == 'SourceInstanceId':
+                        recent_instance_ids.add(tag['Value'])
+                # Also check image name pattern i-xxxxxxxxxxxxxxxxx
+                name = img.get('Name', '')
+                if name.startswith('i-') and len(name.split('-')) >= 2:
+                    recent_instance_ids.add(name.split()[0])
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
-                images = ec2.describe_images(
-                    Owners=[account_id],
-                    Filters=[{'Name': 'state', 'Values': ['available']}, {'Name': 'description', 'Values': [f'*{inst["InstanceId"]}*']}]
-                )
-                has_recent = any(
-                    datetime.strptime(img['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ') > cutoff
-                    for img in images['Images']
-                )
-                if not has_recent:
+                if inst['InstanceId'] not in recent_instance_ids:
                     findings.append(Finding(
                         check_id="aws-ec2-012", service="EC2",
                         resource_id=inst['InstanceId'], region=region, account_id=account_id,

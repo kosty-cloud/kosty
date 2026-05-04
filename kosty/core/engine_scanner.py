@@ -115,7 +115,7 @@ class EngineScanner:
 
         progress = SingleAccountProgress(total_checks)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             None,
             lambda: self._engine.run(
@@ -171,7 +171,7 @@ class EngineScanner:
             async with semaphore:
                 try:
                     assumed_session = await self._assume_role(session, account_id)
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(
                         None,
                         lambda s=assumed_session, a=account_id: self._engine.run(
@@ -234,7 +234,7 @@ class EngineScanner:
                 )
 
             org_client = validation_session.client('organizations')
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, org_client.list_accounts)
             return True
         except Exception as e:
@@ -270,7 +270,7 @@ class EngineScanner:
     async def _assume_role(self, session, account_id: str):
         """Assume cross-account role and return new session."""
         sts = session.client('sts')
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         assumed = await loop.run_in_executor(
             None,
             lambda: sts.assume_role(

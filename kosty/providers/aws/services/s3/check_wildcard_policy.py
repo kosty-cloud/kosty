@@ -4,7 +4,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-s3-009", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets with wildcard principal in policy")
+@register_check(check_id="aws-s3-009", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets with wildcard principal in policy", region_scope="global")
 def check_wildcard_policy(session, region, **kwargs):
     """Flag bucket policies granting access to everyone."""
     s3 = session.client('s3')

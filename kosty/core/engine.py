@@ -84,14 +84,24 @@ class ScanEngine:
         if not deep:
             checks = [c for c in checks if not c['metadata'].requires_deep]
 
+        # Split global checks (IAM, S3, etc.) from regional ones.
+        # Global checks run once on the first region to avoid N duplicate scans.
+        global_checks = [c for c in checks if c['metadata'].region_scope == 'global']
+        regional_checks = [c for c in checks if c['metadata'].region_scope != 'global']
+
+        first_region = regions[0] if regions else None
+
         for region in regions:
-            region_findings = self._run_checks_for_region(
-                checks, session, region, deep=deep,
+            # Global checks only on first region
+            checks_for_region = regional_checks + (global_checks if region == first_region else [])
+            region_findings, region_errors = self._run_checks_for_region(
+                checks_for_region, session, region, deep=deep,
                 config_manager=config_manager,
                 on_check_complete=on_check_complete,
                 **kwargs
             )
             result.findings.extend(region_findings)
+            result.errors.extend(region_errors)
 
         result.errors.extend(self._loader.errors)
         return result
@@ -103,9 +113,14 @@ class ScanEngine:
         region: str,
         on_check_complete=None,
         **kwargs,
-    ) -> List[Finding]:
-        """Run all checks for a single region with thread pool."""
+    ) -> tuple:
+        """Run all checks for a single region with thread pool.
+
+        Returns:
+            Tuple of (findings, errors).
+        """
         findings = []
+        errors = []
 
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             futures = {}
@@ -120,13 +135,13 @@ class ScanEngine:
                 try:
                     check_findings = future.result()
                     findings.extend(check_findings)
-                except Exception:
-                    pass
+                except Exception as e:
+                    errors.append(f"{metadata.check_id} [{region}]: {type(e).__name__}: {e}")
                 finally:
                     if on_check_complete:
                         on_check_complete(metadata.service)
 
-        return findings
+        return findings, errors
 
     def _execute_check(
         self,

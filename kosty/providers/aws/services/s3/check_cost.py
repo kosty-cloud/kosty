@@ -3,7 +3,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-s3-001", service="S3", provider="aws", finding_type=FindingType.COST, description="Find empty S3 buckets")
+@register_check(check_id="aws-s3-001", service="S3", provider="aws", finding_type=FindingType.COST, description="Find empty S3 buckets", region_scope="global")
 def check_empty_buckets(session, region, **kwargs):
     """Flag buckets with zero objects."""
     s3 = session.client('s3')
@@ -30,7 +30,7 @@ def check_empty_buckets(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-002", service="S3", provider="aws", finding_type=FindingType.COST, description="Find incomplete multipart uploads")
+@register_check(check_id="aws-s3-002", service="S3", provider="aws", finding_type=FindingType.COST, description="Find incomplete multipart uploads", region_scope="global")
 def check_incomplete_uploads(session, region, **kwargs):
     """Flag buckets with abandoned multipart uploads consuming storage."""
     s3 = session.client('s3')
@@ -57,7 +57,7 @@ def check_incomplete_uploads(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-003", service="S3", provider="aws", finding_type=FindingType.COST, description="Find buckets without lifecycle policy")
+@register_check(check_id="aws-s3-003", service="S3", provider="aws", finding_type=FindingType.COST, description="Find buckets without lifecycle policy", region_scope="global")
 def check_no_lifecycle(session, region, **kwargs):
     """Flag buckets with data but no expiration or transition rules."""
     s3 = session.client('s3')
