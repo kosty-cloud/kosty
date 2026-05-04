@@ -4,6 +4,31 @@ Orchestrates the full scan lifecycle: plugin loading, check execution,
 progress display, and result aggregation into CostOptimizationReporter.
 This is the only scanner in v3.0.0 — the legacy ComprehensiveScanner
 has been removed.
+
+Notes on boto3 timeouts:
+    Individual check functions call boto3 without explicit socket timeouts.
+    boto3 defaults to a 60-second connect timeout and a 60-second read
+    timeout, with up to 3 retry attempts — so a single stuck API call can
+    hold a thread for up to ~3 minutes before giving up.
+
+    In practice this is rarely a problem: AWS endpoints are fast and the
+    ThreadPoolExecutor keeps other checks running in parallel. If you hit
+    a slow account (e.g. a region with degraded service), the affected
+    checks will eventually time out and their errors will appear in
+    ScanResult.errors.
+
+    To tune this, set the AWS_DEFAULT_SOCKET_TIMEOUT environment variable
+    or configure a custom botocore Config object before running Kosty.
+
+Notes on temporary credential lifecycle:
+    Cross-account sessions created by _assume_role() are not explicitly
+    revoked at the end of the scan. They expire naturally when
+    duration_seconds elapses (default 3600s, capped at 43200s).
+
+    If you need to invalidate a session early — for example after an
+    incident — use sts:RevokeSession or rotate the role's trust policy.
+    The session tokens themselves are not stored to disk; they live only
+    in memory for the duration of the scan.
 """
 
 import os
