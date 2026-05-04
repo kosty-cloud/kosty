@@ -19,7 +19,7 @@ Usage:
 """
 
 from typing import Callable, Dict, List, Optional, Any
-from .models import CheckMetadata, Finding, FindingType
+from .models import CheckMetadata, FindingType
 
 
 class CheckRegistry:
@@ -104,6 +104,7 @@ class CheckRegistry:
 
     @property
     def count(self) -> int:
+        """Number of checks currently registered."""
         return len(self._checks)
 
 

@@ -1,4 +1,3 @@
-import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id

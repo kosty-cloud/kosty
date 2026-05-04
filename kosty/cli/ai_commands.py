@@ -17,7 +17,6 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
 
     _ensure_plugins_loaded()
 
-    # Determine type filter
     finding_type_filter = None
     if method == 'cost_audit':
         finding_type_filter = FindingType.COST
@@ -49,7 +48,6 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
         print(f"\n🤖 {service_name} Audit: {len(svc_findings)} issues")
         all_findings.extend(svc_findings)
 
-    # Output
     total = len(all_findings)
     items = [f.to_dict() for f in all_findings]
 
