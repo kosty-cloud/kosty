@@ -32,6 +32,7 @@ Notes on temporary credential lifecycle:
 """
 
 import os
+import re
 import sys
 import asyncio
 from typing import List
@@ -309,11 +310,14 @@ class EngineScanner:
         """Assume cross-account role and return new session."""
         sts = session.client('sts')
         loop = asyncio.get_running_loop()
+        # account_id from Organizations is always 12 digits, but sanitise
+        # anyway to match the same pattern used for profile names in config.py.
+        safe_account_id = re.sub(r'[^\w+=,.@-]', '-', account_id)
         assumed = await loop.run_in_executor(
             None,
             lambda: sts.assume_role(
                 RoleArn=f'arn:aws:iam::{account_id}:role/{self.cross_account_role}',
-                RoleSessionName=f'kosty-{account_id}'
+                RoleSessionName=f'kosty-{safe_account_id}'
             )
         )
         return boto3.Session(
