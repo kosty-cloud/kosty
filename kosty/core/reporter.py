@@ -7,14 +7,42 @@ Handles three output formats:
 
 The reporter is intentionally dumb about how findings are produced —
 it just aggregates whatever the engine feeds it via add_results().
+
+Report integrity:
+    Every local report file is accompanied by a .sha256 sidecar, e.g.:
+        kosty_full_123456789012_20260504_101014.json
+        kosty_full_123456789012_20260504_101014.json.sha256
+
+    The sidecar contains a single line in the standard sha256sum(1) format:
+        <hex_digest>  <filename>
+
+    Verify with:  sha256sum -c kosty_full_*.json.sha256
+
+    Reports saved to S3 or other remote destinations via --save-to do not
+    get a sidecar — S3 provides its own ETag (MD5) and you can enable
+    object integrity checks at the bucket level.
 """
 
 import asyncio
+import hashlib
 import json
 import csv
 from datetime import datetime
 from io import StringIO
 from typing import Dict, List, Any
+
+
+def _write_with_hash(content: str, filename: str) -> None:
+    """Write content to filename and a SHA-256 sidecar alongside it.
+
+    The sidecar uses the same format as sha256sum(1) so it can be verified
+    with a single command:  sha256sum -c <filename>.sha256
+    """
+    with open(filename, 'w') as f:
+        f.write(content)
+    digest = hashlib.sha256(content.encode('utf-8')).hexdigest()
+    with open(f'{filename}.sha256', 'w') as f:
+        f.write(f'{digest}  {filename}\n')
 
 
 class CostOptimizationReporter:
@@ -238,8 +266,7 @@ class CostOptimizationReporter:
         if save_to:
             return asyncio.run(StorageManager().save_file(content, filename, save_to, 'json'))
 
-        with open(filename, 'w') as f:
-            f.write(content)
+        _write_with_hash(content, filename)
         return filename
 
     def save_csv_report(self, filename: str = None, organization: bool = False,
@@ -289,6 +316,5 @@ class CostOptimizationReporter:
         if save_to:
             return asyncio.run(StorageManager().save_file(csv_content, filename, save_to, 'csv'))
 
-        with open(filename, 'w', newline='') as f:
-            f.write(csv_content)
+        _write_with_hash(csv_content, filename)
         return filename
