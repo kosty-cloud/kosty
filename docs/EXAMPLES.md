@@ -126,6 +126,22 @@ kosty audit --output json --save-to ./reports
 kosty audit --output json --save-to s3://my-bucket/audits/
 ```
 
+## Report Integrity
+
+Local JSON and CSV reports are written with a `.sha256` sidecar. Verify
+before reading a report in a pipeline or after storing it:
+
+```bash
+# Verify a single report
+sha256sum -c kosty_full_209479307498_20260504_101014.json.sha256
+
+# Verify all reports in a directory
+sha256sum -c reports/kosty_full_*.json.sha256
+```
+
+Reports saved to S3 via `--save-to` do not get a sidecar — S3 handles
+integrity at the transport and storage layer.
+
 ## Individual Checks
 
 ```bash

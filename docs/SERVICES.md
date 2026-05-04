@@ -1,6 +1,6 @@
 # Kosty — Service Coverage
 
-30+ AWS services. 200+ checks. Full list below.
+32 AWS services. 151 checks. Full list below.
 
 ---
 
