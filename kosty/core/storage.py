@@ -16,7 +16,6 @@ to avoid hanging indefinitely on unreachable mounts.
 import asyncio
 import boto3
 from pathlib import Path
-from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
 
