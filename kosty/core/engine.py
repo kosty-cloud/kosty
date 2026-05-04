@@ -150,18 +150,18 @@ class ScanEngine:
                 t0 = time.monotonic()
                 try:
                     check_findings = future.result()
+                    elapsed = time.monotonic() - t0
                     findings.extend(check_findings)
                     if debug:
-                        elapsed = time.monotonic() - t0
                         print(
                             f"[DEBUG] {metadata.check_id} [{region}]"
                             f" findings={len(check_findings)} t={elapsed:.2f}s",
                             file=sys.stderr,
                         )
                 except Exception as e:
+                    elapsed = time.monotonic() - t0
                     errors.append(f"{metadata.check_id} [{region}]: {type(e).__name__}: {e}")
                     if debug:
-                        elapsed = time.monotonic() - t0
                         print(
                             f"[DEBUG] {metadata.check_id} [{region}]"
                             f" ERROR {type(e).__name__}: {e} t={elapsed:.2f}s",

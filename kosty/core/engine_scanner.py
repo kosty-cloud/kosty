@@ -175,6 +175,11 @@ class EngineScanner:
         findings = result.findings
         self._feed_reporter(findings)
 
+        if self.debug and result.errors:
+            print(f"\n[DEBUG] {len(result.errors)} check error(s):", file=sys.stderr)
+            for err in result.errors:
+                print(f"[DEBUG]   ✗ {err}", file=sys.stderr)
+
         total = len(findings)
         print("\n" + "=" * 60)
         print("✅ Comprehensive scan completed!")
@@ -222,8 +227,12 @@ class EngineScanner:
                             deep=False,
                             config_manager=self.config_manager,
                             on_check_complete=lambda svc, aid=a: progress.update(aid),
+                            debug=self.debug,
                         )
                     )
+                    if self.debug and result.errors:
+                        for err in result.errors:
+                            print(f"[DEBUG]   ✗ {account_id}: {err}", file=sys.stderr)
                     return result.findings
                 except Exception as e:
                     print(f"  ✗ {account_id}: {e}", file=sys.stderr)
