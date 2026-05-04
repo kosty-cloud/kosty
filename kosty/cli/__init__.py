@@ -80,12 +80,16 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--org-admin-account-id', help='Organization admin account ID')
 @click.option('--profiles', is_flag=True, help='Run audit on all profiles from config file')
 @click.option('--max-parallel-profiles', type=int, default=3, help='Max profiles to run in parallel (default: 3)')
+@click.option('--verbose', is_flag=True, help='Show full finding details (ARN, risk, savings, check ID)')
 @click.pass_context
-def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles):
+def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles, verbose):
     """Run a full audit across all 32 services (cost + security)."""
     from ..core.engine_scanner import EngineScanner
     from ..core.config import ConfigManager
     from ..core.multi_profile_runner import MultiProfileRunner
+
+    ctx.ensure_object(dict)
+    ctx.obj['verbose'] = verbose
 
     if profiles:
         runner = MultiProfileRunner(config_file=ctx.obj.get('config_file'))
@@ -153,6 +157,8 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
 
     if output in ['console', 'all']:
         print("\n" + reporter.generate_summary_report())
+        if verbose:
+            _print_verbose_findings(reporter)
     if output in ['json', 'all']:
         json_file = reporter.save_json_report(
             organization=final_config.get('organization', False),
@@ -176,6 +182,30 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
 def version():
     """Show Kosty version."""
     click.echo(f"Kosty v{__version__}")
+
+
+def _print_verbose_findings(reporter):
+    """Print per-finding detail block after the summary (used with --verbose)."""
+    print("\n" + "=" * 80)
+    print("VERBOSE FINDINGS")
+    print("=" * 80)
+    sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}
+    for account_id, account_data in reporter.results.items():
+        for service, service_data in account_data.items():
+            for command_data in service_data.values():
+                for item in command_data.get('items', []):
+                    icon = sev_icon.get(item.get('severity', ''), '⚪')
+                    print(f"  {icon} [{item.get('severity', '').upper()}] [{service.upper()}] {item.get('Issue', '')}")
+                    print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
+                    if item.get('Risk'):
+                        print(f"     Risk: {item['Risk']}")
+                    if item.get('ARN'):
+                        print(f"     ARN: {item['ARN']}")
+                    savings = item.get('monthly_savings') or item.get('MonthlySavings')
+                    if savings:
+                        print(f"     Savings: ${savings:.2f}/mo")
+                    if item.get('check'):
+                        print(f"     Check: {item['check']}")
 
 
 cli.add_command(ec2)

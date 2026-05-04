@@ -13,6 +13,16 @@ from datetime import datetime
 from ..core.config import ConfigManager
 
 
+def _verbose_callback(ctx, param, value):
+    """Store verbose flag in ctx.obj so execute_engine_command can read it
+    without requiring every command function to forward it explicitly.
+    """
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['verbose'] = value
+    return value
+
+
 def common_options(f):
     """Decorator that attaches the standard scan options to any Click command.
 
@@ -28,6 +38,8 @@ def common_options(f):
     f = click.option('--organization', is_flag=True, help='Scan entire AWS organization')(f)
     f = click.option('--cross-account-role', default='OrganizationAccountAccessRole', help='Role name for cross-account access')(f)
     f = click.option('--org-admin-account-id', help='Organization admin account ID (if different from current account)')(f)
+    f = click.option('--verbose', is_flag=True, expose_value=False, callback=_verbose_callback, is_eager=False,
+                     help='Show full finding details (ARN, risk, savings, check ID)')(f)
     return f
 
 def _resolve_scan_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
@@ -105,6 +117,7 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
                            org_admin_account_id=None, save_to=None, profile=None,
                            check_id=None, **kwargs):
     """Resolve config, select checks, run them, and display results."""
+    verbose = ctx.obj.get('verbose', False) if ctx.obj else False
     from ..core.registry import registry
     from ..core.models import FindingType
 
@@ -130,7 +143,7 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
         checks = [c for c in checks if not c['metadata'].requires_deep]
 
     findings = _run_checks(checks, session, reg_list, workers, config_manager, **kwargs)
-    _output_findings(findings, service_name, output, save_to)
+    _output_findings(findings, service_name, output, save_to, verbose=verbose)
 
 
 def _ensure_plugins_loaded():
@@ -146,7 +159,7 @@ def _ensure_plugins_loaded():
         loader.load_directory(plugins_dir)
 
 
-def _output_findings(findings, service_name, output, save_to=None):
+def _output_findings(findings, service_name, output, save_to=None, verbose=False):
     """Display findings in the requested format."""
     items = [f.to_dict() for f in findings]
     total = len(items)
@@ -163,6 +176,14 @@ def _output_findings(findings, service_name, output, save_to=None):
                 print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
                 if item.get('Risk'):
                     print(f"     Risk: {item['Risk']}")
+                if verbose:
+                    if item.get('ARN'):
+                        print(f"     ARN: {item['ARN']}")
+                    savings = item.get('monthly_savings') or item.get('MonthlySavings')
+                    if savings:
+                        print(f"     Savings: ${savings:.2f}/mo")
+                    if item.get('check'):
+                        print(f"     Check: {item['check']}")
 
     if output in ['json', 'all']:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
