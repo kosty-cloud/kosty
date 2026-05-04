@@ -1,11 +1,23 @@
+"""Shared utilities for all CLI service commands.
+
+The key entry point here is execute_engine_command(), which every service
+command calls. It handles config resolution, plugin loading, check selection,
+execution, and output in one place so individual command files stay thin.
+"""
+
 import click
 import json
 import os
 from datetime import datetime
 from ..core.config import ConfigManager
 
+
 def common_options(f):
-    """Decorator to add common options to all service commands"""
+    """Decorator that attaches the standard scan options to any Click command.
+
+    Applied to every service command so the option set stays consistent
+    across all 30+ commands without repeating the definitions.
+    """
     f = click.option('--profile', help='Configuration profile to use')(f)
     f = click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv']), help='Output format')(f)
     f = click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')(f)
@@ -17,40 +29,15 @@ def common_options(f):
     f = click.option('--org-admin-account-id', help='Organization admin account ID (if different from current account)')(f)
     return f
 
-def get_profile_from_context(ctx, profile_arg):
-    """Get profile from command arg or context"""
-    return profile_arg or ctx.obj.get('profile', 'default')
-
-def get_effective_params(ctx, organization, region, max_workers, regions=None, cross_account_role=None, org_admin_account_id=None):
-    """Get effective parameters, preferring command-level over global"""
-    # Priority: regions > region > global region
-    effective_regions = None
-    if regions:
-        effective_regions = [r.strip() for r in regions.split(',')]
-    elif region:
-        effective_regions = [region]
-    elif ctx.obj['region']:
-        effective_regions = [ctx.obj['region']]
-    else:
-        effective_regions = ['us-east-1']
-    
-    return (
-        organization or ctx.obj['organization'],
-        effective_regions,
-        max_workers or ctx.obj['max_workers'],
-        cross_account_role or 'OrganizationAccountAccessRole',
-        org_admin_account_id
-    )
-
-
 def _resolve_scan_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
     """Resolve session, region list, and worker count from CLI args + config.
 
     Config file values are the baseline; CLI args take priority.
-    Falls back to boto3 defaults if config loading fails.
+    Falls back to a plain boto3.Session() with the CLI-provided region
+    if config loading fails (e.g. malformed kosty.yaml).
     """
     import boto3
-    profile_name = get_profile_from_context(ctx, profile)
+    profile_name = profile or ctx.obj.get('profile', 'default')
     try:
         config_manager = ConfigManager(
             config_file=ctx.obj.get('config_file'),
@@ -70,10 +57,15 @@ def _resolve_scan_params(ctx, profile, organization, region, max_workers, region
             reg_list = ['us-east-1']
         return session, reg_list, final.get('max_workers', 10), config_manager
     except Exception:
-        _, reg_list, workers, _, _ = get_effective_params(
-            ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id
-        )
-        return boto3.Session(), reg_list, workers, None
+        if regions:
+            reg_list = [r.strip() for r in regions.split(',')]
+        elif region:
+            reg_list = [region]
+        elif ctx.obj.get('region'):
+            reg_list = [ctx.obj['region']]
+        else:
+            reg_list = ['us-east-1']
+        return boto3.Session(), reg_list, max_workers or ctx.obj.get('max_workers', 10), None
 
 
 def _run_checks(checks, session, reg_list, workers, config_manager, **kwargs):
