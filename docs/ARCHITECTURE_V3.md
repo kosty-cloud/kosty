@@ -115,13 +115,9 @@ for finding in result.findings:
 ### Data Models (`kosty/core/models.py`)
 
 - `Finding` — single audit finding with standardized fields
-- `CheckMetadata` — describes a registered check
+- `CheckMetadata` — describes a registered check (check_id, service, finding_type, region_scope, requires_deep)
 - `ScanResult` — aggregated scan output with helper properties
 - `Severity` / `FindingType` — enums for type safety
-
-### Provider Interface (`kosty/core/provider.py`)
-
-Abstract base class. Each cloud provider implements `get_session()`, `get_regions()`, `get_account_id()`. Currently only AWS is implemented.
 
 ## Writing a New Plugin
 
@@ -196,7 +192,8 @@ def myservice_check_something(ctx, profile, ...):
 3. Use `get_account_id(session)` — never call STS directly
 4. Check ID format: `aws-{service}-{number:03d}`
 5. One check per file (or closely related checks in one file)
-6. The `compliance_ids` field is reserved for the Pro version
+6. After adding or modifying a plugin, regenerate the manifest: `python scripts/generate_manifest.py`
+7. The `compliance_ids` field is reserved for the Pro version
 
 ### Finding Fields Reference
 
@@ -238,4 +235,7 @@ Pro plugins follow the exact same format. They live in a private repo that's mou
 - **CLI fully wired to engine** — zero legacy execution paths
 - **1 STS call per scan** via `session_utils.get_account_id()` cache
 - **Progress bars** on TTY (silent when piped)
+- **Global checks run once** — IAM and S3 checks have `region_scope='global'` and execute only on the first region, avoiding N duplicate scans in multi-region mode
+- **Plugin integrity** — SHA-256 manifest at `providers/aws/services/plugins.sha256` verified at load time
+- **Report integrity** — local JSON/CSV reports get a `.sha256` sidecar automatically
 - **All legacy code removed** — no `kosty/services/`, no adapter, no bridge

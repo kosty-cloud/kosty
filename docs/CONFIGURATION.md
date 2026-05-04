@@ -114,7 +114,7 @@ kosty audit --profile production
 |--------|------|-------------|---------|
 | `organization` | boolean | Scan organization accounts | `false` |
 | `regions` | list | AWS regions to scan | `['us-east-1']` |
-| `max_workers` | integer | Concurrent workers | `5` |
+| `max_workers` | integer | Concurrent workers, 1–200 | `5` |
 | `output` | string | Output format (console/json/csv/all) | `console` |
 | `save_to` | string | S3 or local path for reports | `null` |
 | `cross_account_role` | string | Role name for cross-account | `OrganizationAccountAccessRole` |
@@ -122,7 +122,7 @@ kosty audit --profile production
 | `role_arn` | string | Role ARN to assume | `null` |
 | `aws_profile` | string | AWS CLI profile name | `null` |
 | `mfa_serial` | string | MFA device ARN | `null` |
-| `duration_seconds` | integer | AssumeRole session duration | `3600` |
+| `duration_seconds` | integer | AssumeRole session duration (max 43200) | `3600` |
 
 ## Exclusions
 
@@ -203,6 +203,9 @@ exclude:
 - `ec2`, `s3`, `rds`, `lambda`, `ebs`, `iam`, `eip`
 - `lb`, `nat`, `sg`, `cloudwatch`, `dynamodb`
 - `route53`, `apigateway`, `backup`, `snapshots`
+- `bedrock`, `sagemaker`, `waf`, `ecs`, `sns`, `sqs`
+- `kms`, `acm`, `elasticache`, `cloudtrail`, `vpc`
+- `guardduty`, `config`, `secretsmanager`, `ssm`, `publicexposure`
 
 #### 4. ARN Exclusions (with Wildcards)
 

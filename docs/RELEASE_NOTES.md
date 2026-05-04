@@ -1,5 +1,39 @@
-# 🚀 Kosty Release Notes
+# Kosty Release Notes
 
+## Version 3.0.0 — Plugin Engine (2026)
+
+### Architecture rewrite
+
+v3 replaces the monolithic service classes with a plugin-based engine. Every check is now an independent function that self-registers at import time via `@register_check`. The core (`ScanEngine`) has no CLI dependency and can be imported directly.
+
+```python
+from kosty.core.engine import ScanEngine
+import boto3
+
+engine = ScanEngine()
+engine.load_plugins('kosty/providers/aws/services')
+result = engine.run(session=boto3.Session(), regions=['eu-west-3'])
+```
+
+### What changed
+
+- **151 checks across 32 services** — all rewritten as standalone plugin functions
+- **Global checks run once** — IAM and S3 checks have `region_scope='global'` and execute only on the first region in multi-region scans, eliminating N duplicate API calls
+- **Pagination everywhere** — `list_functions`, `list_users`, `list_roles` and all other paginated APIs now use boto3 paginators; no more silent truncation at 50/100 results
+- **Progress bar accuracy** — total check count accounts for `region_scope` and `requires_deep`, so the bar reaches 100%
+- **Auth transparency** — Kosty prints the auth method and config file at startup (`🔑 Auth: AssumeRole → ...`) without exposing any credentials
+- **Plugin integrity** — SHA-256 manifest at `providers/aws/services/plugins.sha256` verified before `exec_module()`. Hash mismatch refuses the plugin. Manifest is regenerated automatically in the release workflow.
+- **Report integrity** — local JSON and CSV reports get a `.sha256` sidecar. Verify with `sha256sum -c kosty_full_*.json.sha256`.
+- **Security hardening** — `max_workers` capped at 200, `duration_seconds` capped at 43200, `RoleSessionName` sanitised, `save_to` paths resolved to prevent traversal, reporter no longer mutates in-memory findings
+- **Dead code removed** — `cost_calculator.py`, `pricing.py`, `progress.py`, `provider.py` deleted; `--all` flag delegates to `audit` instead of duplicating logic
+
+### Breaking changes
+
+- Python 3.7–3.9 no longer supported. Minimum is **Python 3.10**.
+- `kosty/core/provider.py` removed — `CloudProvider` abstract class is gone
+- `kosty/core/cost_calculator.py` and `pricing.py` removed — plugins set `monthly_savings` directly on `Finding`
+
+---
 ## Version 2.0.0 - AI/ML Audit: Bedrock & SageMaker (2025-XX-XX)
 
 ### 🤖 New Command: `kosty ai`
@@ -687,19 +721,11 @@ kosty s3 check-public-buckets --save-to /Volumes/SharedDrive/s3-audit/
 
 ---
 
-## 🔮 Upcoming Features
+## Upcoming
 
-### Version 1.3.0 (Planned)
-- **Cost Estimation**: Actual dollar savings calculations
-- **Remediation Scripts**: Automated fix suggestions and scripts
-- **Custom Rules**: User-defined optimization rules
-- **Integration APIs**: REST API for external tool integration
-
-### Version 1.4.0 (Planned)
-- **Additional Services**: EKS, ECS, ElastiCache, Redshift support
-- **Advanced Analytics**: Trend analysis and historical comparisons
-- **Team Collaboration**: Shared dashboards and reporting
-- **Enterprise Features**: RBAC, audit trails, compliance reporting
+- `--verbose` flag for debug output (check-by-check timing, errors, session details)
+- Compliance mapping (CIS, PCI-DSS, GDPR) on findings via `compliance_ids`
+- Plugin integrity signing for the Pro version (GPG-signed manifest)
 
 ---
 
