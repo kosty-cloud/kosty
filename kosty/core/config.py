@@ -345,23 +345,26 @@ class ConfigManager:
             mfa_token = None
             if mfa_serial:
                 mfa_token = input(f"🔐 Enter MFA token for {mfa_serial}: ")
-            
+
             sts = boto3.client('sts')
-            
-            # RoleSessionName only allows [\ w+=,.@-] — sanitise before the STS call
+
+            # RoleSessionName only allows [\w+=,.@-] — sanitise before the STS call
             safe_profile = re.sub(r'[^\w+=,.@-]', '-', self.profile)
             assume_role_params = {
                 'RoleArn': role_arn,
                 'RoleSessionName': f'kosty-{safe_profile}',
                 'DurationSeconds': duration
             }
-            
+
             if mfa_serial and mfa_token:
                 assume_role_params['SerialNumber'] = mfa_serial
                 assume_role_params['TokenCode'] = mfa_token
-            
+
             try:
                 response = sts.assume_role(**assume_role_params)
+                config_file = self._find_config_file() or 'no config file'
+                print(f"🔑 Auth: AssumeRole → {role_arn}")
+                print(f"   Config: {config_file} | Profile: {self.profile}")
                 return boto3.Session(
                     aws_access_key_id=response['Credentials']['AccessKeyId'],
                     aws_secret_access_key=response['Credentials']['SecretAccessKey'],
@@ -379,7 +382,11 @@ class ConfigManager:
         
         elif aws_profile:
             try:
-                return boto3.Session(profile_name=aws_profile)
+                session = boto3.Session(profile_name=aws_profile)
+                config_file = self._find_config_file() or 'no config file'
+                print(f"🔑 Auth: AWS profile '{aws_profile}'")
+                print(f"   Config: {config_file} | Profile: {self.profile}")
+                return session
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
                 print(f"\nError: Failed to use AWS profile")
@@ -391,4 +398,7 @@ class ConfigManager:
                 raise SystemExit(1)
         
         else:
+            config_file = self._find_config_file() or 'no config file'
+            print(f"🔑 Auth: default credential chain")
+            print(f"   Config: {config_file} | Profile: {self.profile}")
             return boto3.Session()
