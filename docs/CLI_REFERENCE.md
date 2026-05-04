@@ -5,7 +5,7 @@
 ### Global Commands
 
 #### `kosty audit`
-Comprehensive scan of all 30 AWS services.
+Comprehensive scan of all 32 AWS services.
 
 **Usage:**
 ```bash
@@ -13,16 +13,25 @@ kosty audit [OPTIONS]
 ```
 
 **Options:**
+- `--profile TEXT` - Configuration profile from kosty.yaml
 - `--organization` - Scan entire AWS organization
-- `--region TEXT` - AWS region to scan
-- `--max-workers INTEGER` - Number of parallel workers (default: 10)
-- `--output [console|json|csv]` - Output format (default: console)
+- `--region TEXT` - Single AWS region
+- `--regions TEXT` - Comma-separated regions (e.g., us-east-1,eu-west-1)
+- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 5)
+- `--output [console|json|csv|all]` - Output format (default: console)
+- `--save-to TEXT` - S3 bucket, local path, or network share
+- `--cross-account-role TEXT` - Role name for cross-account access
+- `--org-admin-account-id TEXT` - Organization admin account ID
+- `--profiles` - Run all profiles from kosty.yaml in parallel
+- `--max-parallel-profiles INTEGER` - Max concurrent profiles (default: 3)
 
 **Examples:**
 ```bash
 kosty audit
 kosty audit --organization --max-workers 20
-kosty audit --output json --region us-west-2
+kosty audit --output json --regions us-east-1,eu-west-1
+kosty audit --output all --save-to ./reports
+kosty audit --profiles --max-parallel-profiles 5
 ```
 
 ---
@@ -462,8 +471,11 @@ kosty ssm check-non-compliant-patches
 ### Global Parameters
 - `--organization` - Scan entire AWS organization
 - `--region TEXT` - AWS region to scan (default: current region)
-- `--max-workers INTEGER` - Number of parallel workers (default: 10)
-- `--output [console|json|csv]` - Output format (default: console)
+- `--regions TEXT` - Comma-separated regions
+- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 10)
+- `--output [console|json|csv|all]` - Output format (default: console)
+- `--save-to TEXT` - S3, local path, or network share
+- `--profile TEXT` - Configuration profile from kosty.yaml
 
 ---
 
