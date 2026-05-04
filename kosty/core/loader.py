@@ -26,9 +26,10 @@ Security note — plugin execution model:
 
 import os
 import sys
+import hashlib
 import importlib
 import importlib.util
-from typing import List, Dict
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 
 
@@ -52,6 +53,7 @@ class PluginLoader:
         self._loaded_paths: List[str] = []
         self._errors: List[str] = []
         self._loaded_modules: Dict[str, str] = {}  # module_name -> filepath
+        self._manifest: Optional[Dict[str, str]] = None  # rel_path -> sha256
 
     def load_directory(self, path: str, package_prefix: str = "kosty_plugins") -> int:
         """Recursively import all .py files from a directory.
@@ -71,6 +73,8 @@ class PluginLoader:
         if path in self._loaded_paths:
             return 0
 
+        self._manifest = self._load_manifest(path)
+
         from .registry import registry
         loaded = 0
         for root, _dirs, files in os.walk(path):
@@ -89,6 +93,71 @@ class PluginLoader:
         self._detect_duplicates(registry)
         return loaded
 
+
+    def _load_manifest(self, plugins_dir: str) -> Optional[Dict[str, str]]:
+        """Load plugins.sha256 from the plugins directory if it exists.
+
+        Returns a dict mapping relative path -> expected hex digest,
+        or None if no manifest is present (verification is skipped).
+        """
+        manifest_path = os.path.join(plugins_dir, 'plugins.sha256')
+        if not os.path.exists(manifest_path):
+            return None
+
+        manifest = {}
+        try:
+            with open(manifest_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split('  ', 1)
+                    if len(parts) == 2:
+                        digest, rel_path = parts
+                        manifest[rel_path] = digest
+        except Exception as e:
+            self._errors.append(f"Failed to read manifest: {e}")
+            return None
+
+        return manifest
+
+    def _verify_plugin(self, filepath: str, plugins_dir: str) -> bool:
+        """Check the plugin's SHA-256 against the manifest.
+
+        Returns True if the plugin passes (or if no manifest is loaded).
+        Logs a warning for plugins not listed in the manifest, and an
+        error for hash mismatches — those are refused outright.
+        """
+        if self._manifest is None:
+            return True
+
+        rel_path = os.path.relpath(filepath, plugins_dir)
+        expected = self._manifest.get(rel_path)
+
+        if expected is None:
+            # Plugin exists on disk but isn't in the manifest.
+            # Warn but allow — contributors adding new checks locally
+            # shouldn't be blocked by a stale manifest.
+            self._errors.append(
+                f"Warning: {os.path.basename(filepath)} not in manifest — "
+                f"run scripts/generate_manifest.py before release"
+            )
+            return True
+
+        h = hashlib.sha256()
+        with open(filepath, 'rb') as f:
+            for chunk in iter(lambda: f.read(65536), b''):
+                h.update(chunk)
+        actual = h.hexdigest()
+
+        if actual != expected:
+            self._errors.append(
+                f"Integrity check failed: {os.path.basename(filepath)} "
+                f"(expected {expected[:12]}..., got {actual[:12]}...)"
+            )
+            return False
+
+        return True
 
     def _import_module(self, filepath: str, module_name: str) -> bool:
         """Import a single module by file path with isolation.
@@ -110,6 +179,16 @@ class PluginLoader:
             if size < 50:
                 return False
         except OSError:
+            return False
+
+        # Verify integrity against manifest before executing any code
+        plugins_dir = os.path.dirname(filepath)
+        while plugins_dir and not os.path.exists(os.path.join(plugins_dir, 'plugins.sha256')):
+            parent = os.path.dirname(plugins_dir)
+            if parent == plugins_dir:
+                break
+            plugins_dir = parent
+        if not self._verify_plugin(filepath, plugins_dir):
             return False
 
         try:
