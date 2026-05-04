@@ -45,16 +45,19 @@ def _is_tty() -> bool:
 class SingleAccountProgress:
     """One progress bar for a single-account scan.
 
+    Disabled automatically when --debug is active so debug lines
+    don't interleave with the \r-based bar rendering.
+
     Example (on TTY):
       Scanning  [##########--------------------]   67/151  IAM
     """
 
-    def __init__(self, total: int):
+    def __init__(self, total: int, debug: bool = False):
         self._total = total
         self._done = 0
         self._service = ""
         self._lock = threading.Lock()
-        self._active = _is_tty()
+        self._active = _is_tty() and not debug
         if self._active:
             sys.stderr.write("\n")
             sys.stderr.flush()
@@ -93,17 +96,19 @@ class SingleAccountProgress:
 class MultiAccountProgress:
     """Stacked progress bars for multi-account scans.
 
+    Disabled automatically when --debug is active.
+
     Example (on TTY):
       123456789012  [##########--------------------]   40/151   26%
       987654321098  [####################----------]   89/151   58%
     """
 
-    def __init__(self, accounts: List[str], total_checks: int):
+    def __init__(self, accounts: List[str], total_checks: int, debug: bool = False):
         self._accounts = list(accounts)
         self._total = total_checks
         self._done: Dict[str, int] = {a: 0 for a in accounts}
         self._lock = threading.Lock()
-        self._active = _is_tty()
+        self._active = _is_tty() and not debug
         if self._active:
             sys.stderr.write("\n" * len(self._accounts))
             sys.stderr.flush()

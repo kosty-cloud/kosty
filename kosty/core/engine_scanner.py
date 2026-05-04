@@ -154,7 +154,7 @@ class EngineScanner:
         non_deep_regional = [c for c in non_deep if c['metadata'].region_scope != 'global']
         total_checks = len(non_deep_regional) * len(self.regions) + len(non_deep_global)
 
-        progress = SingleAccountProgress(total_checks)
+        progress = SingleAccountProgress(total_checks, debug=self.debug)
 
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
@@ -203,7 +203,7 @@ class EngineScanner:
         total_checks = len(non_deep_regional) * len(self.regions) + len(non_deep_global)
 
         print(f"\n📋 Scanning {len(accounts)} accounts...\n")
-        progress = MultiAccountProgress(accounts, total_checks)
+        progress = MultiAccountProgress(accounts, total_checks, debug=self.debug)
 
         semaphore = asyncio.Semaphore(self.max_workers)
         all_findings: List[Finding] = []
