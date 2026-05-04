@@ -223,15 +223,15 @@ kosty audit --profiles --max-parallel-profiles 5
 
 ### Per-Profile Workers
 
-Each profile can have its own worker count:
+Each profile can have its own worker count (capped at 200 globally):
 
 ```yaml
 profiles:
   small_account:
-    max_workers: 5  # Fewer resources
+    max_workers: 5
   
   large_account:
-    max_workers: 20  # More resources
+    max_workers: 20
 ```
 
 ## Error Handling
@@ -281,12 +281,13 @@ kosty audit --profiles --output csv
 
 ## Best Practices
 
-1. **Start Small**: Test with 2-3 profiles before scaling up
-2. **Monitor Resources**: Watch CPU and memory usage during parallel execution
-3. **Adjust Concurrency**: Use `--max-parallel-profiles` based on your machine
-4. **Profile Naming**: Use descriptive names (customer01, prod_us, dev_eu)
-5. **Error Tracking**: Check summary report for failed profiles
-6. **Regular Audits**: Schedule multi-profile audits for consistent monitoring
+1. **Start Small** — test with 2–3 profiles before scaling up
+2. **Monitor Resources** — watch CPU and memory during parallel execution
+3. **Adjust Concurrency** — use `--max-parallel-profiles` based on your machine
+4. **Profile Naming** — use descriptive names (`customer01`, `prod_us`, `dev_eu`)
+5. **Error Tracking** — check the summary report for failed profiles
+6. **Verify Reports** — each JSON/CSV report gets a `.sha256` sidecar; verify before reading in CI: `sha256sum -c output/kosty_audit_*.json.sha256`
+7. **Regular Audits** — schedule multi-profile audits for consistent monitoring
 
 ## Troubleshooting
 
