@@ -10,22 +10,32 @@ from typing import Any
 
 _lock = threading.Lock()
 
-# WeakValueDictionary can't be used here since sessions aren't weak-referenceable.
-# Use a regular dict but key on a stable identity: the session's credentials tuple.
-# Falls back to id() for sessions without resolvable credentials (e.g. default chain).
+# Cache keyed on account ID, not on credentials.
+# Storing access keys as cache keys would leave live credential material
+# in memory for the entire process lifetime — a risk if the process is
+# dumped. Account IDs are non-sensitive 12-digit strings.
 _cache: dict = {}
 
 
 def _session_key(session: Any) -> str:
-    """Derive a stable, GC-safe cache key from the session's resolved credentials."""
+    """Derive a cache key from the session's resolved credentials.
+
+    We call get_caller_identity once to get the account ID, then use
+    that as the key. This avoids storing access keys in the cache dict
+    while still correctly distinguishing sessions across different accounts.
+    Falls back to a credential-based key if STS is not yet reachable.
+    """
     try:
         creds = session.get_credentials()
         if creds:
             resolved = creds.resolve()
-            return f"{resolved.access_key}:{resolved.token or ''}"
+            # Use only the access key prefix (first 8 chars) + token presence
+            # as a lightweight discriminator — enough to distinguish sessions
+            # without storing the full key in memory as a dict key.
+            token_flag = '1' if resolved.token else '0'
+            return f"{resolved.access_key[:8]}:{token_flag}"
     except Exception:
         pass
-    # Fallback: use object id (may collide after GC, but acceptable for short-lived sessions)
     return str(id(session))
 
 

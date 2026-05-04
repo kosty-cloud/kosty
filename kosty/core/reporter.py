@@ -212,9 +212,11 @@ class CostOptimizationReporter:
                 for command_data in service_data.values():
                     for item in command_data['items']:
                         if isinstance(item, dict):
-                            item.setdefault('Service', service.upper())
-                            item.setdefault('AccountId', account_id)
-                            standardized_results[account_id].append(item)
+                            # Copy to avoid mutating the in-memory results
+                            item_copy = dict(item)
+                            item_copy.setdefault('Service', service.upper())
+                            item_copy.setdefault('AccountId', account_id)
+                            standardized_results[account_id].append(item_copy)
 
         total = sum(
             sum(cmd['count'] for cmd in svc.values())

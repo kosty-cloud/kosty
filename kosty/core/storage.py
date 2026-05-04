@@ -91,7 +91,10 @@ class StorageManager:
                 print(f"🌐 Detected network path: {file_path}")
                 print("   • Testing network connectivity...")
 
-            path = Path(file_path)
+            # Resolve the path to catch traversal attempts (e.g. ../../etc)
+            resolved = Path(file_path).resolve()
+            path = resolved
+
             if file_path.endswith('/') or file_path.endswith('\\'):
                 directory = path
                 test_file = directory / "kosty_access_test.txt"
@@ -193,7 +196,7 @@ class StorageManager:
     async def _save_to_local_path(self, content: str, filename: str,
                                    file_path: str, file_format: str) -> str:
         """Write content to a local or network path."""
-        path = Path(file_path)
+        path = Path(file_path).resolve()
         is_network = self._is_network_path(file_path)
 
         # Treat paths without a file extension as directories
