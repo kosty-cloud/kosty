@@ -66,12 +66,10 @@ class EngineScanner:
         print("🚀 KOSTY - AWS Cost Optimization Comprehensive Scan")
         print("=" * 60)
 
-        # Validate org access
         if self.organization and not await self._validate_organization_access():
             print("\n🛑 Scan aborted due to access validation failure")
             return self.reporter
 
-        # Determine excluded services
         excluded = []
         if self.config_manager:
             all_services = set(

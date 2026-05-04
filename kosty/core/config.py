@@ -70,7 +70,14 @@ DEFAULT_THRESHOLDS = {
 
 
 class ConfigManager:
-    """Manage configuration with YAML profiles"""
+    """Loads, merges, and validates Kosty configuration.
+
+    Instantiate once per command invocation. The constructor loads the
+    config file, applies the requested profile on top of the defaults,
+    and raises ConfigValidationError immediately if anything looks wrong.
+    Failing here is intentional — better than a cryptic boto3 error
+    halfway through a 20-region org scan.
+    """
     
     def __init__(self, config_file: Optional[str] = None, profile: str = "default"):
         self.config_file = config_file
@@ -78,7 +85,6 @@ class ConfigManager:
         self.config = {}
         self.raw_config = {}
         
-        # Load and validate config
         self._load_config()
         self._validate_config()
     
@@ -94,12 +100,10 @@ class ConfigManager:
                 return self.config_file
             raise ConfigNotFoundError(f"Config file not found: {self.config_file}")
         
-        # Check current directory
         for filename in ['kosty.yaml', 'kosty.yml', '.kosty.yaml', '.kosty.yml']:
             if os.path.exists(filename):
                 return filename
-        
-        # Check home directory
+
         home_config = Path.home() / '.kosty' / 'config.yaml'
         if home_config.exists():
             return str(home_config)
@@ -136,7 +140,12 @@ class ConfigManager:
                 print(f"⚠️  Profile '{self.profile}' not found, using 'default'")
     
     def _validate_config(self) -> None:
-        """Validate config values"""
+        """Validate all config values and collect errors before raising.
+
+        Collects every problem rather than stopping at the first one,
+        so users can fix everything in one pass instead of playing
+        whack-a-mole with validation errors.
+        """
         errors = []
         
         regions = self.config.get('regions', [])
@@ -191,7 +200,7 @@ class ConfigManager:
         return self.config.get(key, default)
     
     def get_thresholds(self) -> Dict[str, Any]:
-        """Get thresholds: global + profile overrides"""
+        """Return thresholds with profile overrides applied on top of globals."""
         thresholds = DEFAULT_THRESHOLDS.copy()
         
         if 'thresholds' in self.raw_config:
@@ -206,11 +215,11 @@ class ConfigManager:
         return thresholds
     
     def get_threshold(self, key: str, default: Any = None) -> Any:
-        """Get a single threshold value by key"""
+        """Return a single threshold value by key."""
         return self.get_thresholds().get(key, default)
     
     def get_exclusions(self) -> Dict[str, List]:
-        """Get exclusions: global + profile additions"""
+        """Return exclusions with profile additions merged in."""
         exclusions = {
             'accounts': [],
             'regions': [],
@@ -257,7 +266,12 @@ class ConfigManager:
         return False
     
     def should_exclude_by_tags(self, resource_tags: List[Dict[str, str]]) -> bool:
-        """Check if resource should be excluded based on tags"""
+        """Return True if any exclusion tag rule matches the resource's tags.
+
+        Supports both 'Key'/'Value' (AWS SDK format) and 'key'/'value'
+        (lowercase, used in some internal representations).
+        A rule with no value matches any tag with the right key.
+        """
         if not resource_tags:
             return False
         
@@ -300,7 +314,7 @@ class ConfigManager:
         return merged
     
     def get_all_profiles(self) -> List[str]:
-        """Get list of all profile names from config"""
+        """Return all profile names defined in the config file, including 'default'."""
         profiles = ['default']
         if 'profiles' in self.raw_config:
             profiles.extend(self.raw_config['profiles'].keys())
@@ -318,7 +332,6 @@ class ConfigManager:
         mfa_serial = self.get('mfa_serial')
         duration = self.get('duration_seconds', 3600)
         
-        # Priority: role_arn > aws_profile > default credentials
         if role_arn:
             mfa_token = None
             if mfa_serial:
