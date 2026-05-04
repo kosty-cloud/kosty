@@ -1,4 +1,19 @@
-"""Configuration management system for Kosty"""
+"""Configuration management for Kosty.
+
+Loads kosty.yaml from the current directory or ~/.kosty/config.yaml,
+merges profile-specific overrides on top of the defaults, and validates
+everything before the scan starts. Failing fast on a bad config is much
+better than discovering a typo mid-scan.
+
+Profile resolution order (highest priority first):
+  1. CLI flags (--region, --max-workers, etc.)
+  2. Named profile block in kosty.yaml
+  3. 'default' block in kosty.yaml
+  4. Hardcoded defaults in DEFAULT_CONFIG
+
+AWS session creation lives here too (get_aws_session) because the session
+configuration — role ARN, MFA serial, profile name — is part of the config.
+"""
 
 import os
 import yaml
@@ -68,7 +83,12 @@ class ConfigManager:
         self._validate_config()
     
     def _find_config_file(self) -> Optional[str]:
-        """Find config: --config-file > ./kosty.yaml > ~/.kosty/config.yaml"""
+        """Walk the standard config search path and return the first match.
+
+        Explicit --config-file always wins. Otherwise we check the working
+        directory first (useful for per-project configs), then the home
+        directory (useful for a global personal config).
+        """
         if self.config_file:
             if os.path.exists(self.config_file):
                 return self.config_file
@@ -87,7 +107,7 @@ class ConfigManager:
         return None
     
     def _load_config(self) -> None:
-        """Load config from YAML file"""
+        """Load and merge config layers: defaults → global → profile."""
         config_path = self._find_config_file()
         
         if not config_path:
@@ -225,7 +245,11 @@ class ConfigManager:
         return service in excluded_services
     
     def should_exclude_arn(self, arn: str) -> bool:
-        """Check if ARN matches exclusion pattern (wildcards supported)"""
+        """Return True if the ARN matches any exclusion pattern.
+
+        Patterns support fnmatch wildcards, e.g.:
+          arn:aws:ec2:us-east-1:*:instance/i-*
+        """
         excluded_arns = self.get_exclusions().get('arns', [])
         for pattern in excluded_arns:
             if fnmatch.fnmatch(arn, pattern):
@@ -264,7 +288,11 @@ class ConfigManager:
         return False
     
     def merge_with_cli_args(self, cli_args: Dict[str, Any]) -> Dict[str, Any]:
-        """Merge config with CLI args (CLI takes priority)"""
+        """Return a merged config dict with CLI args taking priority over file config.
+
+        None values in cli_args are ignored so unset CLI flags don't
+        accidentally override a value the user set in kosty.yaml.
+        """
         merged = self.config.copy()
         for key, value in cli_args.items():
             if value is not None:
@@ -279,7 +307,12 @@ class ConfigManager:
         return profiles
     
     def get_aws_session(self) -> boto3.Session:
-        """Create AWS session with AssumeRole/MFA if configured"""
+        """Build a boto3 Session from the profile's auth configuration.
+
+        Priority: role_arn (AssumeRole) > aws_profile > default credential chain.
+        MFA is prompted interactively when mfa_serial is set — this is intentional,
+        Kosty is a CLI tool not a daemon.
+        """
         role_arn = self.get('role_arn')
         aws_profile = self.get('aws_profile')
         mfa_serial = self.get('mfa_serial')
@@ -287,7 +320,6 @@ class ConfigManager:
         
         # Priority: role_arn > aws_profile > default credentials
         if role_arn:
-            # AssumeRole flow
             mfa_token = None
             if mfa_serial:
                 mfa_token = input(f"🔐 Enter MFA token for {mfa_serial}: ")
@@ -323,7 +355,6 @@ class ConfigManager:
                 raise SystemExit(1)
         
         elif aws_profile:
-            # Use AWS CLI profile
             try:
                 return boto3.Session(profile_name=aws_profile)
             except Exception as e:
@@ -337,5 +368,4 @@ class ConfigManager:
                 raise SystemExit(1)
         
         else:
-            # Use default credentials (env vars, instance role, default profile)
             return boto3.Session()

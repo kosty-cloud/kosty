@@ -21,7 +21,12 @@ from .scan_progress import SingleAccountProgress, MultiAccountProgress
 
 
 class EngineScanner:
-    """Scan orchestrator backed by the plugin engine."""
+    """Bridges the CLI audit command and the ScanEngine.
+
+    Handles the parts ScanEngine doesn't care about: plugin loading,
+    progress display, org account discovery, cross-account role assumption,
+    and feeding results into the reporter. ScanEngine just runs checks.
+    """
 
     def __init__(
         self,
@@ -112,8 +117,6 @@ class EngineScanner:
             excl_lower = set(s.lower() for s in excluded_services)
             checks = [c for c in checks if c['metadata'].service.lower() not in excl_lower]
 
-        global_checks = [c for c in checks if c['metadata'].region_scope == 'global']
-        regional_checks = [c for c in checks if c['metadata'].region_scope != 'global']
         non_deep = [c for c in checks if not c['metadata'].requires_deep]
         non_deep_global = [c for c in non_deep if c['metadata'].region_scope == 'global']
         non_deep_regional = [c for c in non_deep if c['metadata'].region_scope != 'global']
@@ -137,10 +140,6 @@ class EngineScanner:
         progress.finish()
 
         findings = result.findings
-        if excluded_services:
-            excluded_lower = set(s.lower() for s in excluded_services)
-            findings = [f for f in findings if f.service.lower() not in excluded_lower]
-
         self._feed_reporter(findings)
 
         total = len(findings)

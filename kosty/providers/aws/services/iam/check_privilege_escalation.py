@@ -78,6 +78,12 @@ def check_privilege_escalation(session, region, deep=False, **kwargs):
 
 
 def _get_actions(iam, ptype, name):
+    """Collect the effective IAM actions a principal has on wildcard resources.
+
+    Only looks at inline policies and customer-managed attached policies.
+    AWS-managed policies (arn:aws:iam::aws:policy/*) are skipped — they're
+    well-known and rarely the escalation vector in practice.
+    """
     actions = set()
     try:
         if ptype == 'User':
@@ -98,6 +104,11 @@ def _get_actions(iam, ptype, name):
 
 
 def _extract(doc, actions):
+    """Pull Allow actions on '*' resources out of a policy document.
+
+    We only care about wildcard resources because escalation patterns
+    require broad permissions, not resource-scoped ones.
+    """
     if isinstance(doc, str):
         doc = json.loads(doc)
     for stmt in doc.get('Statement', []):
@@ -114,6 +125,7 @@ def _extract(doc, actions):
 
 
 def _extract_managed(iam, arn, actions):
+    """Fetch the active version of a managed policy and extract its actions."""
     try:
         pv = iam.get_policy(PolicyArn=arn)
         doc = iam.get_policy_version(PolicyArn=arn, VersionId=pv['Policy']['DefaultVersionId'])['PolicyVersion']['Document']
@@ -123,6 +135,12 @@ def _extract_managed(iam, arn, actions):
 
 
 def _matches(actions, pattern):
+    """Return True if the principal's action set satisfies all groups in the pattern.
+
+    Each pattern is a list of action groups. All groups must match (AND logic).
+    Within a group, all actions must be present (also AND). This models
+    multi-step escalation paths like PassRole + CreateFunction + InvokeFunction.
+    """
     for group in pattern['actions']:
         if not all(_action_match(actions, a) for a in group):
             return False
@@ -130,12 +148,22 @@ def _matches(actions, pattern):
 
 
 def _action_match(actions, required):
+    """Return True if the required action is covered by the principal's action set.
+
+    Handles wildcards at both the service level (iam:*) and global level (*).
+    """
     req = required.lower()
     svc = req.split(':')[0]
     return req in actions or '*' in actions or f'{svc}:*' in actions
 
 
 def _simulate(iam, arn, pattern):
+    """Confirm an escalation path via SimulatePrincipalPolicy.
+
+    Only called with --deep. Returns True if all pattern actions are allowed,
+    False if any are denied, None if the simulation itself fails (e.g. the
+    principal no longer exists or we lack iam:SimulatePrincipalPolicy).
+    """
     all_actions = [a for group in pattern['actions'] for a in group]
     try:
         result = iam.simulate_principal_policy(PolicySourceArn=arn, ActionNames=all_actions, ResourceArns=['*'])

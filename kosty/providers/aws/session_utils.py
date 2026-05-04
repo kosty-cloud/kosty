@@ -6,7 +6,6 @@ parallel, the naive approach would fire 151 identical STS calls.
 """
 
 import threading
-import weakref
 from typing import Any
 
 _lock = threading.Lock()
