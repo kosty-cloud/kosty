@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.services._pricing import ec2_monthly
 
 
 @register_check(check_id="aws-ec2-001", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find instances stopped for 7+ days")
@@ -22,12 +23,15 @@ def check_stopped_instances(session, region, days=7, **kwargs):
                     try:
                         transition = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S %Z')
                         if transition < cutoff:
+                            instance_type = inst['InstanceType']
                             findings.append(Finding(
                                 check_id="aws-ec2-001", service="EC2",
                                 resource_id=inst['InstanceId'], region=region, account_id=account_id,
-                                issue=f"Stopped for {(datetime.now() - transition).days} days ({inst['InstanceType']})",
+                                issue=f"Stopped for {(datetime.now() - transition).days} days ({instance_type})",
                                 severity=Severity.HIGH, finding_type=FindingType.COST,
                                 risk="EBS volumes still billed while instance is stopped",
+                                monthly_savings=ec2_monthly(instance_type),
+                                details={'instance_type': instance_type},
                             ))
                     except Exception:
                         continue

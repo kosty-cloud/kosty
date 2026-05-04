@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.services._pricing import rds_monthly
 
 
 @register_check(check_id="aws-rds-002", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find oversized RDS instances (<20% CPU)")
@@ -45,6 +46,8 @@ def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwar
                 if metrics['Datapoints']:
                     avg = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
                     if avg < cpu_threshold:
+                        # Downsizing one class saves roughly 50% — conservative estimate
+                        savings = round(rds_monthly(instance_class) * 0.5, 2)
                         findings.append(Finding(
                             check_id="aws-rds-002", service="RDS",
                             resource_id=db['DBInstanceIdentifier'], region=region, account_id=account_id,
@@ -52,6 +55,8 @@ def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwar
                             severity=Severity.HIGH, finding_type=FindingType.COST,
                             risk="30-60% waste — downsize to next smaller class",
                             arn=db['DBInstanceArn'],
+                            monthly_savings=savings,
+                            details={'instance_class': instance_class, 'avg_cpu': round(avg, 1)},
                         ))
             except Exception:
                 continue
