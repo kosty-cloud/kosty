@@ -197,6 +197,7 @@ class ConfigManager:
             raise ConfigValidationError('\n'.join(errors))
     
     def get(self, key: str, default: Any = None) -> Any:
+        """Return a config value by key, with an optional default."""
         return self.config.get(key, default)
     
     def get_thresholds(self) -> Dict[str, Any]:
@@ -242,14 +243,17 @@ class ConfigManager:
         return exclusions
     
     def should_exclude_account(self, account_id: str) -> bool:
+        """Return True if this account ID is in the exclusion list."""
         excluded_accounts = self.get_exclusions().get('accounts', [])
         return account_id in excluded_accounts
-    
+
     def should_exclude_region(self, region: str) -> bool:
+        """Return True if this region is in the exclusion list."""
         excluded_regions = self.get_exclusions().get('regions', [])
         return region in excluded_regions
-    
+
     def should_exclude_service(self, service: str) -> bool:
+        """Return True if this service is in the exclusion list."""
         excluded_services = self.get_exclusions().get('services', [])
         return service in excluded_services
     

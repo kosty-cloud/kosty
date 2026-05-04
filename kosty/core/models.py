@@ -17,6 +17,7 @@ from enum import Enum
 
 
 class Severity(str, Enum):
+    """Severity levels for audit findings, ordered from most to least critical."""
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -25,6 +26,7 @@ class Severity(str, Enum):
 
 
 class FindingType(str, Enum):
+    """Whether a finding represents wasted spend or a security risk."""
     COST = "cost"
     SECURITY = "security"
 
@@ -118,21 +120,26 @@ class ScanResult:
 
     @property
     def total_issues(self) -> int:
+        """Total number of findings across all services."""
         return len(self.findings)
 
     @property
     def total_savings(self) -> float:
+        """Sum of monthly_savings across all cost findings."""
         return sum(f.monthly_savings for f in self.findings)
 
     @property
     def security_findings(self) -> List[Finding]:
+        """All findings with finding_type == SECURITY."""
         return [f for f in self.findings if f.finding_type == FindingType.SECURITY]
 
     @property
     def cost_findings(self) -> List[Finding]:
+        """All findings with finding_type == COST."""
         return [f for f in self.findings if f.finding_type == FindingType.COST]
 
     def findings_by_service(self) -> Dict[str, List[Finding]]:
+        """Group findings by service name."""
         grouped: Dict[str, List[Finding]] = {}
         for f in self.findings:
             grouped.setdefault(f.service, []).append(f)
@@ -154,6 +161,7 @@ class ScanResult:
         return grouped
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serialize to a JSON-safe dict for programmatic consumers."""
         return {
             'scan_timestamp': self.timestamp.isoformat(),
             'total_issues': self.total_issues,

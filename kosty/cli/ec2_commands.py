@@ -33,7 +33,7 @@ def ec2_security_audit(ctx, days, profile, organization, region, max_workers, re
     """Run EC2 security audit only"""
     execute_engine_command(ctx, 'EC2', 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
 
-# Individual EC2 checks
+
 @ec2.command('check-oversized-instances')
 @click.option('--cpu-threshold', default=20, help='CPU utilization threshold')
 @click.option('--days', default=14, help='Days to analyze')
