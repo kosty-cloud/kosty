@@ -16,6 +16,7 @@ configuration — role ARN, MFA serial, profile name — is part of the config.
 """
 
 import os
+import re
 import yaml
 import boto3
 import fnmatch
@@ -179,10 +180,14 @@ class ConfigManager:
         if 'max_workers' in self.config:
             if not isinstance(self.config['max_workers'], int) or self.config['max_workers'] <= 0:
                 errors.append("'max_workers' must be positive integer")
+            elif self.config['max_workers'] > 200:
+                errors.append("'max_workers' must be <= 200 (AWS API rate limits)")
         
         if 'duration_seconds' in self.config:
             if not isinstance(self.config['duration_seconds'], int) or self.config['duration_seconds'] <= 0:
                 errors.append("'duration_seconds' must be positive integer")
+            elif self.config['duration_seconds'] > 43200:
+                errors.append("'duration_seconds' must be <= 43200 (12h AWS maximum)")
         
         thresholds = self.get_thresholds()
         for key, value in thresholds.items():
@@ -343,9 +348,11 @@ class ConfigManager:
             
             sts = boto3.client('sts')
             
+            # RoleSessionName only allows [\ w+=,.@-] — sanitise before the STS call
+            safe_profile = re.sub(r'[^\w+=,.@-]', '-', self.profile)
             assume_role_params = {
                 'RoleArn': role_arn,
-                'RoleSessionName': f'kosty-{self.profile}',
+                'RoleSessionName': f'kosty-{safe_profile}',
                 'DurationSeconds': duration
             }
             
@@ -355,7 +362,6 @@ class ConfigManager:
             
             try:
                 response = sts.assume_role(**assume_role_params)
-                
                 return boto3.Session(
                     aws_access_key_id=response['Credentials']['AccessKeyId'],
                     aws_secret_access_key=response['Credentials']['SecretAccessKey'],

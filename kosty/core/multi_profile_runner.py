@@ -11,6 +11,7 @@ profiles are fully isolated, so a failure in one doesn't affect the others.
 
 import asyncio
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -179,9 +180,12 @@ class MultiProfileRunner:
                 continue
 
             reporter = result['reporter']
+            # Sanitise profile name for use in filenames — profiles can contain
+            # arbitrary characters from kosty.yaml including path separators.
+            safe_profile = re.sub(r'[^\w-]', '_', profile)
 
             if output_format in ('json', 'all'):
-                filename = f"{output_dir}/kosty_audit_{profile}_{timestamp}.json"
+                filename = f"{output_dir}/kosty_audit_{safe_profile}_{timestamp}.json"
                 report_data = {
                     'profile': profile,
                     'timestamp': result['timestamp'],
@@ -195,7 +199,7 @@ class MultiProfileRunner:
                 print(f"📄 [{profile}] JSON report: {filename}")
 
             if output_format in ('csv', 'all'):
-                filename = f"{output_dir}/kosty_audit_{profile}_{timestamp}.csv"
+                filename = f"{output_dir}/kosty_audit_{safe_profile}_{timestamp}.csv"
                 csv_content = self._generate_csv_for_profile(reporter, profile)
                 with open(filename, 'w') as f:
                     f.write(csv_content)
