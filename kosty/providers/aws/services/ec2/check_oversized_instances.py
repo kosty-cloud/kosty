@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.services._pricing import ec2_monthly
 
 
 @register_check(check_id="aws-ec2-003", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find oversized instances (<20% CPU)")
@@ -26,12 +27,17 @@ def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwar
                     if metrics['Datapoints']:
                         avg = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
                         if avg < cpu_threshold:
+                            instance_type = inst['InstanceType']
+                            # Downsizing to the next smaller type saves roughly 50% of the current cost
+                            savings = round(ec2_monthly(instance_type) * 0.5, 2)
                             findings.append(Finding(
                                 check_id="aws-ec2-003", service="EC2",
                                 resource_id=inst['InstanceId'], region=region, account_id=account_id,
-                                issue=f"Oversized ({round(avg, 1)}% CPU, {inst['InstanceType']})",
+                                issue=f"Oversized ({round(avg, 1)}% CPU, {instance_type})",
                                 severity=Severity.HIGH, finding_type=FindingType.COST,
                                 risk="30-60% waste — downsize to next smaller type",
+                                monthly_savings=savings,
+                                details={'instance_type': instance_type, 'avg_cpu': round(avg, 1)},
                             ))
                 except Exception:
                     continue

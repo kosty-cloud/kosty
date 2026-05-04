@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.services._pricing import ec2_monthly
 
 
 @register_check(check_id="aws-ec2-002", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find idle instances (<5% CPU)")
@@ -26,12 +27,16 @@ def check_idle_instances(session, region, days=7, cpu_threshold=5, **kwargs):
                     if metrics['Datapoints']:
                         avg = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
                         if avg < cpu_threshold:
+                            instance_type = inst['InstanceType']
+                            # Idle instances are candidates for termination — full cost is the saving
                             findings.append(Finding(
                                 check_id="aws-ec2-002", service="EC2",
                                 resource_id=inst['InstanceId'], region=region, account_id=account_id,
-                                issue=f"Idle ({round(avg, 1)}% CPU over {days} days, {inst['InstanceType']})",
+                                issue=f"Idle ({round(avg, 1)}% CPU over {days} days, {instance_type})",
                                 severity=Severity.HIGH, finding_type=FindingType.COST,
                                 risk="80-95% of instance cost wasted",
+                                monthly_savings=ec2_monthly(instance_type),
+                                details={'instance_type': instance_type, 'avg_cpu': round(avg, 1)},
                             ))
                 except Exception:
                     continue
