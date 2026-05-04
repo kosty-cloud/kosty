@@ -24,6 +24,7 @@ kosty audit [OPTIONS]
 - `--org-admin-account-id TEXT` - Organization admin account ID
 - `--profiles` - Run all profiles from kosty.yaml in parallel
 - `--max-parallel-profiles INTEGER` - Max concurrent profiles (default: 3)
+- `--verbose` - Show full finding details (ARN, risk, savings, check ID) after the summary
 
 **Examples:**
 ```bash
@@ -32,6 +33,8 @@ kosty audit --organization --max-workers 20
 kosty audit --output json --regions us-east-1,eu-west-1
 kosty audit --output all --save-to ./reports
 kosty audit --profiles --max-parallel-profiles 5
+kosty audit --verbose
+kosty audit --organization --verbose --output json
 ```
 
 ---
@@ -476,6 +479,7 @@ kosty ssm check-non-compliant-patches
 - `--output [console|json|csv|all]` - Output format (default: console)
 - `--save-to TEXT` - S3, local path, or network share
 - `--profile TEXT` - Configuration profile from kosty.yaml
+- `--verbose` - Show full finding details: ARN, risk, monthly savings, check ID
 
 ---
 

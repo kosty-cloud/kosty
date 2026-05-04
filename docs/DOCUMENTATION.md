@@ -386,6 +386,7 @@ All commands support:
 - `--profile TEXT` - Configuration profile from kosty.yaml
 - `--cross-account-role TEXT` - Role name for cross-account access (default: OrganizationAccountAccessRole)
 - `--org-admin-account-id TEXT` - Organization admin account ID
+- `--verbose` - Show full finding details: ARN, risk, monthly savings, check ID
 
 Local JSON and CSV reports are written with a `.sha256` sidecar for integrity verification:
 ```bash
@@ -488,6 +489,15 @@ kosty ec2 check-ssh-open --organization --regions us-east-1,eu-west-1 --save-to 
 ```bash
 kosty ec2 audit
 # Displays formatted table with issues found
+```
+
+#### Verbose Console Output
+```bash
+kosty ec2 audit --verbose
+# Adds ARN, risk description, monthly savings, and check ID to each finding
+
+kosty audit --verbose
+# Full audit: shows the summary report then a detailed per-finding block
 ```
 
 #### JSON Output

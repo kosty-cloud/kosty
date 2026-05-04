@@ -126,6 +126,28 @@ kosty audit --output json --save-to ./reports
 kosty audit --output json --save-to s3://my-bucket/audits/
 ```
 
+## Verbose
+
+Add `--verbose` to any command to see ARN, risk description, monthly savings,
+and check ID for each finding.
+
+```bash
+# Full audit with per-finding details
+kosty audit --verbose
+
+# Individual service
+kosty ec2 audit --verbose
+kosty rds check-oversized-instances --verbose
+
+# AI audit
+kosty ai audit --verbose
+kosty ai bedrock check-no-guardrails --verbose
+
+# Combine with other flags
+kosty audit --organization --verbose
+kosty ec2 check-stopped-instances --region eu-west-1 --verbose
+```
+
 ## Report Integrity
 
 Local JSON and CSV reports are written with a `.sha256` sidecar. Verify
