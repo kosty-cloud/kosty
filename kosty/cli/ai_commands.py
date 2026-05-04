@@ -52,6 +52,8 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
     total = len(all_findings)
     items = [f.to_dict() for f in all_findings]
 
+    verbose = ctx.obj.get('verbose', False) if ctx.obj else False
+
     if output in ['console', 'all']:
         if total > 0:
             print(f"\n{'─' * 50}")
@@ -59,7 +61,16 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
                 sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}.get(item.get('severity', ''), '⚪')
                 print(f"  {sev_icon} [{item.get('Service')}] {item.get('Issue')}")
                 print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
-
+                if verbose:
+                    if item.get('Risk'):
+                        print(f"     Risk: {item['Risk']}")
+                    if item.get('ARN'):
+                        print(f"     ARN: {item['ARN']}")
+                    savings = item.get('monthly_savings') or item.get('MonthlySavings')
+                    if savings:
+                        print(f"     Savings: ${savings:.2f}/mo")
+                    if item.get('check'):
+                        print(f"     Check: {item['check']}")
     if output in ['json', 'all']:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
