@@ -70,10 +70,7 @@ class PluginLoader:
                     loaded += 1
 
         self._loaded_paths.append(path)
-
-        # Detect duplicate check_ids
         self._detect_duplicates(registry)
-
         return loaded
 
 
