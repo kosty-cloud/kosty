@@ -4,7 +4,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-s3-005", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets with public write access")
+@register_check(check_id="aws-s3-005", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets with public write access", region_scope="global")
 def check_public_write(session, region, **kwargs):
     """Flag buckets allowing anyone to upload objects."""
     s3 = session.client('s3')

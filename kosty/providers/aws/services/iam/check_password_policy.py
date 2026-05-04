@@ -3,7 +3,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-iam-010", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find weak password policy")
+@register_check(check_id="aws-iam-010", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find weak password policy", region_scope="global")
 def check_weak_password_policy(session, region, **kwargs):
     """Flag accounts with insufficient password complexity requirements."""
     iam = session.client('iam')
@@ -43,7 +43,7 @@ def check_weak_password_policy(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-iam-011", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find missing password rotation policy")
+@register_check(check_id="aws-iam-011", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find missing password rotation policy", region_scope="global")
 def check_no_password_rotation(session, region, **kwargs):
     """Flag accounts without forced password expiration."""
     iam = session.client('iam')

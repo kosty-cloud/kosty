@@ -4,7 +4,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-iam-014", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies granting iam:PassRole with wildcard resource")
+@register_check(check_id="aws-iam-014", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies granting iam:PassRole with wildcard resource", region_scope="global")
 def check_passrole_permissions(session, region, **kwargs):
     """Flag policies enabling privilege escalation via role passing."""
     iam = session.client('iam')
@@ -43,7 +43,7 @@ def check_passrole_permissions(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-iam-015", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies granting sts:AssumeRole with wildcard")
+@register_check(check_id="aws-iam-015", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies granting sts:AssumeRole with wildcard", region_scope="global")
 def check_wildcard_assume_role(session, region, **kwargs):
     """Flag policies allowing assumption of any role in the account."""
     iam = session.client('iam')

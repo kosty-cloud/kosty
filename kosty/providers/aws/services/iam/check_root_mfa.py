@@ -3,7 +3,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-iam-003", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Check if root account has MFA enabled")
+@register_check(check_id="aws-iam-003", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Check if root account has MFA enabled", region_scope="global")
 def check_root_mfa(session, region, **kwargs):
     """Flag root without MFA — single factor away from total compromise."""
     iam = session.client('iam')

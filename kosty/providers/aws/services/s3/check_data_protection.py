@@ -3,7 +3,7 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 
 
-@register_check(check_id="aws-s3-010", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without MFA delete")
+@register_check(check_id="aws-s3-010", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without MFA delete", region_scope="global")
 def check_no_mfa_delete(session, region, **kwargs):
     """Flag buckets where versioned objects can be deleted without MFA."""
     s3 = session.client('s3')
@@ -30,7 +30,7 @@ def check_no_mfa_delete(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-011", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without Object Lock")
+@register_check(check_id="aws-s3-011", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without Object Lock", region_scope="global")
 def check_no_object_lock(session, region, **kwargs):
     """Flag buckets without immutability protection."""
     s3 = session.client('s3')
@@ -60,7 +60,7 @@ def check_no_object_lock(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-012", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without cross-region replication")
+@register_check(check_id="aws-s3-012", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without cross-region replication", region_scope="global")
 def check_no_cross_region_replication(session, region, **kwargs):
     """Flag buckets with no DR replication configured."""
     s3 = session.client('s3')
@@ -88,7 +88,7 @@ def check_no_cross_region_replication(session, region, **kwargs):
     return findings
 
 
-@register_check(check_id="aws-s3-013", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Check account-level S3 Block Public Access")
+@register_check(check_id="aws-s3-013", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Check account-level S3 Block Public Access", region_scope="global")
 def check_no_account_public_access_block(session, region, **kwargs):
     """Flag accounts without the global guardrail against public buckets."""
     account_id = get_account_id(session)
