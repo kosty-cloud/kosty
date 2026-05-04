@@ -8,6 +8,7 @@ execution, and output in one place so individual command files stay thin.
 import click
 import json
 import os
+from pathlib import Path
 from datetime import datetime
 from ..core.config import ConfigManager
 
@@ -168,8 +169,9 @@ def _output_findings(findings, service_name, output, save_to=None):
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_{service_name}_{account_id}_{timestamp}.json"
         if save_to:
-            os.makedirs(save_to, exist_ok=True)
-            filename = os.path.join(save_to, filename)
+            dest = Path(save_to).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
+            filename = str(dest / filename)
         report = {'scan_timestamp': datetime.now().isoformat(), 'service': service_name, 'total_issues': total, 'results': items}
         with open(filename, 'w') as f:
             json.dump(report, f, indent=2, default=str)
@@ -181,8 +183,9 @@ def _output_findings(findings, service_name, output, save_to=None):
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_{service_name}_{account_id}_{timestamp}.csv"
         if save_to:
-            os.makedirs(save_to, exist_ok=True)
-            filename = os.path.join(save_to, filename)
+            dest = Path(save_to).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
+            filename = str(dest / filename)
         if items:
             fieldnames = sorted(set().union(*(item.keys() for item in items)))
             with open(filename, 'w', newline='') as f:

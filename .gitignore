@@ -38,6 +38,14 @@ kosty.yaml
 credentials
 /config
 
+# Certificates and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
 # IDE
 .vscode/
 .idea/

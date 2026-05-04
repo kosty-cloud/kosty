@@ -171,9 +171,10 @@ class MultiProfileRunner:
         always written regardless of output_format — it's lightweight and
         useful for CI pipelines that just want the totals.
         """
-        Path(output_dir).mkdir(exist_ok=True)
+        Path(output_dir).resolve().mkdir(parents=True, exist_ok=True)
         saved_files = []
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        output_dir = str(Path(output_dir).resolve())
 
         for profile, result in self.results.items():
             if result['status'] != 'success':

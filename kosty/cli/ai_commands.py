@@ -1,6 +1,7 @@
 import click
 import json
 import os
+from pathlib import Path
 from datetime import datetime
 from .utils import common_options, execute_engine_command, _ensure_plugins_loaded, _resolve_scan_params
 
@@ -64,8 +65,9 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_ai_{account_id}_{timestamp}.json"
         if save_to:
-            os.makedirs(save_to, exist_ok=True)
-            filename = os.path.join(save_to, filename)
+            dest = Path(save_to).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
+            filename = str(dest / filename)
         report = {'scan_timestamp': datetime.now().isoformat(), 'method': f'ai_{method}', 'total_issues': total, 'results': {account_id: items}}
         with open(filename, 'w') as f:
             json.dump(report, f, indent=2, default=str)
@@ -77,8 +79,9 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_ai_{account_id}_{timestamp}.csv"
         if save_to:
-            os.makedirs(save_to, exist_ok=True)
-            filename = os.path.join(save_to, filename)
+            dest = Path(save_to).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
+            filename = str(dest / filename)
         if items:
             fieldnames = sorted(set().union(*(item.keys() for item in items)))
             with open(filename, 'w', newline='') as f:
