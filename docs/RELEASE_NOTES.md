@@ -1,5 +1,15 @@
 # Kosty Release Notes
 
+## Version 3.0.1 — Maintenance (2026)
+
+Patch release. No functional changes to the scan engine or checks.
+
+- Repository hygiene: anonymized the bundled demo reports (`dashboard/demo_*.json`) so they contain only fictional account IDs, resource IDs, and project names.
+- Removed a real AWS account ID from the documentation examples.
+- Packaging version aligned across `pyproject.toml`, `setup.py`, and `kosty.__init__`.
+
+Upgrade with `pip install --upgrade kosty`.
+
 ## Version 3.0.0 — Plugin Engine (2026)
 
 ### Architecture rewrite
