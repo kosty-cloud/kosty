@@ -1,5 +1,5 @@
 import click
-from .utils import common_options, execute_service_command
+from .utils import common_options, execute_engine_command
 
 @click.group()
 @click.pass_context
@@ -8,136 +8,113 @@ def s3(ctx):
     pass
 
 @s3.command('audit')
-@click.option('--days', default=90, help='Days threshold for lifecycle candidates')
 @common_options
 @click.pass_context
-def s3_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def s3_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run complete S3 audit (cost + security)"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    execute_engine_command(ctx, 'S3', 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 @s3.command('cost-audit')
-@click.option('--days', default=90, help='Days threshold for lifecycle candidates')
 @common_options
 @click.pass_context
-def s3_cost_audit(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def s3_cost_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run S3 cost optimization audit only"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    execute_engine_command(ctx, 'S3', 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 @s3.command('security-audit')
 @common_options
 @click.pass_context
 def s3_security_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Run S3 security audit only"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 @s3.command('check-empty-buckets')
 @common_options
 @click.pass_context
 def s3_check_empty(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find empty S3 buckets"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_empty_buckets', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-001')
 
 @s3.command('check-incomplete-uploads')
-@click.option('--days', default=7, help='Days threshold for incomplete uploads')
 @common_options
 @click.pass_context
-def s3_check_incomplete_uploads(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def s3_check_uploads(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find incomplete multipart uploads"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_incomplete_uploads', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-002')
 
-@s3.command('check-lifecycle-policy')
-@click.option('--days', default=90, help='Days threshold for lifecycle candidates')
+@s3.command('check-no-lifecycle')
 @common_options
 @click.pass_context
-def s3_check_lifecycle_policy(ctx, days, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Find buckets needing lifecycle policies"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_lifecycle_policy', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, days=days)
+def s3_check_lifecycle(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find buckets without lifecycle policy"""
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-003')
 
-@s3.command('check-public-read-access')
+@s3.command('check-public-read')
 @common_options
 @click.pass_context
 def s3_check_public_read(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets with public read access"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_public_read_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-004')
 
-@s3.command('check-public-write-access')
+@s3.command('check-public-write')
 @common_options
 @click.pass_context
 def s3_check_public_write(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets with public write access"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_public_write_access', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-005')
 
-@s3.command('check-encryption-at-rest')
+@s3.command('check-no-encryption')
 @common_options
 @click.pass_context
 def s3_check_encryption(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets without encryption"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_encryption_at_rest', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-006')
 
-@s3.command('check-versioning-disabled')
+@s3.command('check-no-versioning')
 @common_options
 @click.pass_context
 def s3_check_versioning(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets without versioning"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_versioning_disabled', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-007')
 
-@s3.command('check-access-logging')
+@s3.command('check-no-logging')
 @common_options
 @click.pass_context
 def s3_check_logging(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets without access logging"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_access_logging', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-008')
 
-@s3.command('check-bucket-policy-wildcards')
+@s3.command('check-wildcard-principal')
 @common_options
 @click.pass_context
-def s3_check_wildcards(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Find buckets with wildcard policies"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_bucket_policy_wildcards', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+def s3_check_wildcard(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find buckets with wildcard principal in policy"""
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-009')
 
-@s3.command('check-mfa-delete')
+@s3.command('check-no-mfa-delete')
 @common_options
 @click.pass_context
-def s3_check_mfa_delete(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def s3_check_mfa(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets without MFA delete"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_mfa_delete', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
-
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-010')
 
 @s3.command('check-no-object-lock')
 @common_options
 @click.pass_context
 def s3_check_object_lock(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Find buckets without Object Lock enabled"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_no_object_lock', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    """Find buckets without Object Lock"""
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-011')
 
-
-@s3.command('check-no-cross-region-replication')
+@s3.command('check-no-replication')
 @common_options
 @click.pass_context
-def s3_check_crr(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def s3_check_replication(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find buckets without cross-region replication"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_no_cross_region_replication', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-012')
 
-
-@s3.command('check-no-account-public-access-block')
+@s3.command('check-account-public-access')
 @common_options
 @click.pass_context
-def s3_check_account_pab(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Check if account-level S3 Block Public Access is enabled"""
-    from ..services.s3_audit import S3AuditService
-    execute_service_command(ctx, S3AuditService, 'check_no_account_public_access_block', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+def s3_check_account_public(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Check account-level S3 Block Public Access"""
+    execute_engine_command(ctx, 'S3', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-s3-013')

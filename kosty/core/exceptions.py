@@ -1,11 +1,17 @@
-"""Custom exceptions for Kosty configuration system"""
+"""Exceptions raised by the Kosty configuration layer.
+
+Kept separate from the rest of the codebase so callers can import
+just what they need without pulling in the full config module.
+"""
 
 
 class ConfigValidationError(Exception):
-    """Raised when configuration validation fails"""
-    pass
+    """Raised when kosty.yaml contains invalid values.
+
+    The error message lists every problem found, not just the first one,
+    so users can fix everything in a single pass.
+    """
 
 
 class ConfigNotFoundError(Exception):
-    """Raised when configuration file is not found"""
-    pass
+    """Raised when an explicit --config-file path doesn't exist on disk."""

@@ -1,6 +1,22 @@
-"""Configuration management system for Kosty"""
+"""Configuration management for Kosty.
+
+Loads kosty.yaml from the current directory or ~/.kosty/config.yaml,
+merges profile-specific overrides on top of the defaults, and validates
+everything before the scan starts. Failing fast on a bad config is much
+better than discovering a typo mid-scan.
+
+Profile resolution order (highest priority first):
+  1. CLI flags (--region, --max-workers, etc.)
+  2. Named profile block in kosty.yaml
+  3. 'default' block in kosty.yaml
+  4. Hardcoded defaults in DEFAULT_CONFIG
+
+AWS session creation lives here too (get_aws_session) because the session
+configuration — role ARN, MFA serial, profile name — is part of the config.
+"""
 
 import os
+import re
 import yaml
 import boto3
 import fnmatch
@@ -22,7 +38,11 @@ VALID_REGIONS = [
 VALID_SERVICES = [
     'ec2', 's3', 'rds', 'lambda', 'ebs', 'iam', 'eip',
     'lb', 'nat', 'sg', 'cloudwatch', 'dynamodb',
-    'route53', 'apigateway', 'backup', 'snapshots'
+    'route53', 'apigateway', 'backup', 'snapshots',
+    'bedrock', 'sagemaker', 'waf', 'ecs', 'sns', 'sqs',
+    'kms', 'acm', 'elasticache', 'cloudtrail', 'vpc',
+    'guardduty', 'config', 'secretsmanager', 'ssm',
+    'publicexposure', 'public_exposure',
 ]
 
 # Hardcoded defaults
@@ -51,7 +71,14 @@ DEFAULT_THRESHOLDS = {
 
 
 class ConfigManager:
-    """Manage configuration with YAML profiles"""
+    """Loads, merges, and validates Kosty configuration.
+
+    Instantiate once per command invocation. The constructor loads the
+    config file, applies the requested profile on top of the defaults,
+    and raises ConfigValidationError immediately if anything looks wrong.
+    Failing here is intentional — better than a cryptic boto3 error
+    halfway through a 20-region org scan.
+    """
     
     def __init__(self, config_file: Optional[str] = None, profile: str = "default"):
         self.config_file = config_file
@@ -59,23 +86,25 @@ class ConfigManager:
         self.config = {}
         self.raw_config = {}
         
-        # Load and validate config
         self._load_config()
         self._validate_config()
     
     def _find_config_file(self) -> Optional[str]:
-        """Find config: --config-file > ./kosty.yaml > ~/.kosty/config.yaml"""
+        """Walk the standard config search path and return the first match.
+
+        Explicit --config-file always wins. Otherwise we check the working
+        directory first (useful for per-project configs), then the home
+        directory (useful for a global personal config).
+        """
         if self.config_file:
             if os.path.exists(self.config_file):
                 return self.config_file
             raise ConfigNotFoundError(f"Config file not found: {self.config_file}")
         
-        # Check current directory
         for filename in ['kosty.yaml', 'kosty.yml', '.kosty.yaml', '.kosty.yml']:
             if os.path.exists(filename):
                 return filename
-        
-        # Check home directory
+
         home_config = Path.home() / '.kosty' / 'config.yaml'
         if home_config.exists():
             return str(home_config)
@@ -83,7 +112,7 @@ class ConfigManager:
         return None
     
     def _load_config(self) -> None:
-        """Load config from YAML file"""
+        """Load and merge config layers: defaults → global → profile."""
         config_path = self._find_config_file()
         
         if not config_path:
@@ -112,7 +141,12 @@ class ConfigManager:
                 print(f"⚠️  Profile '{self.profile}' not found, using 'default'")
     
     def _validate_config(self) -> None:
-        """Validate config values"""
+        """Validate all config values and collect errors before raising.
+
+        Collects every problem rather than stopping at the first one,
+        so users can fix everything in one pass instead of playing
+        whack-a-mole with validation errors.
+        """
         errors = []
         
         regions = self.config.get('regions', [])
@@ -146,10 +180,14 @@ class ConfigManager:
         if 'max_workers' in self.config:
             if not isinstance(self.config['max_workers'], int) or self.config['max_workers'] <= 0:
                 errors.append("'max_workers' must be positive integer")
+            elif self.config['max_workers'] > 200:
+                errors.append("'max_workers' must be <= 200 (AWS API rate limits)")
         
         if 'duration_seconds' in self.config:
             if not isinstance(self.config['duration_seconds'], int) or self.config['duration_seconds'] <= 0:
                 errors.append("'duration_seconds' must be positive integer")
+            elif self.config['duration_seconds'] > 43200:
+                errors.append("'duration_seconds' must be <= 43200 (12h AWS maximum)")
         
         thresholds = self.get_thresholds()
         for key, value in thresholds.items():
@@ -164,10 +202,11 @@ class ConfigManager:
             raise ConfigValidationError('\n'.join(errors))
     
     def get(self, key: str, default: Any = None) -> Any:
+        """Return a config value by key, with an optional default."""
         return self.config.get(key, default)
     
     def get_thresholds(self) -> Dict[str, Any]:
-        """Get thresholds: global + profile overrides"""
+        """Return thresholds with profile overrides applied on top of globals."""
         thresholds = DEFAULT_THRESHOLDS.copy()
         
         if 'thresholds' in self.raw_config:
@@ -182,11 +221,11 @@ class ConfigManager:
         return thresholds
     
     def get_threshold(self, key: str, default: Any = None) -> Any:
-        """Get a single threshold value by key"""
+        """Return a single threshold value by key."""
         return self.get_thresholds().get(key, default)
     
     def get_exclusions(self) -> Dict[str, List]:
-        """Get exclusions: global + profile additions"""
+        """Return exclusions with profile additions merged in."""
         exclusions = {
             'accounts': [],
             'regions': [],
@@ -209,19 +248,26 @@ class ConfigManager:
         return exclusions
     
     def should_exclude_account(self, account_id: str) -> bool:
+        """Return True if this account ID is in the exclusion list."""
         excluded_accounts = self.get_exclusions().get('accounts', [])
         return account_id in excluded_accounts
-    
+
     def should_exclude_region(self, region: str) -> bool:
+        """Return True if this region is in the exclusion list."""
         excluded_regions = self.get_exclusions().get('regions', [])
         return region in excluded_regions
-    
+
     def should_exclude_service(self, service: str) -> bool:
+        """Return True if this service is in the exclusion list."""
         excluded_services = self.get_exclusions().get('services', [])
         return service in excluded_services
     
     def should_exclude_arn(self, arn: str) -> bool:
-        """Check if ARN matches exclusion pattern (wildcards supported)"""
+        """Return True if the ARN matches any exclusion pattern.
+
+        Patterns support fnmatch wildcards, e.g.:
+          arn:aws:ec2:us-east-1:*:instance/i-*
+        """
         excluded_arns = self.get_exclusions().get('arns', [])
         for pattern in excluded_arns:
             if fnmatch.fnmatch(arn, pattern):
@@ -229,7 +275,12 @@ class ConfigManager:
         return False
     
     def should_exclude_by_tags(self, resource_tags: List[Dict[str, str]]) -> bool:
-        """Check if resource should be excluded based on tags"""
+        """Return True if any exclusion tag rule matches the resource's tags.
+
+        Supports both 'Key'/'Value' (AWS SDK format) and 'key'/'value'
+        (lowercase, used in some internal representations).
+        A rule with no value matches any tag with the right key.
+        """
         if not resource_tags:
             return False
         
@@ -260,7 +311,11 @@ class ConfigManager:
         return False
     
     def merge_with_cli_args(self, cli_args: Dict[str, Any]) -> Dict[str, Any]:
-        """Merge config with CLI args (CLI takes priority)"""
+        """Return a merged config dict with CLI args taking priority over file config.
+
+        None values in cli_args are ignored so unset CLI flags don't
+        accidentally override a value the user set in kosty.yaml.
+        """
         merged = self.config.copy()
         for key, value in cli_args.items():
             if value is not None:
@@ -268,41 +323,48 @@ class ConfigManager:
         return merged
     
     def get_all_profiles(self) -> List[str]:
-        """Get list of all profile names from config"""
+        """Return all profile names defined in the config file, including 'default'."""
         profiles = ['default']
         if 'profiles' in self.raw_config:
             profiles.extend(self.raw_config['profiles'].keys())
         return profiles
     
     def get_aws_session(self) -> boto3.Session:
-        """Create AWS session with AssumeRole/MFA if configured"""
+        """Build a boto3 Session from the profile's auth configuration.
+
+        Priority: role_arn (AssumeRole) > aws_profile > default credential chain.
+        MFA is prompted interactively when mfa_serial is set — this is intentional,
+        Kosty is a CLI tool not a daemon.
+        """
         role_arn = self.get('role_arn')
         aws_profile = self.get('aws_profile')
         mfa_serial = self.get('mfa_serial')
         duration = self.get('duration_seconds', 3600)
         
-        # Priority: role_arn > aws_profile > default credentials
         if role_arn:
-            # AssumeRole flow
             mfa_token = None
             if mfa_serial:
                 mfa_token = input(f"🔐 Enter MFA token for {mfa_serial}: ")
-            
+
             sts = boto3.client('sts')
-            
+
+            # RoleSessionName only allows [\w+=,.@-] — sanitise before the STS call
+            safe_profile = re.sub(r'[^\w+=,.@-]', '-', self.profile)
             assume_role_params = {
                 'RoleArn': role_arn,
-                'RoleSessionName': f'kosty-{self.profile}',
+                'RoleSessionName': f'kosty-{safe_profile}',
                 'DurationSeconds': duration
             }
-            
+
             if mfa_serial and mfa_token:
                 assume_role_params['SerialNumber'] = mfa_serial
                 assume_role_params['TokenCode'] = mfa_token
-            
+
             try:
                 response = sts.assume_role(**assume_role_params)
-                
+                config_file = self._find_config_file() or 'no config file'
+                print(f"🔑 Auth: AssumeRole → {role_arn}")
+                print(f"   Config: {config_file} | Profile: {self.profile}")
                 return boto3.Session(
                     aws_access_key_id=response['Credentials']['AccessKeyId'],
                     aws_secret_access_key=response['Credentials']['SecretAccessKey'],
@@ -319,9 +381,12 @@ class ConfigManager:
                 raise SystemExit(1)
         
         elif aws_profile:
-            # Use AWS CLI profile
             try:
-                return boto3.Session(profile_name=aws_profile)
+                session = boto3.Session(profile_name=aws_profile)
+                config_file = self._find_config_file() or 'no config file'
+                print(f"🔑 Auth: AWS profile '{aws_profile}'")
+                print(f"   Config: {config_file} | Profile: {self.profile}")
+                return session
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
                 print(f"\nError: Failed to use AWS profile")
@@ -333,5 +398,7 @@ class ConfigManager:
                 raise SystemExit(1)
         
         else:
-            # Use default credentials (env vars, instance role, default profile)
+            config_file = self._find_config_file() or 'no config file'
+            print(f"🔑 Auth: default credential chain")
+            print(f"   Config: {config_file} | Profile: {self.profile}")
             return boto3.Session()

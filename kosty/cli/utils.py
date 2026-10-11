@@ -1,10 +1,44 @@
+"""Shared utilities for all CLI service commands.
+
+The key entry point here is execute_engine_command(), which every service
+command calls. It handles config resolution, plugin loading, check selection,
+execution, and output in one place so individual command files stay thin.
+"""
+
 import click
-import asyncio
-from ..core.executor import ServiceExecutor
+import json
+import os
+from pathlib import Path
+from datetime import datetime
 from ..core.config import ConfigManager
 
+
+def _debug_callback(ctx, param, value):
+    """Store debug flag in ctx.obj so execute_engine_command can read it
+    without requiring every command function to forward it explicitly.
+    """
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['debug'] = value
+    return value
+
+
+def _verbose_callback(ctx, param, value):
+    """Store verbose flag in ctx.obj so execute_engine_command can read it
+    without requiring every command function to forward it explicitly.
+    """
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['verbose'] = value
+    return value
+
+
 def common_options(f):
-    """Decorator to add common options to all service commands"""
+    """Decorator that attaches the standard scan options to any Click command.
+
+    Applied to every service command so the option set stays consistent
+    across all 30+ commands without repeating the definitions.
+    """
     f = click.option('--profile', help='Configuration profile to use')(f)
     f = click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv']), help='Output format')(f)
     f = click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')(f)
@@ -14,75 +48,208 @@ def common_options(f):
     f = click.option('--organization', is_flag=True, help='Scan entire AWS organization')(f)
     f = click.option('--cross-account-role', default='OrganizationAccountAccessRole', help='Role name for cross-account access')(f)
     f = click.option('--org-admin-account-id', help='Organization admin account ID (if different from current account)')(f)
+    f = click.option('--verbose', is_flag=True, expose_value=False, callback=_verbose_callback, is_eager=False,
+                     help='Show full finding details (ARN, risk, savings, check ID)')(f)
+    f = click.option('--debug', is_flag=True, expose_value=False, callback=_debug_callback, is_eager=False,
+                     help='Print check execution details, errors, and timing to stderr')(f)
     return f
 
-def get_profile_from_context(ctx, profile_arg):
-    """Get profile from command arg or context"""
-    return profile_arg or ctx.obj.get('profile', 'default')
+def _resolve_scan_params(ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id):
+    """Resolve session, region list, and worker count from CLI args + config.
 
-def get_effective_params(ctx, organization, region, max_workers, regions=None, cross_account_role=None, org_admin_account_id=None):
-    """Get effective parameters, preferring command-level over global"""
-    # Priority: regions > region > global region
-    effective_regions = None
-    if regions:
-        effective_regions = [r.strip() for r in regions.split(',')]
-    elif region:
-        effective_regions = [region]
-    elif ctx.obj['region']:
-        effective_regions = [ctx.obj['region']]
-    else:
-        effective_regions = ['us-east-1']
-    
-    return (
-        organization or ctx.obj['organization'],
-        effective_regions,
-        max_workers or ctx.obj['max_workers'],
-        cross_account_role or 'OrganizationAccountAccessRole',
-        org_admin_account_id
-    )
-
-def execute_service_command(ctx, service_class, method, output, organization, region, max_workers, regions, cross_account_role=None, org_admin_account_id=None, save_to=None, profile=None, **kwargs):
-    """Execute a service command with common parameters"""
-    profile_name = get_profile_from_context(ctx, profile)
-    
+    Config file values are the baseline; CLI args take priority.
+    Falls back to a plain boto3.Session() with the CLI-provided region
+    if config loading fails (e.g. malformed kosty.yaml).
+    """
+    import boto3
+    profile_name = profile or ctx.obj.get('profile', 'default')
     try:
         config_manager = ConfigManager(
             config_file=ctx.obj.get('config_file'),
             profile=profile_name
         )
         session = config_manager.get_aws_session()
-        
-        # Merge config with CLI args (CLI takes priority)
-        final_config = config_manager.merge_with_cli_args({
-            'organization': organization,
-            'region': region,
-            'regions': regions,
-            'max_workers': max_workers,
-            'cross_account_role': cross_account_role,
+        final = config_manager.merge_with_cli_args({
+            'organization': organization, 'region': region, 'regions': regions,
+            'max_workers': max_workers, 'cross_account_role': cross_account_role,
             'org_admin_account_id': org_admin_account_id
         })
-        
-        # Handle regions priority
-        if final_config.get('regions'):
-            if isinstance(final_config['regions'], str):
-                reg_list = [r.strip() for r in final_config['regions'].split(',')]
-            else:
-                reg_list = final_config['regions']
-        elif final_config.get('region'):
-            reg_list = [final_config['region']]
+        if final.get('regions'):
+            reg_list = [r.strip() for r in final['regions'].split(',')] if isinstance(final['regions'], str) else final['regions']
+        elif final.get('region'):
+            reg_list = [final['region']]
         else:
             reg_list = ['us-east-1']
-        
-        org = final_config.get('organization', False)
-        workers = final_config.get('max_workers', 10)
-        role_name = final_config.get('cross_account_role', 'OrganizationAccountAccessRole')
-        admin_account = final_config.get('org_admin_account_id')
-        
+        return session, reg_list, final.get('max_workers', 10), config_manager
     except Exception:
-        config_manager = None
-        session = None
-        org, reg_list, workers, role_name, admin_account = get_effective_params(ctx, organization, region, max_workers, regions, cross_account_role, org_admin_account_id)
-    
-    service = service_class()
-    executor = ServiceExecutor(service, org, reg_list, workers, role_name, admin_account, config_manager=config_manager, session=session)
-    asyncio.run(executor.execute(method, output, save_to=save_to, **kwargs))
+        if regions:
+            reg_list = [r.strip() for r in regions.split(',')]
+        elif region:
+            reg_list = [region]
+        elif ctx.obj.get('region'):
+            reg_list = [ctx.obj['region']]
+        else:
+            reg_list = ['us-east-1']
+        return boto3.Session(), reg_list, max_workers or ctx.obj.get('max_workers', 10), None
+
+
+def _run_checks(checks, session, reg_list, workers, config_manager, debug=False, **kwargs):
+    """Execute a list of checks across regions and return all findings.
+
+    Injects compliance_ids from check metadata into each finding so plugins
+    don't need to repeat the mapping in their Finding constructors.
+    """
+    import sys
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    all_findings = []
+    for rgn in reg_list:
+        if debug:
+            print(f"[DEBUG] region={rgn} checks={len(checks)}", file=sys.stderr)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(c['func'], session=session, region=rgn,
+                                config_manager=config_manager, **kwargs): c
+                for c in checks
+            }
+            for future in as_completed(futures):
+                check = futures[future]
+                t0 = time.monotonic()
+                try:
+                    result = future.result()
+                    if isinstance(result, list):
+                        if check['metadata'].compliance_ids:
+                            for f in result:
+                                if hasattr(f, 'compliance_ids') and not f.compliance_ids:
+                                    f.compliance_ids = check['metadata'].compliance_ids
+                        all_findings.extend(result)
+                        if debug:
+                            elapsed = time.monotonic() - t0
+                            print(
+                                f"[DEBUG] {check['metadata'].check_id} {rgn}"
+                                f" findings={len(result)} t={elapsed:.2f}s",
+                                file=sys.stderr,
+                            )
+                except Exception as e:
+                    if debug:
+                        elapsed = time.monotonic() - t0
+                        print(
+                            f"[DEBUG] {check['metadata'].check_id} {rgn}"
+                            f" ERROR {type(e).__name__}: {e} t={elapsed:.2f}s",
+                            file=sys.stderr,
+                        )
+    return all_findings
+
+
+def execute_engine_command(ctx, service_name, method, output, organization, region,
+                           max_workers, regions, cross_account_role=None,
+                           org_admin_account_id=None, save_to=None, profile=None,
+                           check_id=None, **kwargs):
+    """Resolve config, select checks, run them, and display results."""
+    import sys
+    verbose = ctx.obj.get('verbose', False) if ctx.obj else False
+    debug = ctx.obj.get('debug', False) if ctx.obj else False
+    from ..core.registry import registry
+    from ..core.models import FindingType
+
+    session, reg_list, workers, config_manager = _resolve_scan_params(
+        ctx, profile, organization, region, max_workers, regions,
+        cross_account_role, org_admin_account_id
+    )
+
+    _ensure_plugins_loaded()
+
+    if check_id:
+        entry = registry.get_check(check_id)
+        checks = [entry] if entry else []
+    else:
+        checks = registry.get_checks_by_service(service_name)
+        if method == 'cost_audit':
+            checks = [c for c in checks if c['metadata'].finding_type == FindingType.COST]
+        elif method == 'security_audit':
+            checks = [c for c in checks if c['metadata'].finding_type == FindingType.SECURITY]
+
+    deep = kwargs.get('deep', False)
+    if not deep:
+        checks = [c for c in checks if not c['metadata'].requires_deep]
+
+    if debug:
+        print(
+            f"[DEBUG] service={service_name} method={method or check_id}"
+            f" checks={len(checks)} regions={reg_list} workers={workers}",
+            file=sys.stderr,
+        )
+
+    findings = _run_checks(checks, session, reg_list, workers, config_manager, debug=debug, **kwargs)
+    _output_findings(findings, service_name, output, save_to, verbose=verbose)
+
+
+def _ensure_plugins_loaded():
+    """Load native plugins if not already loaded."""
+    from ..core.registry import registry
+    if registry.count > 0:
+        return
+    from ..core.loader import PluginLoader
+    loader = PluginLoader()
+    plugins_dir = os.path.join(os.path.dirname(__file__), '..', 'providers', 'aws', 'services')
+    plugins_dir = os.path.abspath(plugins_dir)
+    if os.path.isdir(plugins_dir):
+        loader.load_directory(plugins_dir)
+
+
+def _output_findings(findings, service_name, output, save_to=None, verbose=False):
+    """Display findings in the requested format."""
+    items = [f.to_dict() for f in findings]
+    total = len(items)
+
+    if output == 'console' or output == 'all':
+        if total == 0:
+            print(f"\n✅ {service_name.upper()}: No issues found")
+        else:
+            print(f"\n🔍 {service_name.upper()}: {total} issues found")
+            print("─" * 50)
+            for item in items:
+                sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}.get(item.get('severity', ''), '⚪')
+                print(f"  {sev_icon} [{item.get('severity', '').upper()}] {item.get('Issue', '')}")
+                print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
+                if item.get('Risk'):
+                    print(f"     Risk: {item['Risk']}")
+                if verbose:
+                    if item.get('ARN'):
+                        print(f"     ARN: {item['ARN']}")
+                    savings = item.get('monthly_savings') or item.get('MonthlySavings')
+                    if savings:
+                        print(f"     Savings: ${savings:.2f}/mo")
+                    if item.get('check'):
+                        print(f"     Check: {item['check']}")
+
+    if output in ['json', 'all']:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
+        filename = f"kosty_{service_name}_{account_id}_{timestamp}.json"
+        if save_to:
+            dest = Path(save_to).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
+            filename = str(dest / filename)
+        report = {'scan_timestamp': datetime.now().isoformat(), 'service': service_name, 'total_issues': total, 'results': items}
+        with open(filename, 'w') as f:
+            json.dump(report, f, indent=2, default=str)
+        print(f"\n📄 JSON report saved: {filename}")
+
+    if output in ['csv', 'all']:
+        import csv
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
+        filename = f"kosty_{service_name}_{account_id}_{timestamp}.csv"
+        if save_to:
+            dest = Path(save_to).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
+            filename = str(dest / filename)
+        if items:
+            fieldnames = sorted(set().union(*(item.keys() for item in items)))
+            with open(filename, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+                writer.writeheader()
+                writer.writerows(items)
+            print(f"📊 CSV report saved: {filename}")

@@ -3,13 +3,13 @@
 <div align="center">
 
 ![Kosty Logo](https://img.shields.io/badge/💰-Kosty-blue?style=for-the-badge)
-[![Python](https://img.shields.io/badge/Python-3.7+-blue?style=flat-square&logo=python)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)](https://python.org)
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-> 🤖 **New in v2.0.0** — `kosty ai` now audits Bedrock and SageMaker workloads: guardrails, shadow AI detection, idle GPU endpoints, prompt caching, and more. [See what's new →](docs/RELEASE_NOTES.md)
+> 🧩 **v3.0.0 — Modular Platform** — Plugin-based engine. 151 checks, 32 services, fully extensible. [Architecture guide →](docs/ARCHITECTURE_V3.md)
 
-**Scan 30+ AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
+**Scan 32 AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
 
 [Quick Start](#-quick-start) • [Key Features](#-key-features) • [Service Coverage](#-service-coverage) • [Documentation](docs/DOCUMENTATION.md)
 
@@ -27,7 +27,7 @@
 
 🏢 **Organization-Wide Scanning** — parallel audit across hundreds of AWS accounts with cross-account role assumption
 
-🛡️ **200+ Security Checks** — WAF hardening, API Gateway auth/throttling/TLS, CloudTrail, GuardDuty, VPC Flow Logs, KMS rotation
+🛡️ **151 Security & Cost Checks** — WAF hardening, API Gateway auth/throttling/TLS, CloudTrail, GuardDuty, VPC Flow Logs, KMS rotation
 
 💰 **Real Dollar Savings** — not just recommendations, actual monthly amounts for 11 services ($280/mo per stopped m5.2xlarge, $700/mo per oversized db.r5.4xlarge)
 
@@ -38,7 +38,7 @@
 ```bash
 pip install kosty
 
-# Full audit — cost + security across 30+ services
+# Full audit — cost + security across 32 services
 kosty audit --output all
 
 # External attack surface mapping
@@ -94,7 +94,7 @@ Each finding is classified:
 
 ### 🔐 Security Audit
 
-200+ checks across 30+ services. Highlights:
+151 checks across 32 services. Highlights:
 
 - **IAM Privilege Escalation** — detects 21 known escalation patterns with optional `--deep` confirmation via SimulatePrincipalPolicy
 - **WAF Hardening** — managed rules, rate limiting, bot control, logging, action mode
@@ -145,7 +145,7 @@ open dashboard/index.html   # visualize savings
 
 ## 📊 Service Coverage
 
-**30 services**, organized by category:
+**32 services**, organized by category:
 
 | Category | Services | Key Checks |
 |----------|----------|------------|
@@ -171,7 +171,7 @@ Full check list per service → [docs/SERVICES.md](docs/SERVICES.md)
 ## 🔧 Installation
 
 ```bash
-# PyPI (recommended)
+# PyPI (recommended) — requires Python 3.10+
 pip install kosty
 
 # Docker
@@ -211,6 +211,11 @@ kosty audit --profile production
 kosty audit --profiles --output all    # all profiles in parallel
 ```
 
+Local reports include a `.sha256` sidecar for integrity verification:
+```bash
+sha256sum -c kosty_full_*.json.sha256
+```
+
 Full configuration guide → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 
 ---
@@ -220,19 +225,20 @@ Full configuration guide → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 | Guide | Description |
 |-------|-------------|
 | [Full Documentation](docs/DOCUMENTATION.md) | Complete user guide |
-| [Service Coverage](docs/SERVICES.md) | All 30 services and their checks |
+| [Service Coverage](docs/SERVICES.md) | All 32 services and their checks |
 | [CLI Reference](docs/CLI_REFERENCE.md) | Every command and option |
 | [Examples](docs/EXAMPLES.md) | Detailed usage examples |
 | [Configuration](docs/CONFIGURATION.md) | YAML config, profiles, exclusions |
 | [Multi-Profile Guide](docs/MULTI_PROFILE_GUIDE.md) | Parallel multi-customer audits |
 | [Release Notes](docs/RELEASE_NOTES.md) | Version history |
+| [Architecture (v3)](docs/ARCHITECTURE_V3.md) | Plugin system, writing checks |
 
 ---
 
 ## 🤝 Contributing
 
 1. **Report Issues** — [Open an issue](https://github.com/kosty-cloud/kosty/issues)
-2. **Add Services** — Follow the pattern in `kosty/services/`
+2. **Add Checks** — Follow the plugin pattern in [`kosty/providers/aws/services/`](docs/ARCHITECTURE_V3.md). After adding a plugin, run `python scripts/generate_manifest.py` to update the integrity manifest.
 3. **Star the Repo** — Show your support
 
 ---

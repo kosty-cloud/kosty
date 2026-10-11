@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-Kosty is a comprehensive AWS cost optimization and security audit CLI tool that helps you identify cost waste, security vulnerabilities, and compliance issues across 30+ AWS services. With 200+ checks and dedicated commands for attack surface mapping and AI/ML workload auditing, Kosty provides both high-level audits and granular individual checks for cost optimization and security hardening.
+Kosty is a comprehensive AWS cost optimization and security audit CLI tool that helps you identify cost waste, security vulnerabilities, and compliance issues across 32 AWS services. With 151 checks and dedicated commands for attack surface mapping and AI/ML workload auditing, Kosty provides both high-level audits and granular individual checks for cost optimization and security hardening.
 
 ### 🎯 What Kosty Audits
 - **💰 Cost Optimization**: Unused resources, oversized instances, idle services
@@ -12,7 +12,7 @@ Kosty is a comprehensive AWS cost optimization and security audit CLI tool that 
 ## 🔧 Installation
 
 ### Prerequisites
-- Python 3.7 or higher
+- Python 3.10 or higher
 - AWS CLI configured with appropriate credentials
 
 ### Quick Installation (Recommended)
@@ -52,13 +52,8 @@ export AWS_DEFAULT_REGION=us-east-1
 Use IAM roles attached to your EC2 instances for secure, credential-free access.
 
 ### Required Permissions
-Kosty requires read-only permissions for the following services:
-- EC2, RDS, S3, IAM, Lambda, EBS
-- EIP, Load Balancer, NAT Gateway, Security Groups
-- Route53, CloudWatch, Backup, API Gateway
-- DynamoDB, Snapshots
+Kosty requires read-only permissions across all audited services. The minimum policy below covers all 32 services:
 
-Example IAM policy:
 ```json
 {
     "Version": "2012-10-17",
@@ -70,18 +65,59 @@ Example IAM policy:
                 "rds:Describe*",
                 "s3:List*",
                 "s3:Get*",
+                "s3control:GetPublicAccessBlock",
                 "iam:List*",
                 "iam:Get*",
+                "iam:SimulatePrincipalPolicy",
                 "lambda:List*",
                 "lambda:Get*",
                 "elasticloadbalancing:Describe*",
                 "route53:List*",
                 "cloudwatch:Describe*",
                 "cloudwatch:List*",
+                "cloudwatch:GetMetricStatistics",
+                "logs:DescribeLogGroups",
                 "backup:List*",
                 "apigateway:GET",
                 "dynamodb:List*",
-                "dynamodb:Describe*"
+                "dynamodb:Describe*",
+                "wafv2:List*",
+                "wafv2:Get*",
+                "cloudtrail:Describe*",
+                "cloudtrail:Get*",
+                "cloudtrail:List*",
+                "guardduty:List*",
+                "guardduty:Get*",
+                "config:Describe*",
+                "secretsmanager:List*",
+                "secretsmanager:Describe*",
+                "kms:List*",
+                "kms:Describe*",
+                "acm:List*",
+                "acm:Describe*",
+                "elasticache:Describe*",
+                "sns:List*",
+                "sns:Get*",
+                "sqs:List*",
+                "sqs:Get*",
+                "ecs:List*",
+                "ecs:Describe*",
+                "ssm:List*",
+                "ssm:Describe*",
+                "bedrock:List*",
+                "bedrock:Get*",
+                "sagemaker:List*",
+                "sagemaker:Describe*",
+                "eks:List*",
+                "eks:Describe*",
+                "ecr-public:Describe*",
+                "opensearch:List*",
+                "opensearch:Describe*",
+                "redshift:Describe*",
+                "organizations:ListAccounts",
+                "organizations:DescribeOrganization",
+                "sts:GetCallerIdentity",
+                "servicequotas:ListServiceQuotas"
             ],
             "Resource": "*"
         }
@@ -326,7 +362,7 @@ Kosty now validates Organizations access upfront and provides clear error messag
 
 ### Global Commands
 ```bash
-kosty audit                    # Scan all 30+ services
+kosty audit                    # Scan all 32 services
 kosty audit --organization    # Organization-wide scan
 ```
 
@@ -343,32 +379,56 @@ kosty <service> check-<specific-issue>  # Individual checks
 All commands support:
 - `--organization` - Scan entire AWS organization
 - `--region TEXT` - Single AWS region to scan (default: us-east-1)
-- `--regions TEXT` - Multiple AWS regions to scan (comma-separated, e.g., us-east-1,eu-west-1)
-- `--max-workers INTEGER` - Number of parallel workers (default: 10)
+- `--regions TEXT` - Multiple AWS regions (comma-separated, e.g., us-east-1,eu-west-1)
+- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 10)
 - `--output [console|json|csv|all]` - Output format (default: console)
-- `--save-to TEXT` - Custom storage location (S3 bucket, local path, or network share)
-- `--cross-account-role TEXT` - Custom role name for cross-account access (default: OrganizationAccountAccessRole)
-- `--org-admin-account-id TEXT` - Organization admin account ID (if different from current account)
+- `--save-to TEXT` - Save reports to S3, local path, or network share
+- `--profile TEXT` - Configuration profile from kosty.yaml
+- `--cross-account-role TEXT` - Role name for cross-account access (default: OrganizationAccountAccessRole)
+- `--org-admin-account-id TEXT` - Organization admin account ID
+- `--verbose` - Show full finding details: ARN, risk, monthly savings, check ID
+- `--debug` - Print check execution details, errors, and timing to stderr (for troubleshooting)
+
+Local JSON and CSV reports are written with a `.sha256` sidecar for integrity verification:
+```bash
+sha256sum -c kosty_full_*.json.sha256
+```
 
 ## 🔍 Service Coverage
 
-### 16 Core Services
-1. **EC2** - 16 commands (13 individual checks)
-2. **RDS** - 17 commands (14 individual checks)
-3. **S3** - 14 commands (11 individual checks)
-4. **IAM** - 13 commands (10 individual checks)
-5. **EBS** - 12 commands (9 individual checks)
-6. **Load Balancer** - 10 commands (7 individual checks)
-7. **Security Groups** - 9 commands (6 individual checks)
-8. **Lambda** - 8 commands (5 individual checks)
-9. **EIP** - 7 commands (4 individual checks)
-10. **CloudWatch** - 7 commands (4 individual checks)
-11. **Backup** - 6 commands (3 individual checks)
-12. **NAT Gateway** - 6 commands (3 individual checks)
-13. **Snapshots** - 6 commands (3 individual checks)
-14. **API Gateway** - 5 commands (2 individual checks)
-15. **DynamoDB** - 5 commands (2 individual checks)
-16. **Route53** - 5 commands (2 individual checks)
+### 32 Services, 151 Checks
+1. **EC2** — stopped, idle, oversized, IMDSv1, open ports, old AMI
+2. **RDS** — public, oversized, unencrypted, outdated engine, no SSL
+3. **S3** — public read/write, no encryption, no versioning, no lifecycle
+4. **IAM** — root keys, MFA, old keys, wildcard policies, privilege escalation (21 patterns)
+5. **EBS** — orphan volumes, unencrypted, public snapshots, gp2
+6. **Load Balancer** — no healthy targets, no HTTPS
+7. **Security Groups** — SSH/RDP open, all ports open, database ports
+8. **Lambda** — unused, public, outdated runtime, over-provisioned memory
+9. **EIP** — unattached
+10. **CloudWatch** — log groups without retention, unused alarms
+11. **Backup** — empty vaults
+12. **NAT Gateway** — unused, redundant
+13. **Snapshots** — old, public
+14. **API Gateway** — no WAF, no auth, no throttling, CloudFront bypass
+15. **DynamoDB** — idle tables
+16. **Route53** — unused hosted zones
+17. **WAFv2** — unassociated ACLs, missing managed rules, no rate limiting
+18. **CloudTrail** — not enabled, no log validation, no encryption
+19. **VPC** — no flow logs, default SG open
+20. **GuardDuty** — not enabled
+21. **AWS Config** — not enabled
+22. **Secrets Manager** — unused secrets, no rotation
+23. **KMS** — no key rotation
+24. **ACM** — expiring certificates
+25. **ElastiCache** — no encryption at rest/in transit
+26. **SNS** — no encryption
+27. **SQS** — no encryption
+28. **ECS** — privileged task definitions
+29. **SSM** — non-compliant patches
+30. **Bedrock** — no guardrails, shadow AI, no VPC endpoint, no prompt caching (12 checks)
+31. **SageMaker** — idle endpoints, zombie notebooks, no Spot training (8 checks)
+32. **PublicExposure** — 15 resource types, 3-tier classification
 
 ## 💡 Usage Examples
 
@@ -430,6 +490,15 @@ kosty ec2 check-ssh-open --organization --regions us-east-1,eu-west-1 --save-to 
 ```bash
 kosty ec2 audit
 # Displays formatted table with issues found
+```
+
+#### Verbose Console Output
+```bash
+kosty ec2 audit --verbose
+# Adds ARN, risk description, monthly savings, and check ID to each finding
+
+kosty audit --verbose
+# Full audit: shows the summary report then a detailed per-finding block
 ```
 
 #### JSON Output

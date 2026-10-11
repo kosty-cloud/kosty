@@ -36,7 +36,15 @@ kosty.yaml
 # AWS credentials
 .aws/
 credentials
-config
+/config
+
+# Certificates and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
 
 # IDE
 .vscode/

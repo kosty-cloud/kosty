@@ -1,48 +1,44 @@
 import click
-from .utils import common_options, execute_service_command
+from .utils import common_options, execute_engine_command
 
 @click.group()
 @click.pass_context
 def backup(ctx):
-    """AWS Backup operations"""
+    """Backup operations"""
     pass
 
 @backup.command('audit')
 @common_options
 @click.pass_context
 def backup_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Run complete AWS Backup audit"""
-    from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    """Run Backup complete audit"""
+    execute_engine_command(ctx, 'Backup', 'audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 @backup.command('cost-audit')
 @common_options
 @click.pass_context
 def backup_cost_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Run AWS Backup cost optimization audit only"""
-    from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    """Run Backup cost optimization audit"""
+    execute_engine_command(ctx, 'Backup', 'cost_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 @backup.command('security-audit')
 @common_options
 @click.pass_context
 def backup_security_audit(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Run AWS Backup security audit only"""
-    from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    """Run Backup security audit"""
+    execute_engine_command(ctx, 'Backup', 'security_audit', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
 
 @backup.command('check-empty-vaults')
 @common_options
 @click.pass_context
-def backup_check_empty(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
-    """Find empty backup vaults"""
-    from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'check_empty_backup_vaults', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+def backup_check_empty_vaults(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+    """Find empty AWS Backup vaults"""
+    execute_engine_command(ctx, 'Backup', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-backup-001')
 
-@backup.command('check-cross-region-backup')
+@backup.command('check-cross-region-dev')
 @common_options
 @click.pass_context
-def backup_check_cross_region(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
+def backup_check_cross_region_dev(ctx, profile, organization, region, max_workers, regions, output, save_to, cross_account_role, org_admin_account_id):
     """Find cross-region backup for dev/test"""
-    from ..services.backup_audit import BackupAuditService
-    execute_service_command(ctx, BackupAuditService, 'check_cross_region_backup_dev_test', output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile)
+    execute_engine_command(ctx, 'Backup', None, output, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, save_to, profile, check_id='aws-backup-002')
+

@@ -3,7 +3,6 @@ import click
 import asyncio
 from .. import __version__
 
-# Import all service commands
 from .ec2_commands import ec2
 from .s3_commands import s3
 from .rds_commands import rds
@@ -58,48 +57,17 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
     ctx.obj['max_workers'] = max_workers
     ctx.obj['cross_account_role'] = cross_account_role
     ctx.obj['org_admin_account_id'] = org_admin_account_id
-    
+
     if run_all:
-        from ..core.scanner import ComprehensiveScanner
-        from ..core.config import ConfigManager
-        import asyncio
-        
-        try:
-            config_manager = ConfigManager(
-                config_file=config_file,
-                profile=profile
-            )
-            session = config_manager.get_aws_session()
-        except Exception:
-            config_manager = None
-            session = None
-        
-        scanner = ComprehensiveScanner(organization, region, max_workers, cross_account_role, org_admin_account_id, config_manager=config_manager, session=session)
-        reporter = asyncio.run(scanner.run_comprehensive_scan())
-        
-        # Generate reports based on output format
-        if output in ['console', 'all']:
-            print(reporter.generate_summary_report())
-        
-        if output in ['json', 'all']:
-            json_file = reporter.save_json_report(organization=organization, org_admin_account_id=org_admin_account_id)
-            print(f"\n📄 Detailed JSON report saved: {json_file}")
-        
-        if output in ['csv', 'all']:
-            csv_file = reporter.save_csv_report(organization=organization, org_admin_account_id=org_admin_account_id)
-            print(f"📊 CSV report saved: {csv_file}")
-        
-        if output == 'all':
-            print(f"\n🎉 All reports generated successfully!")
-            total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in reporter.results.values() for svc in acc.values())
-            print(f"📊 Total issues found: {total_issues}")
-        
+        ctx.invoke(audit, output=output, organization=organization,
+                   region=region, max_workers=max_workers,
+                   cross_account_role=cross_account_role,
+                   org_admin_account_id=org_admin_account_id)
         return
-    
+
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
-# Main audit command
 @cli.command('audit')
 @click.option('--profile', help='Configuration profile to use')
 @click.option('--organization', is_flag=True, help='Run across organization accounts')
@@ -112,40 +80,34 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--org-admin-account-id', help='Organization admin account ID')
 @click.option('--profiles', is_flag=True, help='Run audit on all profiles from config file')
 @click.option('--max-parallel-profiles', type=int, default=3, help='Max profiles to run in parallel (default: 3)')
+@click.option('--verbose', is_flag=True, help='Show full finding details (ARN, risk, savings, check ID)')
+@click.option('--debug', is_flag=True, help='Print check execution details, errors, and timing to stderr')
 @click.pass_context
-def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles):
-    """Quick comprehensive audit (same as --all)"""
-    from ..core.scanner import ComprehensiveScanner
+def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles, verbose, debug):
+    """Run a full audit across all 32 services (cost + security)."""
+    from ..core.engine_scanner import EngineScanner
     from ..core.config import ConfigManager
     from ..core.multi_profile_runner import MultiProfileRunner
-    import asyncio
-    
-    # Multi-profile mode
+
+    ctx.ensure_object(dict)
+    ctx.obj['verbose'] = verbose
+    ctx.obj['debug'] = debug
+
     if profiles:
         runner = MultiProfileRunner(config_file=ctx.obj.get('config_file'))
-        
         cli_args = {
-            'organization': organization,
-            'region': region,
-            'regions': regions,
-            'max_workers': max_workers,
-            'output': output,
-            'save_to': save_to,
+            'organization': organization, 'region': region, 'regions': regions,
+            'max_workers': max_workers, 'output': output, 'save_to': save_to,
             'cross_account_role': cross_account_role,
-            'org_admin_account_id': org_admin_account_id
+            'org_admin_account_id': org_admin_account_id,
         }
-        
         runner.run_parallel(cli_args, max_parallel=max_parallel_profiles)
-        
         if output in ['console', 'all']:
             runner.print_summary()
-        
         if output in ['json', 'csv', 'all']:
             runner.save_reports(output_format=output)
-        
         return
-    
-    # Single profile mode (existing logic)
+
     profile_name = profile or ctx.obj.get('profile', 'default')
     try:
         config_manager = ConfigManager(
@@ -155,78 +117,100 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
     except Exception as e:
         print(f"\n❌ Configuration error: {e}")
         return
-    
-    # Merge config with CLI args (CLI takes priority)
+
     final_config = config_manager.merge_with_cli_args({
-        'organization': organization,
-        'region': region,
-        'regions': regions,
-        'max_workers': max_workers,
-        'output': output,
-        'save_to': save_to,
+        'organization': organization, 'region': region, 'regions': regions,
+        'max_workers': max_workers, 'output': output, 'save_to': save_to,
         'cross_account_role': cross_account_role,
-        'org_admin_account_id': org_admin_account_id
+        'org_admin_account_id': org_admin_account_id,
     })
-    
-    # Handle regions priority
+
     if final_config.get('regions'):
-        if isinstance(final_config['regions'], str):
-            reg_list = [r.strip() for r in final_config['regions'].split(',')]
-        else:
-            reg_list = final_config['regions']
+        reg_list = (
+            [r.strip() for r in final_config['regions'].split(',')]
+            if isinstance(final_config['regions'], str)
+            else final_config['regions']
+        )
     elif final_config.get('region'):
         reg_list = [final_config['region']]
     else:
         reg_list = ['us-east-1']
-    
-    # Get AWS session (with AssumeRole/MFA if configured)
+
     session = config_manager.get_aws_session()
-    
-    # Validate save location upfront if specified
+
     if final_config.get('save_to') and final_config.get('output') in ['json', 'csv', 'all']:
         from ..core.storage import StorageManager
-        storage_manager = StorageManager()
         print(f"\n🔍 Validating save location: {final_config['save_to']}")
-        if not asyncio.run(storage_manager.validate_save_location(final_config['save_to'])):
+        if not asyncio.run(StorageManager().validate_save_location(final_config['save_to'])):
             print("\n🛑 Save location validation failed. Aborting scan.")
             return
         print("✅ Save location validated successfully")
-    
-    scanner = ComprehensiveScanner(
+
+    scanner = EngineScanner(
         final_config.get('organization', False),
         reg_list,
         final_config.get('max_workers', 5),
         final_config.get('cross_account_role', 'OrganizationAccountAccessRole'),
         final_config.get('org_admin_account_id'),
         config_manager=config_manager,
-        session=session
+        session=session,
+        debug=debug,
     )
     reporter = asyncio.run(scanner.run_comprehensive_scan())
-    
-    # Generate reports based on output format
+
     if output in ['console', 'all']:
         print("\n" + reporter.generate_summary_report())
-    
+        if verbose:
+            _print_verbose_findings(reporter)
     if output in ['json', 'all']:
-        json_file = asyncio.run(reporter.save_json_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to))
+        json_file = reporter.save_json_report(
+            organization=final_config.get('organization', False),
+            org_admin_account_id=final_config.get('org_admin_account_id'),
+            save_to=save_to,
+        )
         print(f"\n📄 Detailed JSON report saved: {json_file}")
-    
     if output in ['csv', 'all']:
-        csv_file = asyncio.run(reporter.save_csv_report(organization=final_config.get('organization', False), org_admin_account_id=final_config.get('org_admin_account_id'), save_to=save_to))
+        csv_file = reporter.save_csv_report(
+            organization=final_config.get('organization', False),
+            org_admin_account_id=final_config.get('org_admin_account_id'),
+            save_to=save_to,
+        )
         print(f"📊 CSV report saved: {csv_file}")
-    
     if output == 'all':
+        total = sum(sum(cmd['count'] for cmd in svc.values()) for acc in reporter.results.values() for svc in acc.values())
         print(f"\n🎉 All reports generated successfully!")
-        total_issues = sum(sum(cmd['count'] for cmd in svc.values()) for acc in reporter.results.values() for svc in acc.values())
-        print(f"📊 Total issues found: {total_issues}")
+        print(f"📊 Total issues found: {total}")
 
-# Version command
 @cli.command()
 def version():
-    """Show Kosty version"""
+    """Show Kosty version."""
     click.echo(f"Kosty v{__version__}")
 
-# Add all service commands to the main CLI
+
+def _print_verbose_findings(reporter):
+    """Print per-finding detail block after the summary (used with --verbose)."""
+    print("\n" + "=" * 80)
+    print("VERBOSE FINDINGS")
+    print("=" * 80)
+    sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}
+    for account_id, account_data in reporter.results.items():
+        for service, service_data in account_data.items():
+            for command_data in service_data.values():
+                for item in command_data.get('items', []):
+                    icon = sev_icon.get(item.get('severity', ''), '⚪')
+                    print(f"  {icon} [{item.get('severity', '').upper()}] [{service.upper()}] {item.get('Issue', '')}")
+                    print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
+                    if item.get('Risk'):
+                        print(f"     Risk: {item['Risk']}")
+                    if item.get('ARN'):
+                        print(f"     ARN: {item['ARN']}")
+                    savings = item.get('monthly_savings') or item.get('MonthlySavings')
+                    if savings:
+                        print(f"     Savings: ${savings:.2f}/mo")
+                    if item.get('check'):
+                        print(f"     Check: {item['check']}")
+
+
 cli.add_command(ec2)
 cli.add_command(s3)
 cli.add_command(rds)
