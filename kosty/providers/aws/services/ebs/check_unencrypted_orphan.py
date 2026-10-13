@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-ebs-003", service="EBS", provider="aws", finding_type=FindingType.SECURITY, description="Find unencrypted detached volumes")
@@ -15,6 +16,8 @@ def check_unencrypted_orphan(session, region, **kwargs):
             {'Name': 'encrypted', 'Values': ['false']}
         ])
         for vol in volumes['Volumes']:
+            if excluded_by_tags(vol, kwargs):
+                continue
             findings.append(Finding(
                 check_id="aws-ebs-003", service="EBS",
                 resource_id=vol['VolumeId'], region=region, account_id=account_id,

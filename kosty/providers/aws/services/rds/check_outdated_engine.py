@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-rds-013", service="RDS", provider="aws", finding_type=FindingType.SECURITY, description="Find outdated engine versions")
@@ -12,6 +13,8 @@ def check_outdated_engine(session, region, **kwargs):
     old_versions = {'mysql': ['5.6', '5.7.0'], 'postgres': ['9.', '10.', '11.0'], 'oracle': ['11.', '12.1']}
     try:
         for db in rds.describe_db_instances()['DBInstances']:
+            if excluded_by_tags(db, kwargs):
+                continue
             engine = db.get('Engine', '').lower()
             version = db.get('EngineVersion', '')
             for eng, prefixes in old_versions.items():

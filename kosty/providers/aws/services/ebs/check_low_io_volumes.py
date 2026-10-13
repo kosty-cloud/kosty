@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-ebs-007", service="EBS", provider="aws", finding_type=FindingType.COST, description="Find volumes with very low I/O")
@@ -16,6 +17,8 @@ def check_low_io_volumes(session, region, days=7, iops_threshold=10, **kwargs):
         start = end - timedelta(days=days)
         volumes = ec2.describe_volumes(Filters=[{'Name': 'status', 'Values': ['in-use']}])
         for vol in volumes['Volumes']:
+            if excluded_by_tags(vol, kwargs):
+                continue
             try:
                 read_ops = cw.get_metric_statistics(
                     Namespace='AWS/EBS', MetricName='VolumeReadOps',

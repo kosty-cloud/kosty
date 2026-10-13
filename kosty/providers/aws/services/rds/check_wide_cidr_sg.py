@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-rds-011", service="RDS", provider="aws", finding_type=FindingType.SECURITY, description="Find wide CIDR in RDS security groups")
@@ -12,6 +13,8 @@ def check_wide_cidr_sg(session, region, **kwargs):
     findings = []
     try:
         for db in rds.describe_db_instances()['DBInstances']:
+            if excluded_by_tags(db, kwargs):
+                continue
             for sg in db.get('VpcSecurityGroups', []):
                 try:
                     detail = ec2.describe_security_groups(GroupIds=[sg['VpcSecurityGroupId']])['SecurityGroups'][0]

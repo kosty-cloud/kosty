@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(
@@ -20,6 +21,8 @@ def check_old_snapshots(session, region, days=90, **kwargs):
     try:
         cutoff = datetime.now() - timedelta(days=days)
         for snap in ec2.describe_snapshots(OwnerIds=[account_id])['Snapshots']:
+            if excluded_by_tags(snap, kwargs):
+                continue
             start_time = snap['StartTime'].replace(tzinfo=None)
             if start_time < cutoff:
                 findings.append(Finding(

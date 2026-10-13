@@ -26,6 +26,21 @@ def should_exclude_resource_by_tags(resource: Dict[str, Any], config_manager) ->
     return config_manager.should_exclude_by_tags(tags)
 
 
+def excluded_by_tags(resource: Dict[str, Any], kwargs: Dict[str, Any]) -> bool:
+    """Return True if the resource's tags match an exclusion rule from kwargs.
+
+    Normalises the resource's tags via get_resource_tags() first so the gate
+    also covers APIs that return tags under 'TagList' (RDS), then defers to
+    should_exclude_resource_by_tags() as the single matching rule.
+    """
+    config_manager = kwargs.get('config_manager')
+    if not config_manager:
+        return False
+    return should_exclude_resource_by_tags(
+        {'Tags': get_resource_tags(resource)}, config_manager
+    )
+
+
 def get_resource_tags(resource: Dict[str, Any], service_type: str = None) -> List[Dict[str, str]]:
     """Extract tags from a resource dict, handling the three formats AWS uses.
 

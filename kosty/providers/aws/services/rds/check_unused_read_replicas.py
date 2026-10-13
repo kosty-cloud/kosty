@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-rds-003", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find unused read replicas")
@@ -15,6 +16,8 @@ def check_unused_read_replicas(session, region, days=7, **kwargs):
         end = datetime.utcnow()
         start = end - timedelta(days=days)
         for db in rds.describe_db_instances()['DBInstances']:
+            if excluded_by_tags(db, kwargs):
+                continue
             if not db.get('ReadReplicaSourceDBInstanceIdentifier'):
                 continue
             try:

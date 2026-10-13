@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-rds-009", service="RDS", provider="aws", finding_type=FindingType.SECURITY, description="Find unencrypted RDS storage")
@@ -11,6 +12,8 @@ def check_unencrypted_storage(session, region, **kwargs):
     findings = []
     try:
         for db in rds.describe_db_instances()['DBInstances']:
+            if excluded_by_tags(db, kwargs):
+                continue
             if not db.get('StorageEncrypted', False):
                 findings.append(Finding(
                     check_id="aws-rds-009", service="RDS",

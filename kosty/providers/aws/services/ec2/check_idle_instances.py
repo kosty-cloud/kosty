@@ -3,6 +3,7 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.providers.aws.services._pricing import ec2_monthly
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-ec2-002", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find idle instances (<5% CPU)")
@@ -18,6 +19,8 @@ def check_idle_instances(session, region, days=7, cpu_threshold=5, **kwargs):
         instances = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 try:
                     metrics = cw.get_metric_statistics(
                         Namespace='AWS/EC2', MetricName='CPUUtilization',

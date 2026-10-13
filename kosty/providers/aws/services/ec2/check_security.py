@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-ec2-010", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances using IMDSv1")
@@ -14,6 +15,8 @@ def check_imdsv1(session, region, **kwargs):
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 tokens = inst.get('MetadataOptions', {}).get('HttpTokens', 'optional')
                 if tokens == 'optional':
                     findings.append(Finding(
@@ -38,6 +41,8 @@ def check_unencrypted_ebs(session, region, **kwargs):
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 for bdm in inst.get('BlockDeviceMappings', []):
                     vol_id = bdm.get('Ebs', {}).get('VolumeId')
                     if vol_id:
@@ -87,6 +92,8 @@ def check_no_recent_backup(session, region, days=30, **kwargs):
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 if inst['InstanceId'] not in recent_instance_ids:
                     findings.append(Finding(
                         check_id="aws-ec2-012", service="EC2",
@@ -113,6 +120,8 @@ def check_imdsv1_oversized(session, region, days=14, cpu_threshold=20, **kwargs)
         instances = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 if inst.get('MetadataOptions', {}).get('HttpTokens', 'optional') != 'optional':
                     continue
                 try:
