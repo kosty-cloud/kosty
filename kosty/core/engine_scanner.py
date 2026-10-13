@@ -266,6 +266,17 @@ class EngineScanner:
         We use 'audit' as the command name so the reporter's summary logic
         treats all findings as coming from a full audit run.
         """
+        if self.config_manager:
+            kept = [
+                f for f in findings
+                if not (f.arn and self.config_manager.should_exclude_arn(f.arn))
+            ]
+            if self.debug:
+                excluded = len(findings) - len(kept)
+                if excluded:
+                    print(f"[DEBUG] excluded {excluded} finding(s) by ARN", file=sys.stderr)
+            findings = kept
+
         grouped: dict = {}
         for f in findings:
             key = (f.account_id or 'current', f.service.lower())

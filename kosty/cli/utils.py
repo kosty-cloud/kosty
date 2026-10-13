@@ -182,6 +182,13 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
         )
 
     findings = _run_checks(checks, session, reg_list, workers, config_manager, debug=debug, **kwargs)
+
+    if config_manager:
+        findings = [
+            f for f in findings
+            if not (f.arn and config_manager.should_exclude_arn(f.arn))
+        ]
+
     _output_findings(findings, service_name, output, save_to, verbose=verbose)
 
 
