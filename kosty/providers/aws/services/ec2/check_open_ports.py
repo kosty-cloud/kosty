@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-ec2-005", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with SSH open to 0.0.0.0/0")
@@ -21,6 +22,8 @@ def check_ssh_open(session, region, **kwargs):
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 inst_sgs = {sg['GroupId'] for sg in inst.get('SecurityGroups', [])}
                 if inst_sgs & ssh_sgs:
                     findings.append(Finding(
@@ -53,6 +56,8 @@ def check_rdp_open(session, region, **kwargs):
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 inst_sgs = {sg['GroupId'] for sg in inst.get('SecurityGroups', [])}
                 if inst_sgs & rdp_sgs:
                     findings.append(Finding(
@@ -87,6 +92,8 @@ def check_database_ports_open(session, region, **kwargs):
         instances = ec2.describe_instances()
         for res in instances['Reservations']:
             for inst in res['Instances']:
+                if excluded_by_tags(inst, kwargs):
+                    continue
                 inst_sgs = {sg['GroupId'] for sg in inst.get('SecurityGroups', [])}
                 if inst_sgs & db_sgs:
                     findings.append(Finding(

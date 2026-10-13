@@ -225,7 +225,10 @@ exclude:
     - "arn:aws:ec2:us-east-1:123456789012:instance/i-protected123"
 ```
 
-**Effect**: Individual resources matching these patterns are skipped.
+**Effect**: Findings whose ARN matches one of these patterns are dropped before
+reporting. This applies to any finding that carries an ARN, across every service.
+Findings that do not include an ARN cannot be matched by an ARN rule — use a tag rule
+for those. Patterns support `fnmatch` wildcards (`*`, `?`).
 
 #### 5. Tag Exclusions
 
@@ -253,7 +256,9 @@ exclude:
 - If `value` is specified: Tag must match both key AND value
 - If `value` is omitted: Tag key must exist (any value matches)
 - Case-sensitive matching
-- Applied before API calls (saves time and API quota)
+- Applied inside the plugin, using the tags already present in the service's describe
+  response. A matched resource is skipped before its finding is produced (and before
+  any follow-up metric call), so excluded resources cost no extra API calls.
 
 **Example use cases:**
 ```yaml
@@ -275,14 +280,23 @@ exclude:
     - key: "DoNotAudit"
 ```
 
-**Supported services:**
-- EC2 instances, EBS volumes, Snapshots
-- S3 buckets
+**Supported services (3.1.0):**
+
+Tag exclusion is applied for services whose describe response already includes the
+resource's tags inline:
+
+- EC2 instances
+- EBS volumes
+- EBS/EC2 snapshots
 - RDS databases
-- Lambda functions
-- Load Balancers, NAT Gateways
-- DynamoDB tables
-- And more (all services with tag support)
+- NAT Gateways
+- Security Groups
+- Elastic IPs
+
+**Not covered in 3.1.0:** services whose tags require a separate API call are not
+tag-excluded — S3 buckets, Lambda functions, IAM users/roles, DynamoDB tables, API
+Gateway, CloudWatch, Backup, Route53, and Load Balancers. Use an ARN exclusion rule
+for findings on those services that carry an ARN.
 
 ## Thresholds
 

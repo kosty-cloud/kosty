@@ -3,6 +3,7 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.providers.aws.services._pricing import rds_monthly
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-rds-002", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find oversized RDS instances (<20% CPU)")
@@ -18,6 +19,8 @@ def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwar
         end = datetime.utcnow()
         start = end - timedelta(days=days)
         for db in rds.describe_db_instances()['DBInstances']:
+            if excluded_by_tags(db, kwargs):
+                continue
             if db['DBInstanceStatus'] != 'available':
                 continue
             engine, version = db['Engine'], db.get('EngineVersion', '')

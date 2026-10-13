@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-eip-002", service="EIP", provider="aws", finding_type=FindingType.COST, description="Find EIPs attached to stopped instances")
@@ -11,6 +12,8 @@ def check_eips_on_stopped_instances(session, region, **kwargs):
     findings = []
     try:
         for addr in ec2.describe_addresses().get('Addresses', []):
+            if excluded_by_tags(addr, kwargs):
+                continue
             instance_id = addr.get('InstanceId')
             if not instance_id:
                 continue
@@ -43,6 +46,8 @@ def check_eips_with_dangerous_sg(session, region, **kwargs):
     findings = []
     try:
         for addr in ec2.describe_addresses().get('Addresses', []):
+            if excluded_by_tags(addr, kwargs):
+                continue
             instance_id = addr.get('InstanceId')
             if not instance_id:
                 continue

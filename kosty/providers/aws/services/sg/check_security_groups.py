@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(check_id="aws-sg-001", service="SG", provider="aws", finding_type=FindingType.SECURITY, description="Find security groups with SSH/RDP open to 0.0.0.0/0")
@@ -11,6 +12,8 @@ def check_ssh_rdp_open(session, region, **kwargs):
     findings = []
     try:
         for sg in ec2.describe_security_groups()['SecurityGroups']:
+            if excluded_by_tags(sg, kwargs):
+                continue
             for rule in sg.get('IpPermissions', []):
                 from_port = rule.get('FromPort', 0)
                 to_port = rule.get('ToPort', 0)
@@ -39,6 +42,8 @@ def check_all_ports_open(session, region, **kwargs):
     findings = []
     try:
         for sg in ec2.describe_security_groups()['SecurityGroups']:
+            if excluded_by_tags(sg, kwargs):
+                continue
             for rule in sg.get('IpPermissions', []):
                 if rule.get('IpProtocol') == '-1':
                     if any(ip.get('CidrIp') == '0.0.0.0/0' for ip in rule.get('IpRanges', [])):
@@ -70,6 +75,8 @@ def check_unused_security_groups(session, region, **kwargs):
                 used_sgs.add(sg['GroupId'])
         for sg_id in all_sgs - used_sgs:
             sg_detail = ec2.describe_security_groups(GroupIds=[sg_id])['SecurityGroups'][0]
+            if excluded_by_tags(sg_detail, kwargs):
+                continue
             if sg_detail['GroupName'] == 'default':
                 continue
             findings.append(Finding(

@@ -1,6 +1,7 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.tag_utils import excluded_by_tags
 
 
 @register_check(
@@ -18,6 +19,8 @@ def check_unattached_eips(session, region, **kwargs):
 
     try:
         for addr in ec2.describe_addresses().get('Addresses', []):
+            if excluded_by_tags(addr, kwargs):
+                continue
             if not addr.get('AssociationId'):
                 findings.append(Finding(
                     check_id="aws-eip-001", service="EIP",
