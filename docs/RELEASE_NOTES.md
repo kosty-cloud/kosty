@@ -1,5 +1,24 @@
 # Kosty Release Notes
 
+## Version 3.1.0 — Resource exclusion restored (2026)
+
+Restores resource exclusion in the v3 plugin scan path. Tag and ARN exclusion
+rules in `kosty.yaml` were documented but had no effect since the v2→v3 plugin
+migration; this release wires them back into the scan.
+
+- Tag-based exclusion (`exclude.tags`) is applied again inside the plugins, matching
+  the v2 behavior. A resource whose tags match an exclusion rule is skipped before a
+  finding is produced. Covered services (tags present inline in the describe
+  response): EC2, EBS, RDS, NAT, SG, Snapshots, EIP. Services whose tags require a
+  separate API call are not covered in 3.1.0: S3, Lambda, IAM, DynamoDB, API Gateway,
+  CloudWatch, Backup, Route53, Load Balancer.
+- ARN-based exclusion (`exclude.arns`) is applied as a centralized filter at the
+  reporter choke point, dropping any finding whose `arn` matches a configured pattern
+  (fnmatch wildcards supported). Only findings that carry an ARN are affected.
+- `--debug` reports the number of findings dropped by ARN exclusion.
+
+Upgrade with `pip install --upgrade kosty`.
+
 ## Version 3.0.1 — Maintenance (2026)
 
 Patch release. No functional changes to the scan engine or checks.
