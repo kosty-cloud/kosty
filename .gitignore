@@ -52,6 +52,7 @@ credentials
 *.swp
 *.swo
 .amazonq/
+.kiro/
 nogithub/
 
 # OS
