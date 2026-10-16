@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Find instances with missing security patches",
 )
-def check_non_compliant_patches(session, region, **kwargs):
+def check_non_compliant_patches(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances with failed or missing patch installations."""
     ssm = session.client('ssm', region_name=region)
     account_id = get_account_id(session)
@@ -32,7 +34,7 @@ def check_non_compliant_patches(session, region, **kwargs):
                         severity=sev, finding_type=FindingType.SECURITY,
                         risk="Unpatched vulnerabilities exploitable by known CVEs",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

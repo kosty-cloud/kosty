@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-bedrock-009", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Check if TPM quota usage is above 80%")
-def check_tpm_quota_high_usage(session, region, threshold=80, **kwargs):
+def check_tpm_quota_high_usage(session: 'boto3.Session', region: str, threshold=80, **kwargs) -> List[Finding]:
     """Flag models approaching throttling limits."""
     sq = session.client('service-quotas', region_name=region)
     account_id = get_account_id(session)
@@ -40,8 +42,9 @@ def check_tpm_quota_high_usage(session, region, threshold=80, **kwargs):
                                 finding_type=FindingType.COST,
                                 risk="Approaching throttling — production requests will be rejected",
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

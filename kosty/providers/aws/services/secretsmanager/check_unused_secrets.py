@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -11,7 +13,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.COST,
     description="Find secrets never accessed but billed $0.40/mo",
 )
-def check_unused_secrets(session, region, days=90, **kwargs):
+def check_unused_secrets(session: 'boto3.Session', region: str, days=90, **kwargs) -> List[Finding]:
     """Flag secrets that haven't been retrieved in 90+ days."""
     sm = session.client('secretsmanager', region_name=region)
     account_id = get_account_id(session)
@@ -32,7 +34,7 @@ def check_unused_secrets(session, region, days=90, **kwargs):
                         risk="Waste $0.40/mo per unused secret",
                         arn=secret['ARN'], monthly_savings=0.40,
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

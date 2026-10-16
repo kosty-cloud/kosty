@@ -2,10 +2,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-sg-001", service="SG", provider="aws", finding_type=FindingType.SECURITY, description="Find security groups with SSH/RDP open to 0.0.0.0/0")
-def check_ssh_rdp_open(session, region, **kwargs):
+def check_ssh_rdp_open(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag SGs allowing admin port access from the internet."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -29,13 +31,13 @@ def check_ssh_rdp_open(session, region, **kwargs):
                             resource_name=sg.get('GroupName', ''),
                         ))
                         break
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-sg-002", service="SG", provider="aws", finding_type=FindingType.SECURITY, description="Find security groups with all ports open to 0.0.0.0/0")
-def check_all_ports_open(session, region, **kwargs):
+def check_all_ports_open(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag SGs with unrestricted inbound access."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -56,13 +58,13 @@ def check_all_ports_open(session, region, **kwargs):
                             resource_name=sg.get('GroupName', ''),
                         ))
                         break
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-sg-003", service="SG", provider="aws", finding_type=FindingType.COST, description="Find security groups not attached to any resource")
-def check_unused_security_groups(session, region, **kwargs):
+def check_unused_security_groups(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag orphaned SGs adding clutter and confusion."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -87,6 +89,6 @@ def check_unused_security_groups(session, region, **kwargs):
                 risk="Orphaned SG — adds confusion during audits",
                 resource_name=sg_detail.get('GroupName', ''),
             ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

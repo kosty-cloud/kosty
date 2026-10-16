@@ -1,10 +1,12 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-s3-001", service="S3", provider="aws", finding_type=FindingType.COST, description="Find empty S3 buckets", region_scope="global")
-def check_empty_buckets(session, region, **kwargs):
+def check_empty_buckets(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag buckets with zero objects."""
     s3 = session.client('s3')
     account_id = get_account_id(session)
@@ -23,15 +25,16 @@ def check_empty_buckets(session, region, **kwargs):
                         severity=Severity.LOW, finding_type=FindingType.COST,
                         risk="Minimal cost but adds clutter",
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-s3-002", service="S3", provider="aws", finding_type=FindingType.COST, description="Find incomplete multipart uploads", region_scope="global")
-def check_incomplete_uploads(session, region, **kwargs):
+def check_incomplete_uploads(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag buckets with abandoned multipart uploads consuming storage."""
     s3 = session.client('s3')
     account_id = get_account_id(session)
@@ -50,15 +53,16 @@ def check_incomplete_uploads(session, region, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.COST,
                         risk="Hidden storage cost from abandoned uploads",
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-s3-003", service="S3", provider="aws", finding_type=FindingType.COST, description="Find buckets without lifecycle policy", region_scope="global")
-def check_no_lifecycle(session, region, **kwargs):
+def check_no_lifecycle(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag buckets with data but no expiration or transition rules."""
     s3 = session.client('s3')
     account_id = get_account_id(session)
@@ -80,8 +84,9 @@ def check_no_lifecycle(session, region, **kwargs):
                             severity=Severity.HIGH, finding_type=FindingType.COST,
                             risk="50-70% savings possible with tiering/expiration",
                         ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

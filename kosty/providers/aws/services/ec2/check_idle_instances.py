@@ -4,10 +4,12 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.providers.aws.services._pricing import ec2_monthly
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-ec2-002", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find idle instances (<5% CPU)")
-def check_idle_instances(session, region, days=7, cpu_threshold=5, **kwargs):
+def check_idle_instances(session: 'boto3.Session', region: str, days=7, cpu_threshold=5, **kwargs) -> List[Finding]:
     """Flag running instances barely using any CPU."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -41,8 +43,9 @@ def check_idle_instances(session, region, days=7, cpu_threshold=5, **kwargs):
                                 monthly_savings=ec2_monthly(instance_type),
                                 details={'instance_type': instance_type, 'avg_cpu': round(avg, 1)},
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

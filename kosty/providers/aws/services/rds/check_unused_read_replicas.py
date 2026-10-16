@@ -3,10 +3,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-rds-003", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find unused read replicas")
-def check_unused_read_replicas(session, region, days=7, **kwargs):
+def check_unused_read_replicas(session: 'boto3.Session', region: str, days=7, **kwargs) -> List[Finding]:
     """Flag replicas with near-zero read traffic."""
     rds = session.client('rds', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -35,8 +37,9 @@ def check_unused_read_replicas(session, region, days=7, **kwargs):
                         severity=Severity.HIGH, finding_type=FindingType.COST,
                         risk="$100-500/mo for a replica nobody reads from", arn=db['DBInstanceArn'],
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

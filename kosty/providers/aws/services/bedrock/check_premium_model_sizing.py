@@ -3,10 +3,12 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-bedrock-011", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Detect premium models used for simple tasks", requires_deep=True)
-def check_premium_model_for_simple_tasks(session, region, days=7, deep=False, **kwargs):
+def check_premium_model_for_simple_tasks(session: 'boto3.Session', region: str, days=7, deep=False, **kwargs) -> List[Finding]:
     """Heuristic: flag premium models handling short prompts — likely over-specced."""
     account_id = get_account_id(session)
     findings = []
@@ -57,6 +59,6 @@ def check_premium_model_for_simple_tasks(session, region, days=7, deep=False, **
                     severity=Severity.MEDIUM, finding_type=FindingType.COST,
                     risk="Route to Haiku/Titan Lite for 30% savings",
                 ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

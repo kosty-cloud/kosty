@@ -1,3 +1,5 @@
+from typing import List
+
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 
@@ -9,7 +11,7 @@ from kosty.core.models import Finding, FindingType, Severity
     finding_type=FindingType.SECURITY,
     description="Map external attack surface across 15 resource types",
 )
-def check_public_exposure(session, region, **kwargs):
+def check_public_exposure(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Scan all publicly exposed resources and classify protection level."""
     from kosty.providers.aws.services.public_exposure.service import PublicExposureService
 

@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.COST,
     description="Find empty AWS Backup vaults",
 )
-def check_empty_backup_vaults(session, region, **kwargs):
+def check_empty_backup_vaults(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag backup vaults with zero recovery points."""
     backup = session.client('backup', region_name=region)
     account_id = get_account_id(session)
@@ -28,7 +30,7 @@ def check_empty_backup_vaults(session, region, **kwargs):
                     risk="Vault exists but protects nothing",
                     arn=vault.get('BackupVaultArn', ''),
                 ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

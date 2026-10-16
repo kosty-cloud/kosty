@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Find log groups without retention policy",
 )
-def check_log_groups_without_retention(session, region, **kwargs):
+def check_log_groups_without_retention(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag log groups growing indefinitely with no expiration."""
     logs = session.client('logs', region_name=region)
     account_id = get_account_id(session)
@@ -31,7 +33,7 @@ def check_log_groups_without_retention(session, region, **kwargs):
                         risk="Logs grow indefinitely — cost and compliance risk",
                         arn=lg.get('arn', ''),
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

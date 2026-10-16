@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Find task definitions with privileged containers",
 )
-def check_privileged_tasks(session, region, **kwargs):
+def check_privileged_tasks(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag containers running in privileged mode — container escape risk."""
     ecs = session.client('ecs', region_name=region)
     account_id = get_account_id(session)
@@ -33,9 +35,10 @@ def check_privileged_tasks(session, region, **kwargs):
                                 risk="Full host access — container escape leads to node compromise",
                                 arn=td.get('taskDefinitionArn', ''),
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

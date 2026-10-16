@@ -3,10 +3,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-ec2-010", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances using IMDSv1")
-def check_imdsv1(session, region, **kwargs):
+def check_imdsv1(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances vulnerable to SSRF-based credential theft (Capital One vector)."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -26,13 +28,13 @@ def check_imdsv1(session, region, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                         risk="SSRF attacks can steal instance credentials",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-ec2-011", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with unencrypted EBS volumes")
-def check_unencrypted_ebs(session, region, **kwargs):
+def check_unencrypted_ebs(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances with at least one unencrypted attached volume."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -57,15 +59,16 @@ def check_unencrypted_ebs(session, region, **kwargs):
                                     risk="Data exposure if storage compromised",
                                 ))
                                 break
-                        except Exception:
+                        except Exception as _exc:
+                            handle_check_error(_exc)
                             continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-ec2-012", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with no recent AMI backup")
-def check_no_recent_backup(session, region, days=30, **kwargs):
+def check_no_recent_backup(session: 'boto3.Session', region: str, days=30, **kwargs) -> List[Finding]:
     """Flag instances without a recent AMI — no recovery point available."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -102,13 +105,13 @@ def check_no_recent_backup(session, region, days=30, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                         risk="No recovery point available",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-ec2-013", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances that are both IMDSv1 and oversized")
-def check_imdsv1_oversized(session, region, days=14, cpu_threshold=20, **kwargs):
+def check_imdsv1_oversized(session: 'boto3.Session', region: str, days=14, cpu_threshold=20, **kwargs) -> List[Finding]:
     """Cross-reference: SSRF-vulnerable AND wasting money — highest remediation priority."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -140,8 +143,9 @@ def check_imdsv1_oversized(session, region, days=14, cpu_threshold=20, **kwargs)
                                 severity=Severity.CRITICAL, finding_type=FindingType.SECURITY,
                                 risk="SSRF-vulnerable instance wasting money — highest priority",
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

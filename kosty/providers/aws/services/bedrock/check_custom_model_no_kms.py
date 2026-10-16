@@ -1,10 +1,12 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-bedrock-006", service="Bedrock", provider="aws", finding_type=FindingType.SECURITY, description="Check if custom models are encrypted with customer-managed KMS")
-def check_custom_model_no_kms(session, region, **kwargs):
+def check_custom_model_no_kms(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag custom models relying on AWS-managed encryption only."""
     bedrock = session.client('bedrock', region_name=region)
     account_id = get_account_id(session)
@@ -21,8 +23,9 @@ def check_custom_model_no_kms(session, region, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                         risk="Less control over key lifecycle", arn=model.get('modelArn', ''),
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

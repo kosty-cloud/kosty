@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -11,7 +13,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Find certificates expiring within 30 days",
 )
-def check_expiring_certificates(session, region, days=30, **kwargs):
+def check_expiring_certificates(session: 'boto3.Session', region: str, days=30, **kwargs) -> List[Finding]:
     """Flag ACM certificates approaching expiration."""
     acm = session.client('acm', region_name=region)
     account_id = get_account_id(session)
@@ -37,7 +39,7 @@ def check_expiring_certificates(session, region, days=30, **kwargs):
                         risk="Service outage when certificate expires",
                         arn=cert['CertificateArn'],
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

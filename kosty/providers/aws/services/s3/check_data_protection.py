@@ -1,10 +1,12 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-s3-010", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without MFA delete", region_scope="global")
-def check_no_mfa_delete(session, region, **kwargs):
+def check_no_mfa_delete(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag buckets where versioned objects can be deleted without MFA."""
     s3 = session.client('s3')
     account_id = get_account_id(session)
@@ -23,15 +25,16 @@ def check_no_mfa_delete(session, region, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                         risk="Accidental or malicious deletion without second factor",
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-s3-011", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without Object Lock", region_scope="global")
-def check_no_object_lock(session, region, **kwargs):
+def check_no_object_lock(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag buckets without immutability protection."""
     s3 = session.client('s3')
     account_id = get_account_id(session)
@@ -53,15 +56,16 @@ def check_no_object_lock(session, region, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                         risk="No immutability — ransomware can encrypt/delete all versions",
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-s3-012", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Find buckets without cross-region replication", region_scope="global")
-def check_no_cross_region_replication(session, region, **kwargs):
+def check_no_cross_region_replication(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag buckets with no DR replication configured."""
     s3 = session.client('s3')
     account_id = get_account_id(session)
@@ -81,15 +85,16 @@ def check_no_cross_region_replication(session, region, **kwargs):
                         severity=Severity.LOW, finding_type=FindingType.SECURITY,
                         risk="No disaster recovery for regional outage",
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-s3-013", service="S3", provider="aws", finding_type=FindingType.SECURITY, description="Check account-level S3 Block Public Access", region_scope="global")
-def check_no_account_public_access_block(session, region, **kwargs):
+def check_no_account_public_access_block(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag accounts without the global guardrail against public buckets."""
     account_id = get_account_id(session)
     s3control = session.client('s3control', region_name=region)

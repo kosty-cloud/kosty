@@ -2,10 +2,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-eip-002", service="EIP", provider="aws", finding_type=FindingType.COST, description="Find EIPs attached to stopped instances")
-def check_eips_on_stopped_instances(session, region, **kwargs):
+def check_eips_on_stopped_instances(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag EIPs billing on instances that aren't running."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -31,15 +33,16 @@ def check_eips_on_stopped_instances(session, region, **kwargs):
                                 risk="$3.60/mo — EIP billed when instance is stopped",
                                 monthly_savings=3.60,
                             ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-eip-003", service="EIP", provider="aws", finding_type=FindingType.SECURITY, description="Find EIPs on instances with dangerous SG rules")
-def check_eips_with_dangerous_sg(session, region, **kwargs):
+def check_eips_with_dangerous_sg(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag public IPs on instances with SSH/RDP open to the world."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -69,8 +72,9 @@ def check_eips_with_dangerous_sg(session, region, **kwargs):
                                         risk="Public IP + open admin port = brute force target",
                                     ))
                                     break
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

@@ -2,10 +2,12 @@ import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-iam-009", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies with Action:* or Resource:*", region_scope="global")
-def check_wildcard_policies(session, region, **kwargs):
+def check_wildcard_policies(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag overly permissive policies granting god-mode access."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -25,10 +27,11 @@ def check_wildcard_policies(session, region, **kwargs):
                                 severity=Severity.HIGH, finding_type=FindingType.SECURITY,
                                 risk="Privilege escalation risk", arn=user['Arn'],
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 

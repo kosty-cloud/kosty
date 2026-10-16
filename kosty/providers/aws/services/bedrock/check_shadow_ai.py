@@ -2,10 +2,12 @@ import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-bedrock-004", service="Bedrock", provider="aws", finding_type=FindingType.SECURITY, description="Find IAM roles with AI permissions not tagged as approved")
-def check_shadow_ai(session, region, **kwargs):
+def check_shadow_ai(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag unapproved AI usage across the organization."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -34,7 +36,8 @@ def check_shadow_ai(session, region, **kwargs):
                                 if any('bedrock' in a.lower() or 'sagemaker' in a.lower() for a in actions):
                                     has_ai = True
                                     break
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
                 if not has_ai:
                     continue
@@ -48,6 +51,6 @@ def check_shadow_ai(session, region, **kwargs):
                         risk="Potential shadow AI — untracked GenAI spend and data exposure",
                         arn=role['Arn'],
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

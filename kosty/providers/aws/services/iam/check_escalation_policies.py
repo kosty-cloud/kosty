@@ -2,10 +2,12 @@ import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-iam-014", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies granting iam:PassRole with wildcard resource", region_scope="global")
-def check_passrole_permissions(session, region, **kwargs):
+def check_passrole_permissions(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag policies enabling privilege escalation via role passing."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -36,15 +38,16 @@ def check_passrole_permissions(session, region, **kwargs):
                                 risk="Can pass any role to any service — privilege escalation", arn=policy['Arn'],
                             ))
                             break
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-iam-015", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find policies granting sts:AssumeRole with wildcard", region_scope="global")
-def check_wildcard_assume_role(session, region, **kwargs):
+def check_wildcard_assume_role(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag policies allowing assumption of any role in the account."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -75,8 +78,9 @@ def check_wildcard_assume_role(session, region, **kwargs):
                                 risk="Can assume any role — full privilege escalation", arn=policy['Arn'],
                             ))
                             break
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

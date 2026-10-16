@@ -2,6 +2,8 @@ import json
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 # 21 known privilege escalation patterns
@@ -31,7 +33,7 @@ ESCALATION_PATTERNS = {
 
 
 @register_check(check_id="aws-iam-018", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Detect privilege escalation paths (21 patterns)", requires_deep=True, region_scope="global")
-def check_privilege_escalation(session, region, deep=False, **kwargs):
+def check_privilege_escalation(session: 'boto3.Session', region: str, deep=False, **kwargs) -> List[Finding]:
     """Scan all principals for known escalation vectors. Use --deep for SimulatePrincipalPolicy confirmation."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -42,15 +44,15 @@ def check_privilege_escalation(session, region, deep=False, **kwargs):
         for page in iam.get_paginator('list_users').paginate():
             for user in page['Users']:
                 principals.append(('User', user['UserName'], user['Arn']))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     try:
         for page in iam.get_paginator('list_roles').paginate():
             for role in page['Roles']:
                 if not role['RoleName'].startswith('aws-') and not role['RoleName'].startswith('AWSServiceRole'):
                     principals.append(('Role', role['RoleName'], role['Arn']))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     for ptype, name, arn in principals:
         try:
@@ -71,7 +73,8 @@ def check_privilege_escalation(session, region, deep=False, **kwargs):
                         severity=Severity.CRITICAL, finding_type=FindingType.SECURITY,
                         risk=pattern['risk'], arn=arn,
                     ))
-        except Exception:
+        except Exception as _exc:
+            handle_check_error(_exc)
             continue
 
     return findings
@@ -98,8 +101,8 @@ def _get_actions(iam, ptype, name):
             for p in iam.list_attached_role_policies(RoleName=name).get('AttachedPolicies', []):
                 if not p['PolicyArn'].startswith('arn:aws:iam::aws:'):
                     _extract_managed(iam, p['PolicyArn'], actions)
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return actions
 
 
@@ -130,8 +133,8 @@ def _extract_managed(iam, arn, actions):
         pv = iam.get_policy(PolicyArn=arn)
         doc = iam.get_policy_version(PolicyArn=arn, VersionId=pv['Policy']['DefaultVersionId'])['PolicyVersion']['Document']
         _extract(doc, actions)
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
 
 def _matches(actions, pattern):

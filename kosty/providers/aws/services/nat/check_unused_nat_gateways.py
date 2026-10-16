@@ -2,6 +2,8 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -11,7 +13,7 @@ from kosty.core.tag_utils import excluded_by_tags
     finding_type=FindingType.COST,
     description="Find NAT Gateways with zero traffic",
 )
-def check_unused_nat_gateways(session, region, days=7, **kwargs):
+def check_unused_nat_gateways(session: 'boto3.Session', region: str, days=7, **kwargs) -> List[Finding]:
     """Flag NAT Gateways processing no bytes over the analysis period."""
     from datetime import datetime, timedelta
     ec2 = session.client('ec2', region_name=region)
@@ -45,9 +47,10 @@ def check_unused_nat_gateways(session, region, days=7, **kwargs):
                         risk="Waste $32.85/mo per idle NAT Gateway",
                         monthly_savings=32.85,
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings
