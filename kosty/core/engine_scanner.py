@@ -72,7 +72,10 @@ class EngineScanner:
         ID and the scanner will assume a role there first.
         """
         self.organization = organization
-        self.regions = regions if isinstance(regions, list) else [regions]
+        regions = regions if isinstance(regions, list) else [regions]
+        if config_manager:
+            regions = [r for r in regions if not config_manager.should_exclude_region(r)]
+        self.regions = regions
         self.max_workers = max_workers
         self.cross_account_role = cross_account_role
         self.org_admin_account_id = org_admin_account_id
@@ -202,6 +205,9 @@ class EngineScanner:
             ]
 
         checks = registry.get_checks_by_provider('aws')
+        if excluded_services:
+            excl_lower = set(s.lower() for s in excluded_services)
+            checks = [c for c in checks if c['metadata'].service.lower() not in excl_lower]
         non_deep = [c for c in checks if not c['metadata'].requires_deep]
         non_deep_global = [c for c in non_deep if c['metadata'].region_scope == 'global']
         non_deep_regional = [c for c in non_deep if c['metadata'].region_scope != 'global']
