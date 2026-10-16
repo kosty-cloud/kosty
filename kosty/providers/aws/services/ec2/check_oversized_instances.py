@@ -4,14 +4,16 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.providers.aws.services._pricing import ec2_monthly
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.core.config import resolve_threshold
 
 
 @register_check(check_id="aws-ec2-003", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find oversized instances (<20% CPU)")
-def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwargs):
+def check_oversized_instances(session, region, days=14, **kwargs):
     """Flag instances consistently underutilizing their allocated compute."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
     account_id = get_account_id(session)
+    cpu_threshold = resolve_threshold(kwargs, 'cpu_threshold', 'ec2_cpu', 20)
     findings = []
     try:
         end = datetime.utcnow()

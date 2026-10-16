@@ -5,13 +5,15 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.providers.aws.services._pricing import ec2_monthly
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.core.config import resolve_threshold
 
 
 @register_check(check_id="aws-ec2-001", service="EC2", provider="aws", finding_type=FindingType.COST, description="Find instances stopped for 7+ days")
-def check_stopped_instances(session, region, days=7, **kwargs):
+def check_stopped_instances(session, region, **kwargs):
     """Flag stopped instances still incurring EBS and EIP costs."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
+    days = resolve_threshold(kwargs, 'days', 'stopped_days', 7)
     findings = []
     try:
         cutoff = datetime.now() - timedelta(days=days)

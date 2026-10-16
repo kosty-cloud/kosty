@@ -4,14 +4,16 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.providers.aws.services._pricing import rds_monthly
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.core.config import resolve_threshold
 
 
 @register_check(check_id="aws-rds-002", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find oversized RDS instances (<20% CPU)")
-def check_oversized_instances(session, region, days=14, cpu_threshold=20, **kwargs):
+def check_oversized_instances(session, region, days=14, **kwargs):
     """Flag databases consistently underutilizing allocated compute. Skips smallest available instance per engine."""
     rds = session.client('rds', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
     account_id = get_account_id(session)
+    cpu_threshold = resolve_threshold(kwargs, 'cpu_threshold', 'rds_cpu', 20)
     findings = []
     size_order = ['micro', 'small', 'medium', 'large', 'xlarge', '2xlarge', '4xlarge', '8xlarge', '12xlarge', '16xlarge']
     min_cache = {}
