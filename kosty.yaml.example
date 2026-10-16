@@ -43,11 +43,13 @@ exclude:
 
 # Global thresholds (can be overridden per profile)
 thresholds:
-  ec2_cpu: 20          # EC2 oversized threshold (%)
-  rds_cpu: 20          # RDS oversized threshold (%)
-  stopped_days: 7      # Days before stopped instance flagged
-  snapshot_days: 30    # Days before old snapshot flagged
-  ami_days: 180        # Days before old AMI flagged
+  ec2_cpu: 20            # EC2 oversized threshold (%)
+  rds_cpu: 20            # RDS oversized threshold (%)
+  lambda_memory: 512     # Lambda over-provisioned above this (MB)
+  stopped_days: 7        # Days before a stopped instance is flagged
+  idle_days: 7           # Days analyzed for idle RDS instances
+  old_snapshot_days: 30  # Days before an old snapshot is flagged
+  ami_days: 180          # Days before an old AMI is flagged
 
 # Default settings (applied when no profile specified)
 default:

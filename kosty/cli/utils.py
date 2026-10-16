@@ -158,6 +158,9 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
         cross_account_role, org_admin_account_id
     )
 
+    if config_manager:
+        reg_list = [r for r in reg_list if not config_manager.should_exclude_region(r)]
+
     _ensure_plugins_loaded()
 
     if check_id:

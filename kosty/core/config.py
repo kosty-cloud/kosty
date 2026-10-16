@@ -66,8 +66,30 @@ DEFAULT_THRESHOLDS = {
     'lambda_memory': 512,
     'stopped_days': 7,
     'idle_days': 7,
-    'old_snapshot_days': 30
+    'old_snapshot_days': 30,
+    'ami_days': 180,
 }
+
+# Older kosty.yaml files used different names for two thresholds. Read the old
+# name as a fallback so existing configs keep working after the rename.
+THRESHOLD_ALIASES = {
+    'old_snapshot_days': 'snapshot_days',
+}
+
+
+def resolve_threshold(kwargs: Dict[str, Any], kwarg_name: str, canonical_key: str, default: Any) -> Any:
+    """Resolve a check cutoff with precedence: CLI kwarg > kosty.yaml > default.
+
+    An explicitly forwarded CLI flag (present in kwargs) always wins. Otherwise
+    the value comes from the config_manager threshold if one is set, else the
+    hardcoded default.
+    """
+    if kwarg_name in kwargs and kwargs[kwarg_name] is not None:
+        return kwargs[kwarg_name]
+    config_manager = kwargs.get('config_manager')
+    if config_manager is not None:
+        return config_manager.get_threshold(canonical_key, default)
+    return default
 
 
 class ConfigManager:
@@ -210,15 +232,24 @@ class ConfigManager:
         thresholds = DEFAULT_THRESHOLDS.copy()
         
         if 'thresholds' in self.raw_config:
-            thresholds.update(self.raw_config['thresholds'])
+            thresholds.update(self._canonicalize_thresholds(self.raw_config['thresholds']))
         
         if self.profile != 'default':
             profiles = self.raw_config.get('profiles', {})
             if self.profile in profiles:
                 profile_thresholds = profiles[self.profile].get('thresholds', {})
-                thresholds.update(profile_thresholds)
+                thresholds.update(self._canonicalize_thresholds(profile_thresholds))
         
         return thresholds
+
+    @staticmethod
+    def _canonicalize_thresholds(raw: Dict[str, Any]) -> Dict[str, Any]:
+        """Map any legacy threshold key names onto their canonical names."""
+        result = dict(raw or {})
+        for canonical, legacy in THRESHOLD_ALIASES.items():
+            if canonical not in result and legacy in result:
+                result[canonical] = result[legacy]
+        return result
     
     def get_threshold(self, key: str, default: Any = None) -> Any:
         """Return a single threshold value by key."""

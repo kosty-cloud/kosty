@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.core.config import resolve_threshold
 
 
 @register_check(check_id="aws-lambda-004", service="Lambda", provider="aws", finding_type=FindingType.COST, description="Find over-provisioned Lambda memory")
@@ -10,6 +11,7 @@ def check_over_provisioned_memory(session, region, days=30, **kwargs):
     lam = session.client('lambda', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
     account_id = get_account_id(session)
+    memory_threshold = resolve_threshold(kwargs, 'lambda_memory', 'lambda_memory', 512)
     findings = []
     try:
         end = datetime.now(timezone.utc)
@@ -19,7 +21,7 @@ def check_over_provisioned_memory(session, region, days=30, **kwargs):
             for func in page['Functions']:
                 memory = func.get('MemorySize', 128)
                 timeout = func.get('Timeout', 3)
-                if memory <= 512:
+                if memory <= memory_threshold:
                     continue
                 try:
                     metrics = cw.get_metric_statistics(
