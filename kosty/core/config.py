@@ -17,12 +17,27 @@ configuration — role ARN, MFA serial, profile name — is part of the config.
 
 import os
 import re
+import sys
 import yaml
 import boto3
 import fnmatch
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .exceptions import ConfigValidationError, ConfigNotFoundError
+
+
+def _summarize_auth_error(exc: Exception) -> str:
+    """Return a short, filtered description of an auth exception.
+
+    Reports the exception class name and the first line of its message,
+    truncated, so a verbose boto3/botocore stack string (which can echo
+    request parameters) is not dumped wholesale into the output.
+    """
+    first_line = str(exc).strip().splitlines()[0] if str(exc).strip() else ''
+    if len(first_line) > 200:
+        first_line = first_line[:200] + '…'
+    name = type(exc).__name__
+    return f"{name}: {first_line}" if first_line else name
 
 
 # Valid AWS regions
@@ -45,11 +60,20 @@ VALID_SERVICES = [
     'publicexposure', 'public_exposure',
 ]
 
+# Canonical default worker count for the scan thread pools. Referenced by the
+# CLI group, common_options, ScanEngine, and DEFAULT_CONFIG so there is a single
+# source of truth instead of scattered literals.
+DEFAULT_MAX_WORKERS = 5
+
+# Opt-in fail-closed plugin loading. When True, a plugin file present on disk
+# but absent from plugins.sha256 is refused instead of warned-and-allowed.
+DEFAULT_STRICT_PLUGINS = False
+
 # Hardcoded defaults
 DEFAULT_CONFIG = {
     'organization': False,
     'regions': ['us-east-1'],
-    'max_workers': 5,
+    'max_workers': DEFAULT_MAX_WORKERS,
     'output': 'console',
     'cross_account_role': 'OrganizationAccountAccessRole',
     'org_admin_account_id': None,
@@ -57,7 +81,8 @@ DEFAULT_CONFIG = {
     'role_arn': None,
     'aws_profile': None,
     'mfa_serial': None,
-    'duration_seconds': 3600
+    'duration_seconds': 3600,
+    'strict_plugins': DEFAULT_STRICT_PLUGINS,
 }
 
 DEFAULT_THRESHOLDS = {
@@ -198,6 +223,9 @@ class ConfigManager:
         
         if 'organization' in self.config and not isinstance(self.config['organization'], bool):
             errors.append("'organization' must be boolean")
+
+        if 'strict_plugins' in self.config and not isinstance(self.config['strict_plugins'], bool):
+            errors.append("'strict_plugins' must be boolean")
         
         if 'max_workers' in self.config:
             if not isinstance(self.config['max_workers'], int) or self.config['max_workers'] <= 0:
@@ -403,12 +431,12 @@ class ConfigManager:
                 )
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
-                print(f"\nError: Failed to assume role")
-                print(f"  Profile: {self.profile}")
-                print(f"  Config: {config_file}")
-                print(f"  Role ARN: {role_arn}")
-                print(f"  Reason: {e}")
-                print("\nCannot proceed without valid role access. Aborting.\n")
+                print(f"\nError: Failed to assume role", file=sys.stderr)
+                print(f"  Profile: {self.profile}", file=sys.stderr)
+                print(f"  Config: {config_file}", file=sys.stderr)
+                print(f"  Role ARN: {role_arn}", file=sys.stderr)
+                print(f"  Reason: {_summarize_auth_error(e)}", file=sys.stderr)
+                print("\nCannot proceed without valid role access. Aborting.\n", file=sys.stderr)
                 raise SystemExit(1)
         
         elif aws_profile:
@@ -420,12 +448,12 @@ class ConfigManager:
                 return session
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
-                print(f"\nError: Failed to use AWS profile")
-                print(f"  Profile: {self.profile}")
-                print(f"  Config: {config_file}")
-                print(f"  AWS Profile: {aws_profile}")
-                print(f"  Reason: {e}")
-                print(f"\nMake sure '{aws_profile}' exists in ~/.aws/credentials or ~/.aws/config\n")
+                print(f"\nError: Failed to use AWS profile", file=sys.stderr)
+                print(f"  Profile: {self.profile}", file=sys.stderr)
+                print(f"  Config: {config_file}", file=sys.stderr)
+                print(f"  AWS Profile: {aws_profile}", file=sys.stderr)
+                print(f"  Reason: {_summarize_auth_error(e)}", file=sys.stderr)
+                print(f"\nMake sure '{aws_profile}' exists in ~/.aws/credentials or ~/.aws/config\n", file=sys.stderr)
                 raise SystemExit(1)
         
         else:

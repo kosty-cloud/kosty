@@ -82,6 +82,7 @@ class EngineScanner:
         self.config_manager = config_manager
         self.session = session
         self.debug = debug
+        self.strict_plugins = bool(config_manager.get('strict_plugins', False)) if config_manager else False
 
         self.reporter = CostOptimizationReporter()
         self.reporter.set_scan_context(organization, org_admin_account_id)
@@ -90,13 +91,21 @@ class EngineScanner:
         self._load_plugins()
 
     def _load_plugins(self):
-        """Load native plugins from providers/aws/services/."""
+        """Load native plugins from providers/aws/services/.
+
+        Loader warnings (e.g. a plugin missing from the manifest) are routed
+        to stderr so they surface outside --debug.
+        """
         plugins_dir = os.path.join(
             os.path.dirname(__file__), '..', 'providers', 'aws', 'services'
         )
         plugins_dir = os.path.abspath(plugins_dir)
         if os.path.isdir(plugins_dir):
-            self._engine.load_plugins(plugins_dir, debug=self.debug)
+            self._engine.load_plugins(plugins_dir, debug=self.debug, strict=self.strict_plugins)
+            for warning in self._engine.loader_warnings:
+                print(f"⚠️  plugin loader: {warning}", file=sys.stderr)
+            for warning in registry.warnings:
+                print(f"⚠️  registry: {warning}", file=sys.stderr)
 
     async def run_comprehensive_scan(self) -> CostOptimizationReporter:
         """Run all registered checks and return a populated reporter."""

@@ -5,6 +5,7 @@ boto3 session rather than once per check. With 151 checks running in
 parallel, the naive approach would fire 151 identical STS calls.
 """
 
+import hashlib
 import threading
 from typing import Any
 
@@ -29,11 +30,12 @@ def _session_key(session: Any) -> str:
         creds = session.get_credentials()
         if creds:
             resolved = creds.resolve()
-            # Use only the access key prefix (first 8 chars) + token presence
-            # as a lightweight discriminator — enough to distinguish sessions
-            # without storing the full key in memory as a dict key.
+            # Hash the access key (truncated digest) + token presence as a
+            # lightweight discriminator. Hashing avoids holding a raw AKIA/ASIA
+            # prefix in memory as a dict key while still distinguishing sessions.
+            digest = hashlib.sha256(resolved.access_key.encode()).hexdigest()[:12]
             token_flag = '1' if resolved.token else '0'
-            return f"{resolved.access_key[:8]}:{token_flag}"
+            return f"{digest}:{token_flag}"
     except Exception:
         pass
     return str(id(session))

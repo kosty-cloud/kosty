@@ -2,6 +2,7 @@
 import click
 import asyncio
 from .. import __version__
+from ..core.config import DEFAULT_MAX_WORKERS
 
 from .ec2_commands import ec2
 from .s3_commands import s3
@@ -40,7 +41,7 @@ from .ai_commands import ai_audit
 @click.option('--profile', default='default', help='Configuration profile to use')
 @click.option('--organization', is_flag=True, help='Run across organization accounts')
 @click.option('--region', default='us-east-1', help='AWS region')
-@click.option('--max-workers', default=5, help='Maximum concurrent workers')
+@click.option('--max-workers', default=DEFAULT_MAX_WORKERS, help='Maximum concurrent workers')
 @click.option('--all', 'run_all', is_flag=True, help='Run comprehensive scan of all services')
 @click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv', 'all']), help='Output format')
 @click.option('--cross-account-role', default='OrganizationAccountAccessRole', help='Role name for cross-account access')

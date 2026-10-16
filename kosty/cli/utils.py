@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime
-from ..core.config import ConfigManager
+from ..core.config import ConfigManager, DEFAULT_MAX_WORKERS
 
 
 def _debug_callback(ctx, param, value):
@@ -43,7 +43,7 @@ def common_options(f):
     f = click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv']), help='Output format')(f)
     f = click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')(f)
     f = click.option('--regions', help='Comma-separated list of regions (e.g., us-east-1,eu-west-1)')(f)
-    f = click.option('--max-workers', default=10, help='Maximum number of worker threads')(f)
+    f = click.option('--max-workers', default=DEFAULT_MAX_WORKERS, help='Maximum number of worker threads')(f)
     f = click.option('--region', help='AWS region to scan')(f)
     f = click.option('--organization', is_flag=True, help='Scan entire AWS organization')(f)
     f = click.option('--cross-account-role', default='OrganizationAccountAccessRole', help='Role name for cross-account access')(f)
@@ -80,7 +80,7 @@ def _resolve_scan_params(ctx, profile, organization, region, max_workers, region
             reg_list = [final['region']]
         else:
             reg_list = ['us-east-1']
-        return session, reg_list, final.get('max_workers', 10), config_manager
+        return session, reg_list, final.get('max_workers', DEFAULT_MAX_WORKERS), config_manager
     except Exception:
         if regions:
             reg_list = [r.strip() for r in regions.split(',')]
@@ -90,7 +90,7 @@ def _resolve_scan_params(ctx, profile, organization, region, max_workers, region
             reg_list = [ctx.obj['region']]
         else:
             reg_list = ['us-east-1']
-        return boto3.Session(), reg_list, max_workers or ctx.obj.get('max_workers', 10), None
+        return boto3.Session(), reg_list, max_workers or ctx.obj.get('max_workers', DEFAULT_MAX_WORKERS), None
 
 
 def _run_checks(checks, session, reg_list, workers, config_manager, debug=False, **kwargs):
@@ -161,7 +161,8 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
     if config_manager:
         reg_list = [r for r in reg_list if not config_manager.should_exclude_region(r)]
 
-    _ensure_plugins_loaded()
+    strict_plugins = bool(config_manager.get('strict_plugins', False)) if config_manager else False
+    _ensure_plugins_loaded(strict=strict_plugins, debug=debug)
 
     if check_id:
         entry = registry.get_check(check_id)
@@ -195,8 +196,17 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
     _output_findings(findings, service_name, output, save_to, verbose=verbose)
 
 
-def _ensure_plugins_loaded():
-    """Load native plugins if not already loaded."""
+def _ensure_plugins_loaded(strict: bool = False, debug: bool = False):
+    """Load native plugins if not already loaded.
+
+    Args:
+        strict: Refuse plugins absent from the manifest (opt-in fail-closed).
+        debug: Forward per-module load output to stderr.
+
+    Loader warnings and registry warnings are routed to stderr so they
+    surface outside --debug.
+    """
+    import sys
     from ..core.registry import registry
     if registry.count > 0:
         return
@@ -205,7 +215,11 @@ def _ensure_plugins_loaded():
     plugins_dir = os.path.join(os.path.dirname(__file__), '..', 'providers', 'aws', 'services')
     plugins_dir = os.path.abspath(plugins_dir)
     if os.path.isdir(plugins_dir):
-        loader.load_directory(plugins_dir)
+        loader.load_directory(plugins_dir, strict=strict, debug=debug)
+        for warning in loader.warnings:
+            print(f"⚠️  plugin loader: {warning}", file=sys.stderr)
+        for warning in registry.warnings:
+            print(f"⚠️  registry: {warning}", file=sys.stderr)
 
 
 def _output_findings(findings, service_name, output, save_to=None, verbose=False):
