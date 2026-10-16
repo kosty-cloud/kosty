@@ -74,6 +74,7 @@ class MultiProfileRunner:
                 final_config.get('org_admin_account_id'),
                 config_manager=config_manager,
                 session=session,
+                debug=cli_args.get('debug', False),
             )
 
             reporter = asyncio.run(scanner.run_comprehensive_scan())

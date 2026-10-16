@@ -100,6 +100,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
             'max_workers': max_workers, 'output': output, 'save_to': save_to,
             'cross_account_role': cross_account_role,
             'org_admin_account_id': org_admin_account_id,
+            'debug': debug,
         }
         runner.run_parallel(cli_args, max_parallel=max_parallel_profiles)
         if output in ['console', 'all']:
