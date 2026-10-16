@@ -1,5 +1,34 @@
 # Kosty Release Notes
 
+## Version 3.3.0 — Security and quality fixes (2026)
+
+### Bugs / regressions
+
+- `PyYAML` is now declared as a runtime dependency in `setup.py` and
+  `pyproject.toml`. It was imported by the config layer but missing from the install
+  requirements, so a clean `pip install kosty` could fail to parse `kosty.yaml`.
+
+### Security / hardening
+
+- `--save-to` now confines report output to the target directory by default.
+  Paths that resolve outside the requested location are rejected (FEAT-003).
+- The plugin loader rejects files not listed in `plugins.sha256` by default. A
+  strict mode is available as an opt-in for environments that want to fail on any
+  unexpected plugin file (FEAT-002).
+- The S3 IAM policy in the documentation no longer requests `s3:PutObjectAcl`.
+  Uploads use SSE AES256 and set no ACL, so `s3:PutObject` alone is sufficient.
+- The PyPI publish workflow verifies the plugin manifest by regenerating it and
+  failing on any `git diff` in `plugins.sha256`, instead of silently regenerating
+  it at build time.
+
+### Quality
+
+- New configurable boto3 client timeout keys (connect/read) in `kosty.yaml`
+  (FEAT-003).
+- `pyproject.toml` metadata reconciled with `setup.py`: `requires-python` is
+  `>=3.10`, the Python classifiers cover 3.10–3.13, and the description matches the
+  32-service count.
+
 ## Version 3.2.0 — Region exclusion and thresholds restored (2026)
 
 Restores two documented `kosty.yaml` capabilities that had no effect in the v3 scan

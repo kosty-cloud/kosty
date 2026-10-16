@@ -189,8 +189,7 @@ kosty ec2 check-oversized-instances --save-to s3://cost-reports/ec2/
         {
             "Effect": "Allow",
             "Action": [
-                "s3:PutObject",
-                "s3:PutObjectAcl"
+                "s3:PutObject"
             ],
             "Resource": "arn:aws:s3:::your-bucket-name/*"
         }
