@@ -280,7 +280,7 @@ exclude:
     - key: "DoNotAudit"
 ```
 
-**Supported services (3.1.0):**
+**Supported services:**
 
 Tag exclusion is applied for services whose describe response already includes the
 resource's tags inline:
@@ -293,7 +293,7 @@ resource's tags inline:
 - Security Groups
 - Elastic IPs
 
-**Not covered in 3.1.0:** services whose tags require a separate API call are not
+**Not covered:** services whose tags require a separate API call are not
 tag-excluded — S3 buckets, Lambda functions, IAM users/roles, DynamoDB tables, API
 Gateway, CloudWatch, Backup, Route53, and Load Balancers. Use an ARN exclusion rule
 for findings on those services that carry an ARN.

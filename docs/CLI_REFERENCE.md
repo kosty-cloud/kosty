@@ -471,6 +471,10 @@ kosty ssm check-non-compliant-patches
 - `--rule-threshold INTEGER` - Rule count threshold for complex security groups (default: 50)
 - `--months INTEGER` - Months threshold for outdated resources (default: 12)
 
+Threshold precedence is **CLI flag > `kosty.yaml` `thresholds:` > built-in default**.
+A flag passed on the command line always wins; otherwise the value comes from
+`kosty.yaml` if set, else the default. See [Configuration](CONFIGURATION.md#thresholds).
+
 ### Global Parameters
 - `--organization` - Scan entire AWS organization
 - `--region TEXT` - AWS region to scan (default: current region)

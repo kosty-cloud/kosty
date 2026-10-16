@@ -229,7 +229,7 @@ engine.load_plugins('/opt/kosty-pro/plugins')
 
 Pro plugins follow the exact same format. They live in a private repo that's mounted/installed only in the Pro environment.
 
-## Current State (v3.0.0)
+## Current State (v3.2.0)
 
 - **151 native plugin checks** across 32 services
 - **CLI fully wired to engine** — zero legacy execution paths
