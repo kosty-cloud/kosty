@@ -69,6 +69,14 @@ DEFAULT_MAX_WORKERS = 5
 # but absent from plugins.sha256 is refused instead of warned-and-allowed.
 DEFAULT_STRICT_PLUGINS = False
 
+# boto3 client socket timeouts (seconds) and retry attempts. These preserve the
+# historical boto3 behaviour (60s connect, 60s read, 3 total attempts) while
+# letting kosty.yaml tune them for slow or degraded accounts. build_boto_config()
+# turns these into a botocore Config consumed at client-construction time.
+DEFAULT_CONNECT_TIMEOUT = 60
+DEFAULT_READ_TIMEOUT = 60
+DEFAULT_MAX_RETRIES = 3
+
 # Hardcoded defaults
 DEFAULT_CONFIG = {
     'organization': False,
@@ -83,6 +91,10 @@ DEFAULT_CONFIG = {
     'mfa_serial': None,
     'duration_seconds': 3600,
     'strict_plugins': DEFAULT_STRICT_PLUGINS,
+    'save_to_allow_outside': False,
+    'connect_timeout': DEFAULT_CONNECT_TIMEOUT,
+    'read_timeout': DEFAULT_READ_TIMEOUT,
+    'max_retries': DEFAULT_MAX_RETRIES,
 }
 
 DEFAULT_THRESHOLDS = {
@@ -115,6 +127,33 @@ def resolve_threshold(kwargs: Dict[str, Any], kwarg_name: str, canonical_key: st
     if config_manager is not None:
         return config_manager.get_threshold(canonical_key, default)
     return default
+
+
+def build_boto_config(config_manager: Optional["ConfigManager"] = None) -> "Config":
+    """Build a botocore Config with the configured socket timeouts and retries.
+
+    Reads connect_timeout, read_timeout, and max_retries from the given
+    ConfigManager (falling back to the module defaults when no manager is
+    supplied or a key is unset). The result is passed as `config=` when a
+    service client is constructed so slow or degraded accounts can be tuned
+    through kosty.yaml instead of only the AWS_DEFAULT_SOCKET_TIMEOUT env var.
+    """
+    from botocore.config import Config
+
+    if config_manager is not None:
+        connect_timeout = config_manager.get('connect_timeout', DEFAULT_CONNECT_TIMEOUT)
+        read_timeout = config_manager.get('read_timeout', DEFAULT_READ_TIMEOUT)
+        max_retries = config_manager.get('max_retries', DEFAULT_MAX_RETRIES)
+    else:
+        connect_timeout = DEFAULT_CONNECT_TIMEOUT
+        read_timeout = DEFAULT_READ_TIMEOUT
+        max_retries = DEFAULT_MAX_RETRIES
+
+    return Config(
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        retries={'max_attempts': max_retries},
+    )
 
 
 class ConfigManager:
@@ -226,6 +265,9 @@ class ConfigManager:
 
         if 'strict_plugins' in self.config and not isinstance(self.config['strict_plugins'], bool):
             errors.append("'strict_plugins' must be boolean")
+
+        if 'save_to_allow_outside' in self.config and not isinstance(self.config['save_to_allow_outside'], bool):
+            errors.append("'save_to_allow_outside' must be boolean")
         
         if 'max_workers' in self.config:
             if not isinstance(self.config['max_workers'], int) or self.config['max_workers'] <= 0:
@@ -238,6 +280,17 @@ class ConfigManager:
                 errors.append("'duration_seconds' must be positive integer")
             elif self.config['duration_seconds'] > 43200:
                 errors.append("'duration_seconds' must be <= 43200 (12h AWS maximum)")
+
+        for timeout_key in ('connect_timeout', 'read_timeout'):
+            if timeout_key in self.config:
+                value = self.config[timeout_key]
+                if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+                    errors.append(f"'{timeout_key}' must be a positive number (seconds)")
+
+        if 'max_retries' in self.config:
+            value = self.config['max_retries']
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                errors.append("'max_retries' must be a non-negative integer")
         
         thresholds = self.get_thresholds()
         for key, value in thresholds.items():

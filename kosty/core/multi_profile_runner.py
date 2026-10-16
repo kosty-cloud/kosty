@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .config import ConfigManager
 from .engine_scanner import EngineScanner
+from .reporter import sanitize_csv_field
 
 
 class MultiProfileRunner:
@@ -235,8 +236,9 @@ class MultiProfileRunner:
                         for item in check_data.get('items', [])[:5]
                     )
                     lines.append(
-                        f'{profile},{account_id},{service},{check_name},'
-                        f'{count},${monthly:.2f},${annual:.2f},"{resource_ids}"'
+                        f'{sanitize_csv_field(profile)},{sanitize_csv_field(account_id)},'
+                        f'{sanitize_csv_field(service)},{sanitize_csv_field(check_name)},'
+                        f'{count},${monthly:.2f},${annual:.2f},"{sanitize_csv_field(resource_ids)}"'
                     )
 
         return '\n'.join(lines)

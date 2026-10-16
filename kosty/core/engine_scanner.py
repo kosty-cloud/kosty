@@ -17,8 +17,10 @@ Notes on boto3 timeouts:
     checks will eventually time out and their errors will appear in
     ScanResult.errors.
 
-    To tune this, set the AWS_DEFAULT_SOCKET_TIMEOUT environment variable
-    or configure a custom botocore Config object before running Kosty.
+    To tune this, set the connect_timeout/read_timeout/max_retries keys in
+    kosty.yaml (see config.build_boto_config and docs/CONFIGURATION.md), the
+    AWS_DEFAULT_SOCKET_TIMEOUT environment variable, or a custom botocore
+    Config object before running Kosty.
 
 Notes on temporary credential lifecycle:
     Cross-account sessions created by _assume_role() are not explicitly

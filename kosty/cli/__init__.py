@@ -77,6 +77,8 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--max-workers', type=int, help='Maximum concurrent workers')
 @click.option('--output', default='console', type=click.Choice(['console', 'json', 'csv', 'all']), help='Output format')
 @click.option('--save-to', help='Save output to S3 (s3://bucket/path) or local path (/path/to/file)')
+@click.option('--allow-outside-cwd', is_flag=True, default=False,
+              help='Permit --save-to local paths outside the current working directory')
 @click.option('--cross-account-role', help='Role name for cross-account access')
 @click.option('--org-admin-account-id', help='Organization admin account ID')
 @click.option('--profiles', is_flag=True, help='Run audit on all profiles from config file')
@@ -84,7 +86,7 @@ def cli(ctx, config_file, profile, run_all, organization, region, max_workers, o
 @click.option('--verbose', is_flag=True, help='Show full finding details (ARN, risk, savings, check ID)')
 @click.option('--debug', is_flag=True, help='Print check execution details, errors, and timing to stderr')
 @click.pass_context
-def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles, verbose, debug):
+def audit(ctx, profile, organization, region, regions, max_workers, output, save_to, allow_outside_cwd, cross_account_role, org_admin_account_id, profiles, max_parallel_profiles, verbose, debug):
     """Run a full audit across all 32 services (cost + security)."""
     from ..core.engine_scanner import EngineScanner
     from ..core.config import ConfigManager
@@ -127,6 +129,10 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
         'org_admin_account_id': org_admin_account_id,
     })
 
+    # The opt-out is enabled by either the CLI flag or the config key.
+    if config_manager.get('save_to_allow_outside', False):
+        allow_outside_cwd = True
+
     if final_config.get('regions'):
         reg_list = (
             [r.strip() for r in final_config['regions'].split(',')]
@@ -143,7 +149,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
     if final_config.get('save_to') and final_config.get('output') in ['json', 'csv', 'all']:
         from ..core.storage import StorageManager
         print(f"\n🔍 Validating save location: {final_config['save_to']}")
-        if not asyncio.run(StorageManager().validate_save_location(final_config['save_to'])):
+        if not asyncio.run(StorageManager().validate_save_location(final_config['save_to'], allow_outside_cwd=allow_outside_cwd)):
             print("\n🛑 Save location validation failed. Aborting scan.")
             return
         print("✅ Save location validated successfully")
@@ -169,6 +175,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
             organization=final_config.get('organization', False),
             org_admin_account_id=final_config.get('org_admin_account_id'),
             save_to=save_to,
+            allow_outside_cwd=allow_outside_cwd,
         )
         print(f"\n📄 Detailed JSON report saved: {json_file}")
     if output in ['csv', 'all']:
@@ -176,6 +183,7 @@ def audit(ctx, profile, organization, region, regions, max_workers, output, save
             organization=final_config.get('organization', False),
             org_admin_account_id=final_config.get('org_admin_account_id'),
             save_to=save_to,
+            allow_outside_cwd=allow_outside_cwd,
         )
         print(f"📊 CSV report saved: {csv_file}")
     if output == 'all':
@@ -191,26 +199,16 @@ def version():
 
 def _print_verbose_findings(reporter):
     """Print per-finding detail block after the summary (used with --verbose)."""
+    from .utils import render_finding_lines
     print("\n" + "=" * 80)
     print("VERBOSE FINDINGS")
     print("=" * 80)
-    sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}
     for account_id, account_data in reporter.results.items():
         for service, service_data in account_data.items():
             for command_data in service_data.values():
                 for item in command_data.get('items', []):
-                    icon = sev_icon.get(item.get('severity', ''), '⚪')
-                    print(f"  {icon} [{item.get('severity', '').upper()}] [{service.upper()}] {item.get('Issue', '')}")
-                    print(f"     Resource: {item.get('ResourceId', '')} ({item.get('Region', '')})")
-                    if item.get('Risk'):
-                        print(f"     Risk: {item['Risk']}")
-                    if item.get('ARN'):
-                        print(f"     ARN: {item['ARN']}")
-                    savings = item.get('monthly_savings') or item.get('MonthlySavings')
-                    if savings:
-                        print(f"     Savings: ${savings:.2f}/mo")
-                    if item.get('check'):
-                        print(f"     Check: {item['check']}")
+                    for line in render_finding_lines(item, service=service, verbose=True):
+                        print(line)
 
 
 cli.add_command(ec2)

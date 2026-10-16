@@ -10,8 +10,19 @@
 
 ### Security / hardening
 
-- `--save-to` now confines report output to the target directory by default.
-  Paths that resolve outside the requested location are rejected (FEAT-003).
+- `--save-to` with a local path now confines report output to the current working
+  directory (and its subdirectories) by default. A destination that resolves
+  outside is rejected. Use `--allow-outside-cwd` (or set `save_to_allow_outside:
+  true` in `kosty.yaml`) to write elsewhere. `s3://` destinations are unaffected
+  (FEAT-003).
+- CSV reports neutralize spreadsheet formula injection: a cell whose value starts
+  with `=`, `+`, `-`, or `@` is prefixed with an apostrophe so AWS-provided strings
+  cannot execute as formulas (FEAT-003).
+- Report `.sha256` sidecars now record the file basename, so `sha256sum -c` works
+  from the report directory regardless of where the report was written (FEAT-003).
+- Per-service commands now surface a count of checks that could not complete (for
+  example, missing permissions) without requiring `--debug`; full per-check detail
+  stays under `--debug` (FEAT-003).
 - The plugin loader rejects files not listed in `plugins.sha256` by default. A
   strict mode is available as an opt-in for environments that want to fail on any
   unexpected plugin file (FEAT-002).
@@ -23,8 +34,10 @@
 
 ### Quality
 
-- New configurable boto3 client timeout keys (connect/read) in `kosty.yaml`
-  (FEAT-003).
+- New configurable boto3 client timeout keys `connect_timeout`, `read_timeout`,
+  and `max_retries` in `kosty.yaml`, with defaults preserving the previous ~60s
+  behaviour. A `build_boto_config()` helper turns them into a botocore `Config`
+  for client construction (FEAT-003).
 - `pyproject.toml` metadata reconciled with `setup.py`: `requires-python` is
   `>=3.10`, the Python classifiers cover 3.10–3.13, and the description matches the
   32-service count.
