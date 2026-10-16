@@ -1,5 +1,31 @@
 # Kosty Release Notes
 
+## Version 3.2.0 — Region exclusion and thresholds restored (2026)
+
+Restores two documented `kosty.yaml` capabilities that had no effect in the v3 scan
+path, and fixes two cosmetic bugs in organization and multi-profile mode.
+
+- `exclude.regions` is wired into the scan path. Excluded regions are now dropped from
+  the resolved region list for single-account, organization, and per-service scans.
+- `thresholds:` in `kosty.yaml` now drive the checks. Each threshold-using check
+  resolves its cutoff with precedence: per-service CLI flag > `kosty.yaml` value >
+  hardcoded default. Checks affected: EC2 oversized (`ec2_cpu`), EC2 stopped
+  (`stopped_days`), EC2 old AMI (`ami_days`), RDS oversized (`rds_cpu`), RDS idle
+  (`idle_days`), old snapshots (`old_snapshot_days`), Lambda memory (`lambda_memory`).
+- Threshold key names reconciled across `config.py`, `kosty.yaml.example`, and the
+  docs. `ami_days` is now part of the defaults (180). The old snapshot default is 30
+  days (`old_snapshot_days`), matching the documentation; the snapshot check previously
+  hardcoded 90 days, so snapshots between 30 and 90 days old are now flagged by default.
+  The legacy key `snapshot_days` is still read as a fallback for `old_snapshot_days`,
+  so existing config files keep working.
+- Organization progress bar denominator now excludes services listed in
+  `exclude.services`, matching single-account mode. Results were already correct; this
+  is display only.
+- `--debug` now works under `--profiles`; the flag was previously dropped when building
+  the per-profile scanner.
+
+Upgrade with `pip install --upgrade kosty`.
+
 ## Version 3.1.0 — Resource exclusion restored (2026)
 
 Restores resource exclusion in the v3 plugin scan path. Tag and ARN exclusion

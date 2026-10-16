@@ -310,9 +310,15 @@ thresholds:
   rds_cpu: 20              # RDS oversized if CPU < 20%
   lambda_memory: 512       # Lambda over-provisioned if > 512MB
   stopped_days: 7          # EC2 stopped for 7+ days
-  idle_days: 7             # EC2 idle for 7+ days
+  idle_days: 7             # RDS idle window (days analyzed)
   old_snapshot_days: 30    # Snapshots older than 30 days
+  ami_days: 180            # AMIs older than 180 days
 ```
+
+Thresholds are resolved per check with this precedence: a per-service CLI flag
+(`--cpu-threshold`, `--days`) wins, then the value from `kosty.yaml`, then the
+hardcoded default shown above. Thresholds apply to the `kosty audit` scan path and to
+the per-service commands.
 
 ### Profile Threshold Overrides
 
@@ -343,12 +349,17 @@ profiles:
 
 | Threshold | Service | Description | Default |
 |-----------|---------|-------------|---------|
-| `ec2_cpu` | EC2 | CPU utilization threshold | `20` |
-| `rds_cpu` | RDS | CPU utilization threshold | `20` |
-| `lambda_memory` | Lambda | Memory threshold (MB) | `512` |
-| `stopped_days` | EC2 | Days instance stopped | `7` |
-| `idle_days` | EC2 | Days instance idle | `7` |
-| `old_snapshot_days` | Snapshots | Snapshot age (days) | `30` |
+| `ec2_cpu` | EC2 | Oversized CPU utilization threshold (`check-oversized-instances`) | `20` |
+| `rds_cpu` | RDS | Oversized CPU utilization threshold (`check-oversized-instances`) | `20` |
+| `lambda_memory` | Lambda | Over-provisioned above this allocation, MB | `512` |
+| `stopped_days` | EC2 | Days a stopped instance must sit before it is flagged | `7` |
+| `idle_days` | RDS | Days analyzed when flagging idle instances | `7` |
+| `old_snapshot_days` | Snapshots | Snapshot age, days | `30` |
+| `ami_days` | EC2 | AMI age, days (`check-old-ami`) | `180` |
+
+Earlier config files used `snapshot_days` for `old_snapshot_days`. The old name is
+still read as a fallback, so existing `kosty.yaml` files keep working; prefer
+`old_snapshot_days` going forward.
 
 ## AWS Authentication
 
