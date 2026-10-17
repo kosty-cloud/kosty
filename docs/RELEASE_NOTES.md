@@ -23,9 +23,11 @@
 - Per-service commands now surface a count of checks that could not complete (for
   example, missing permissions) without requiring `--debug`; full per-check detail
   stays under `--debug` (FEAT-003).
-- The plugin loader rejects files not listed in `plugins.sha256` by default. A
-  strict mode is available as an opt-in for environments that want to fail on any
-  unexpected plugin file (FEAT-002).
+- The plugin loader surfaces a warning (to stderr) for files not listed in
+  `plugins.sha256` but still loads them by default, so local contributors adding a
+  check are not blocked by a stale manifest. An opt-in strict mode (`strict_plugins:
+  true` in `kosty.yaml`) refuses unlisted files instead. A plugin whose hash does not
+  match the manifest is always refused (FEAT-002).
 - The S3 IAM policy in the documentation no longer requests `s3:PutObjectAcl`.
   Uploads use SSE AES256 and set no ACL, so `s3:PutObject` alone is sufficient.
 - The PyPI publish workflow verifies the plugin manifest by regenerating it and
