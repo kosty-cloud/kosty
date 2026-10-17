@@ -7,7 +7,7 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-> 🧩 **v3.2.0 — Modular Platform** — Plugin-based engine. 151 checks, 32 services, fully extensible. [Architecture guide →](docs/ARCHITECTURE_V3.md)
+> 🧩 **v3.4.0 — Modular Platform** — Plugin-based engine. 151 checks, 32 services, fully extensible. Every command — full audit and per-service — runs through one scan engine. [Architecture guide →](docs/ARCHITECTURE_V3.md)
 
 **Scan 32 AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
 

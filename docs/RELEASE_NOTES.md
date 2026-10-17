@@ -1,5 +1,42 @@
 # Kosty Release Notes
 
+## Version 3.4.0 — Single scan execution path (2026)
+
+Unifies the two scan execution paths. Before 3.4.0, `kosty audit` ran through
+`ScanEngine` while the per-service commands (`kosty ec2 …`, `kosty s3 …`,
+`kosty ai …`, etc.) used a separate hand-rolled executor that behaved
+differently. All commands now run through the same engine, so the per-service
+behavior matches the full audit.
+
+### Bugs / regressions
+
+- Per-service commands now route check errors into the scan result the same way
+  `kosty audit` does. A check that cannot complete (for example, missing
+  permissions) is reported as a count on stderr, with full per-check detail under
+  `--debug`, instead of the error being tied to a divergent executor.
+- Global checks (IAM, S3, and other `region_scope: global` checks) run once per
+  scan on a per-service command, not once per region. In multi-region mode
+  (`--regions`), a service command no longer duplicates these checks and their
+  findings across every region.
+- `--save-to s3://bucket/path` now works on the per-service commands and on
+  `kosty ai …`, matching `kosty audit`. Previously a service command treated an
+  `s3://` value as a local path and wrote a directory literally named `s3:`.
+- `kosty ai …` local `--save-to` is confined to the current working directory
+  again (honoring `--allow-outside-cwd` / `save_to_allow_outside`). The AI command
+  had kept a raw path resolution that bypassed the 3.3.0 confinement, and its CSV
+  output now neutralizes spreadsheet formula injection like the other paths.
+
+### Quality
+
+- Added `ScanEngine.run_service()`, a typed entry point that runs a filtered
+  subset of checks (one service, a single `check_id`, or a cost/security slice) and
+  returns a `ScanResult`. It shares the region iteration, global/regional split, and
+  error routing with `ScanEngine.run()` through a single private helper.
+- Removed the duplicated per-service executor (`cli/utils._run_checks`) and the
+  hand-rolled executor in `cli/ai_commands`. There is now a single execution path
+  and a single file-write path (`StorageManager`) across all commands. The
+  human-readable console output and the JSON/CSV report shapes are unchanged.
+
 ## Version 3.3.0 — Security and quality fixes (2026)
 
 ### Bugs / regressions

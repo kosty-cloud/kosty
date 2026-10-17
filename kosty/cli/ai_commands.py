@@ -1,22 +1,40 @@
-import click
 import json
-import os
-from pathlib import Path
+import json
+import sys
 from datetime import datetime
-from .utils import common_options, execute_engine_command, _ensure_plugins_loaded, _resolve_scan_params
+
+import click
+
+from .utils import (
+    common_options,
+    execute_engine_command,
+    _ensure_plugins_loaded,
+    _resolve_scan_params,
+    _serialize_findings_csv,
+    _persist_report,
+)
 
 
 def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id, **kwargs):
-    """Run Bedrock + SageMaker via engine, merge results, output once."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    from ..core.registry import registry
+    """Run Bedrock + SageMaker through the engine, merge results, output once."""
+    from ..core.engine import ScanEngine
     from ..core.models import FindingType
 
     session, reg_list, workers, config_manager = _resolve_scan_params(
         ctx, profile, organization, region, max_workers, regions, cross_account_role, org_admin_account_id
     )
 
-    _ensure_plugins_loaded()
+    debug = ctx.obj.get('debug', False) if ctx.obj else False
+    verbose = ctx.obj.get('verbose', False) if ctx.obj else False
+    allow_outside_cwd = bool(ctx.obj.get('allow_outside_cwd')) if ctx.obj else False
+    if config_manager and config_manager.get('save_to_allow_outside', False):
+        allow_outside_cwd = True
+
+    if config_manager:
+        reg_list = [r for r in reg_list if not config_manager.should_exclude_region(r)]
+
+    strict_plugins = bool(config_manager.get('strict_plugins', False)) if config_manager else False
+    _ensure_plugins_loaded(strict=strict_plugins, debug=debug)
 
     finding_type_filter = None
     if method == 'cost_audit':
@@ -24,35 +42,38 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
     elif method == 'security_audit':
         finding_type_filter = FindingType.SECURITY
 
-    deep = kwargs.get('deep', False)
+    engine = ScanEngine(max_workers=workers)
 
     all_findings = []
+    all_errors = []
     for service_name in ['Bedrock', 'SageMaker']:
-        checks = registry.get_checks_by_service(service_name)
-        if finding_type_filter:
-            checks = [c for c in checks if c['metadata'].finding_type == finding_type_filter]
-        if not deep:
-            checks = [c for c in checks if not c['metadata'].requires_deep]
+        result = engine.run_service(
+            session, reg_list,
+            service=service_name,
+            finding_type=finding_type_filter,
+            config_manager=config_manager,
+            debug=debug,
+            **kwargs,
+        )
+        print(f"\n🤖 {service_name} Audit: {len(result.findings)} issues")
+        all_findings.extend(result.findings)
+        all_errors.extend(result.errors)
 
-        svc_findings = []
-        for rgn in reg_list:
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = {executor.submit(c['func'], session=session, region=rgn, config_manager=config_manager, **kwargs): c for c in checks}
-                for future in as_completed(futures):
-                    try:
-                        result = future.result()
-                        if isinstance(result, list):
-                            svc_findings.extend(result)
-                    except Exception:
-                        pass
+    if config_manager:
+        all_findings = [
+            f for f in all_findings
+            if not (f.arn and config_manager.should_exclude_arn(f.arn))
+        ]
 
-        print(f"\n🤖 {service_name} Audit: {len(svc_findings)} issues")
-        all_findings.extend(svc_findings)
+    if all_errors:
+        print(
+            f"\n⚠️  {len(all_errors)} check(s) could not complete (e.g. missing"
+            f" permissions); re-run with --debug for per-check details.",
+            file=sys.stderr,
+        )
 
     total = len(all_findings)
     items = [f.to_dict() for f in all_findings]
-
-    verbose = ctx.obj.get('verbose', False) if ctx.obj else False
 
     if output in ['console', 'all']:
         if total > 0:
@@ -71,35 +92,35 @@ def _run_combined_ai_audit(ctx, method, output, save_to, profile, organization, 
                         print(f"     Savings: ${savings:.2f}/mo")
                     if item.get('check'):
                         print(f"     Check: {item['check']}")
+
     if output in ['json', 'all']:
+        from ..core.exceptions import SaveLocationError
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_ai_{account_id}_{timestamp}.json"
-        if save_to:
-            dest = Path(save_to).resolve()
-            dest.mkdir(parents=True, exist_ok=True)
-            filename = str(dest / filename)
+        # AI report shape is preserved (method + results keyed by account).
         report = {'scan_timestamp': datetime.now().isoformat(), 'method': f'ai_{method}', 'total_issues': total, 'results': {account_id: items}}
-        with open(filename, 'w') as f:
-            json.dump(report, f, indent=2, default=str)
-        print(f"\n📄 AI audit JSON report saved: {filename}")
+        content = json.dumps(report, indent=2, default=str)
+        try:
+            dest = _persist_report(content, filename, save_to, 'json', allow_outside_cwd)
+        except SaveLocationError as e:
+            print(f"\n❌ {e}", file=sys.stderr)
+            return
+        print(f"\n📄 AI audit JSON report saved: {dest}")
 
     if output in ['csv', 'all']:
-        import csv
+        from ..core.exceptions import SaveLocationError
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_ai_{account_id}_{timestamp}.csv"
-        if save_to:
-            dest = Path(save_to).resolve()
-            dest.mkdir(parents=True, exist_ok=True)
-            filename = str(dest / filename)
         if items:
-            fieldnames = sorted(set().union(*(item.keys() for item in items)))
-            with open(filename, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
-                writer.writeheader()
-                writer.writerows(items)
-            print(f"📊 AI audit CSV report saved: {filename}")
+            content = _serialize_findings_csv(items)
+            try:
+                dest = _persist_report(content, filename, save_to, 'csv', allow_outside_cwd)
+            except SaveLocationError as e:
+                print(f"\n❌ {e}", file=sys.stderr)
+                return
+            print(f"📊 AI audit CSV report saved: {dest}")
 
     print(f"\n🎯 AI Audit Total: {total} issues (Bedrock + SageMaker)")
 

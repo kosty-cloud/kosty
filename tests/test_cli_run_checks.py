@@ -1,28 +1,28 @@
-"""Offline tests for cli/utils._run_checks error surfacing.
+"""Offline tests for the unified service-command output path (cli/utils).
 
-No boto3/STS/network: the session is a MagicMock the stub checks never touch,
-and the checks run in the real ThreadPoolExecutor but only return lists or
-raise in-process.
+Since 3.4.0 the per-service commands run through ScanEngine.run_service and
+persist through StorageManager, so --save-to accepts both local paths and
+s3:// URLs. These tests exercise the output boundary (_output_findings) only;
+engine execution is covered in test_engine_run_service.py.
+
+No boto3/STS/network: boto3 is stubbed in sys.modules before importing the
+storage layer (storage.py imports boto3 at module top), and StorageManager is
+patched at its save_file boundary so no real S3 call is ever made.
 """
 
-from unittest.mock import MagicMock
+import sys
+import types
+from unittest.mock import AsyncMock, patch
 
-from kosty.cli.utils import _run_checks
-from kosty.core.models import CheckMetadata, Finding, Severity, FindingType
+import pytest
 
+# Stub boto3 so importing kosty.core.storage (imported lazily by cli.utils)
+# never pulls the real SDK or triggers network/credential lookups.
+if 'boto3' not in sys.modules:
+    sys.modules['boto3'] = types.ModuleType('boto3')
 
-def _check_entry(check_id: str, func, compliance_ids=None):
-    """Build a registry-style check dict with real CheckMetadata."""
-    return {
-        'metadata': CheckMetadata(
-            check_id=check_id,
-            service="EC2",
-            provider="aws",
-            finding_type=FindingType.COST,
-            compliance_ids=compliance_ids or {},
-        ),
-        'func': func,
-    }
+from kosty.cli.utils import _output_findings, _serialize_findings_json, _serialize_findings_csv
+from kosty.core.models import Finding, Severity, FindingType
 
 
 def _finding():
@@ -32,68 +32,80 @@ def _finding():
         resource_id="i-abc",
         region="us-east-1",
         account_id="123456789012",
-        issue="Idle",
+        issue="Idle instance",
         severity=Severity.LOW,
         finding_type=FindingType.COST,
     )
 
 
-def test_run_checks_collects_findings():
-    """A passing check contributes its findings and no errors."""
-    def ok(session, region, **kwargs):
-        return [_finding()]
+# ---------------------------------------------------------------------------
+# (3) --save-to s3:// is recognized on the service path
+# ---------------------------------------------------------------------------
 
-    findings, errors = _run_checks(
-        [_check_entry("aws-ec2-001", ok)],
-        MagicMock(), ["us-east-1"], 2, None,
-    )
-    assert len(findings) == 1
-    assert errors == []
+def test_output_findings_routes_s3_save_to():
+    """A s3:// --save-to reaches StorageManager.save_file with the s3 string."""
+    saved = AsyncMock(return_value="s3://bucket/path/report.json")
+    with patch("kosty.core.storage.StorageManager.save_file", saved):
+        _output_findings([_finding()], "EC2", "json",
+                         save_to="s3://bucket/path/")
 
-
-def test_run_checks_surfaces_raising_check():
-    """A raising check is recorded in errors instead of being swallowed."""
-    def boom(session, region, **kwargs):
-        raise RuntimeError("permission problem")
-
-    findings, errors = _run_checks(
-        [_check_entry("aws-ec2-002", boom)],
-        MagicMock(), ["us-east-1"], 2, None,
-    )
-    assert findings == []
-    assert len(errors) == 1
-    check_id, region, exc_type, message = errors[0]
-    assert check_id == "aws-ec2-002"
-    assert region == "us-east-1"
-    assert exc_type == "RuntimeError"
-    assert "permission problem" in message
+    assert saved.await_count == 1
+    args, kwargs = saved.call_args
+    # save_file(content, filename, save_to, file_format, allow_outside_cwd=...)
+    assert args[2] == "s3://bucket/path/"
+    assert args[3] == "json"
 
 
-def test_run_checks_mixed_pass_and_fail():
-    """Passing and failing checks are separated across findings and errors."""
-    def ok(session, region, **kwargs):
-        return [_finding()]
+def test_output_findings_local_save_to_passes_through():
+    """A local --save-to is forwarded verbatim; confinement lives in storage."""
+    saved = AsyncMock(return_value="/cwd/report.json")
+    with patch("kosty.core.storage.StorageManager.save_file", saved):
+        _output_findings([_finding()], "EC2", "csv",
+                         save_to="reports/", allow_outside_cwd=True)
 
-    def boom(session, region, **kwargs):
-        raise ValueError("bad")
-
-    findings, errors = _run_checks(
-        [_check_entry("ok-1", ok), _check_entry("fail-1", boom)],
-        MagicMock(), ["us-east-1"], 4, None,
-    )
-    assert len(findings) == 1
-    assert len(errors) == 1
-    assert errors[0][0] == "fail-1"
+    assert saved.await_count == 1
+    args, kwargs = saved.call_args
+    assert args[2] == "reports/"
+    assert args[3] == "csv"
+    assert kwargs.get("allow_outside_cwd") is True
 
 
-def test_run_checks_injects_compliance_ids():
-    """compliance_ids from metadata are injected into findings that lack them."""
-    def ok(session, region, **kwargs):
-        return [_finding()]
+def test_output_findings_console_does_not_write(capsys):
+    """Console output writes nothing to storage and prints the service header."""
+    saved = AsyncMock()
+    with patch("kosty.core.storage.StorageManager.save_file", saved):
+        _output_findings([_finding()], "EC2", "console")
 
-    findings, errors = _run_checks(
-        [_check_entry("ok-1", ok, compliance_ids={"CIS": ["1.1"]})],
-        MagicMock(), ["us-east-1"], 2, None,
-    )
-    assert findings[0].compliance_ids == {"CIS": ["1.1"]}
-    assert errors == []
+    assert saved.await_count == 0
+    out = capsys.readouterr().out
+    assert "EC2: 1 issues found" in out
+
+
+# ---------------------------------------------------------------------------
+# serialization helpers keep the preserved service report shape
+# ---------------------------------------------------------------------------
+
+def test_serialize_findings_json_shape():
+    """JSON report keeps {scan_timestamp, service, total_issues, results}."""
+    import json
+    items = [_finding().to_dict()]
+    content = _serialize_findings_json(items, "EC2", len(items))
+    data = json.loads(content)
+    assert set(data.keys()) == {"scan_timestamp", "service", "total_issues", "results"}
+    assert data["service"] == "EC2"
+    assert data["total_issues"] == 1
+    assert data["results"][0]["ResourceId"] == "i-abc"
+
+
+def test_serialize_findings_csv_empty_is_blank():
+    """An empty finding set serializes to an empty CSV string."""
+    assert _serialize_findings_csv([]) == ""
+
+
+def test_serialize_findings_csv_has_header_and_row():
+    """A non-empty set yields a header line plus one data row."""
+    items = [_finding().to_dict()]
+    content = _serialize_findings_csv(items)
+    lines = [l for l in content.splitlines() if l.strip()]
+    assert len(lines) == 2
+    assert "Issue" in lines[0]
