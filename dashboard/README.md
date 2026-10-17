@@ -1,143 +1,99 @@
-# 📊 Kosty Dashboard
+# Kosty Dashboard
 
-A modern, premium dashboard to visualize AWS cost optimization audit results from Kosty.
+A single-file web dashboard to visualize Kosty AWS cost and security audit
+results. It reads the JSON produced by `kosty audit --output json` and presents
+an overview with two drill-down views: Security and Cost.
 
-## 🚀 Features
+## Stack
 
-- **📈 Interactive Charts** - Bar charts and pie charts using Chart.js
-- **🎨 Modern UI** - Built with React and Tailwind CSS
-- **📱 Responsive Design** - Works on desktop, tablet, and mobile
-- **🔄 Real-time Loading** - Drag & drop JSON file upload
-- **📊 Multiple Views** - Service breakdown, issue distribution, detailed cards
-- **🎯 Priority Levels** - High, medium, low severity indicators
-- **💫 Premium Design** - Gradient backgrounds, shadows, animations
+- React 18 (production CDN build) + ReactDOM
+- `@babel/standalone` for in-browser JSX (no build step)
+- Chart.js for charts
+- Tailwind CSS (CDN) and Font Awesome for styling and icons
 
-## 🎯 Quick Start
+There is no build pipeline. Open the HTML and it works.
 
-1. **Generate JSON Report**:
+## Quick start
+
+1. Generate a report:
    ```bash
-   kosty --all --output json
-   # or
    kosty audit --output json
    ```
-
-2. **Open Dashboard**:
+2. Serve the dashboard over HTTP so the browser can fetch the demo files:
    ```bash
-   open dashboard/index.html
+   cd dashboard
+   python -m http.server 8000
+   # then open http://localhost:8000
    ```
+   Opening `index.html` directly from the filesystem also works for uploading
+   your own report; the "View Demo" buttons need HTTP because they `fetch` a
+   demo file.
+3. Load your report with "Load JSON Report", or click one of the demo buttons.
 
-3. **Load Your Report**:
-   - Click "Load JSON Report" button
-   - Select your generated JSON file
-   - View your optimization opportunities!
+## Navigation
 
-## 📊 Dashboard Sections
+- **Overview** — the landing page after a report loads. Two large summary cards:
+  - **Security**: total security findings with a critical/high/medium/low
+    breakdown.
+  - **Cost**: estimated monthly and annual savings, number of cost
+    optimizations, and the top wasteful service.
+  Click a card to open the matching view.
+- **Security view** — severity stat cards, a findings-by-service bar chart, a
+  severity distribution chart, and a findings grid filterable by service and
+  severity. A detail modal opens on any finding.
+- **Cost view** — a "Total Estimated Savings" banner, a savings-by-service chart,
+  a findings grid with per-finding monthly savings, and the same filters.
 
-### 📈 **Stats Overview**
-- Total issues found
-- Accounts scanned
-- Services checked
-- High priority issues
+Each view's stat cards, charts, and grid all reflect that view's finding type.
+Use the "Back to Overview" breadcrumb to return to the landing page.
 
-### 📊 **Charts**
-- **Issues by Service**: Bar chart showing which AWS services have the most issues
-- **Issue Distribution**: Pie chart categorizing issues by type (Storage, Compute, Database, Network)
+## Demo data
 
-### 🎯 **Issue Cards**
-- Service icons and names
-- Issue descriptions
-- Severity indicators (High/Medium/Low)
-- Resource details (bucket names, instance IDs, etc.)
+Two demo reports ship with the dashboard and are generated from code:
 
-## 🎨 Design Features
+- `demo_full_audit.json` — a mixed scan (cost and security) across many services.
+- `demo_ai_audit.json` — an AI-focused scan (Bedrock and SageMaker).
 
-- **Gradient Header**: Beautiful blue-purple gradient
-- **Card Shadows**: Premium shadow effects
-- **Color Coding**: 
-  - 🔴 High priority (red)
-  - 🟡 Medium priority (yellow)
-  - 🟢 Low priority (green)
-- **Icons**: Font Awesome icons for all services
-- **Responsive Grid**: Adapts to screen size
+Both are produced by `scripts/generate_demo_dashboard.py`, which is fully offline
+(no boto3, no AWS calls) and builds finding dicts in the same shape as a real
+`kosty audit --output json` report. Regenerate them with:
 
-## 🔧 Technical Stack
-
-- **React 18**: Component-based UI
-- **Tailwind CSS**: Utility-first styling
-- **Chart.js**: Interactive charts
-- **Font Awesome**: Service icons
-- **Vanilla JS**: No build process required
-
-## 📱 Usage Examples
-
-### Load Sample Data
-The dashboard includes sample data for demonstration. Upload your own JSON to see real results.
-
-### Service Icons
-- 🖥️ EC2: Server icon
-- 🗄️ RDS: Database icon
-- ☁️ S3: Cloud icon
-- ⚡ Lambda: Bolt icon
-- 💾 EBS: Hard drive icon
-- 🌐 VPC: Network icon
-
-### Issue Severity
-- **High**: Oversized instances, unused read replicas
-- **Medium**: Idle resources, lifecycle candidates
-- **Low**: Empty buckets, orphaned resources
-
-## 🚀 Deployment
-
-### Local Usage
-Simply open `index.html` in any modern browser.
-
-### Web Server
 ```bash
-# Python
-python -m http.server 8000
-
-# Node.js
-npx serve .
-
-# Then visit: http://localhost:8000
+python scripts/generate_demo_dashboard.py
 ```
 
-### Static Hosting
-Upload to any static hosting service:
-- GitHub Pages
-- Netlify
-- Vercel
-- AWS S3 + CloudFront
+The demo data is anonymized by construction: a fake account ID (123456789012),
+generic resource names, fixed fake ARN suffixes, and a fixed neutral timestamp.
 
-## 🎯 Example Workflow
+## Report shape
 
-1. **Run Audit**:
-   ```bash
-   kosty --organization --all --output json
-   ```
+The dashboard consumes the `save_json_report` output:
 
-2. **Open Dashboard**:
-   ```bash
-   open dashboard/index.html
-   ```
+```json
+{
+  "scan_timestamp": "<iso>",
+  "total_issues": 0,
+  "results": { "<account_id>": [ { "...finding..." } ] },
+  "summary": { "total_accounts": 0, "total_issues": 0 }
+}
+```
 
-3. **Analyze Results**:
-   - View total issues in stats cards
-   - Check service breakdown in bar chart
-   - Review issue distribution in pie chart
-   - Examine detailed issue cards
+Each finding carries `type` (`cost` | `security`), `severity`
+(`critical` | `high` | `medium` | `low`), `Service`, `Region`, `ResourceId`,
+`ResourceName`, `ARN`, `Issue`, `Risk`, `check` (the check ID), and, for cost
+findings, `monthly_savings`. The cost/security split is a filter on the `type`
+field; no extra report field is required.
 
-4. **Take Action**:
-   - Prioritize high-severity issues
-   - Focus on services with most issues
-   - Use resource details to identify specific items
+## Accessibility
 
-## 💡 Tips
+- The overview cards are keyboard-focusable buttons (Enter/Space to activate).
+- Modals use `role="dialog"` with `aria-modal`, close on Escape, trap focus, and
+  restore focus on close.
+- Icon-only buttons have `aria-label`; decorative icons are `aria-hidden`; charts
+  expose an `aria-label` text alternative.
 
-- **Regular Audits**: Run weekly/monthly audits to track improvements
-- **Team Sharing**: Share dashboard HTML file with team members
-- **Historical Tracking**: Keep JSON reports to compare over time
-- **Mobile Friendly**: View results on mobile devices
-- **Print Ready**: Dashboard prints well for reports
+## Deployment
 
-The dashboard provides a beautiful, professional way to visualize and share your AWS cost optimization findings!
+Any static host works (GitHub Pages, Netlify, Vercel, S3 + CloudFront). Because
+the demo buttons fetch local files, serve the `dashboard/` directory rather than
+opening a lone `index.html` if you want the demos to load.

@@ -73,7 +73,12 @@ kosty audit --organization --max-workers 20 --output all
 </tr>
 </table>
 
-Upload your JSON report to the built-in dashboard for interactive charts, filtering, and cost breakdowns.
+Load your JSON report into the single-file dashboard (`dashboard/index.html`, no
+build step). It opens on an Overview page with two cards — Security and Cost —
+that drill down into dedicated views with interactive charts, severity and
+service filtering, and per-finding detail. Two generated demo reports
+(`demo_full_audit.json`, `demo_ai_audit.json`) are included; see
+[`dashboard/README.md`](dashboard/README.md) for details.
 
 ---
 

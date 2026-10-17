@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kosty - AWS Cost Optimization Dashboard</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <title>Kosty - AWS Cost &amp; Security Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -22,7 +22,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useCallback } = React;
 
         const ServiceIcon = ({ service }) => {
             const icons = {
@@ -31,9 +31,11 @@
                 cloudwatch: 'fas fa-chart-line', elasticache: 'fas fa-memory',
                 iam: 'fas fa-users-cog', cloudfront: 'fas fa-globe',
                 backup: 'fas fa-archive', apigateway: 'fas fa-exchange-alt',
+                bedrock: 'fas fa-robot', sagemaker: 'fas fa-brain',
+                sg: 'fas fa-shield-alt', lb: 'fas fa-sitemap',
                 default: 'fas fa-cube'
             };
-            return <i className={`${icons[service] || icons.default} text-lg`}></i>;
+            return <i className={`${icons[service] || icons.default} text-lg`} aria-hidden="true"></i>;
         };
 
         const StatCard = ({ title, value, icon, color, trend, subtitle }) => (
@@ -46,7 +48,7 @@
                         {trend && <p className="text-sm text-green-600 mt-1">{trend}</p>}
                     </div>
                     <div>
-                        <i className={`${icon} text-3xl ${color.replace('border-l-', 'text-')}`}></i>
+                        <i className={`${icon} text-3xl ${color.replace('border-l-', 'text-')}`} aria-hidden="true"></i>
                     </div>
                 </div>
             </div>
@@ -60,7 +62,7 @@
                 Security: 'border-red-500'
             };
 
-            const groupSavings = totalMonthlySavings || (items ? items.reduce((sum, item) => sum + (item.monthly_savings || item.monthly_cost || 0), 0) : 0);
+            const groupSavings = totalMonthlySavings || (items ? items.reduce((sum, item) => sum + (item.monthly_savings || 0), 0) : 0);
 
             return (
                 <div className={`bg-white rounded-lg p-4 border-l-4 ${typeColors[type] || typeColors.cost} card-shadow hover:shadow-lg transition-shadow`}>
@@ -78,17 +80,20 @@
                             </span>
                             {groupSavings > 0 && (
                                 <span className="text-xs font-semibold text-green-600 mt-1">
-                                    <i className="fas fa-dollar-sign mr-0.5"></i>
+                                    <i className="fas fa-dollar-sign mr-0.5" aria-hidden="true"></i>
                                     ${groupSavings.toFixed(2)}/mo
                                 </span>
                             )}
                         </div>
                     </div>
-                    
+
                     {items && items.length > 0 && (
                         <div className="mt-3 space-y-2">
                             {items.slice(0, 3).map((item, idx) => (
-                                <div key={idx} className="text-sm bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onIssueClick(item)}>
+                                <div key={idx} className="text-sm bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                                     role="button" tabIndex={0}
+                                     onClick={() => onIssueClick(item)}
+                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onIssueClick(item); } }}>
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-900">
                                             {item.ResourceName || item.BucketName || item.InstanceId || item.ResourceId}
@@ -102,28 +107,28 @@
                                     <p className="text-xs text-gray-600 mt-1">{item.Issue}</p>
                                     {item.Region && (
                                         <p className="text-xs text-gray-500 mt-1">
-                                            <i className="fas fa-map-marker-alt mr-1"></i>
+                                            <i className="fas fa-map-marker-alt mr-1" aria-hidden="true"></i>
                                             {item.Region}
                                         </p>
                                     )}
-                                    {(item.monthly_savings || item.monthly_cost) && (
+                                    {item.monthly_savings > 0 && (
                                         <p className="text-xs text-green-600 font-semibold mt-1">
-                                            <i className="fas fa-dollar-sign mr-1"></i>
-                                            ${(item.monthly_savings || item.monthly_cost).toFixed(2)}/month
+                                            <i className="fas fa-dollar-sign mr-1" aria-hidden="true"></i>
+                                            ${item.monthly_savings.toFixed(2)}/month
                                         </p>
                                     )}
                                     <p className="text-xs text-blue-600 mt-1">
-                                        <i className="fas fa-info-circle mr-1"></i>
+                                        <i className="fas fa-info-circle mr-1" aria-hidden="true"></i>
                                         Click for details
                                     </p>
                                 </div>
                             ))}
                             {items.length > 3 && (
-                                <button 
+                                <button
                                     onClick={() => onViewAll(service, type, items)}
                                     className="w-full text-xs text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-blue-50 rounded transition-colors"
                                 >
-                                    <i className="fas fa-eye mr-1"></i>
+                                    <i className="fas fa-eye mr-1" aria-hidden="true"></i>
                                     View all {items.length} issues
                                 </button>
                             )}
@@ -133,96 +138,73 @@
             );
         };
 
-        const Dashboard = () => {
-            const [data, setData] = useState(null);
-            const [showDemo, setShowDemo] = useState(false);
-            
-            // Demo data for preview
-            const demoData = {
-                "scan_timestamp": "2024-01-15T14:30:22.123456",
-                "total_issues": 42,
-                "results": {
-                    "123456789012": {
-                        "ec2": {
-                            "audit": {
-                                "count": 8,
-                                "items": [
-                                    {
-                                        "AccountId": "123456789012",
-                                        "Region": "us-east-1",
-                                        "Service": "EC2",
-                                        "ResourceId": "i-0123456789abcdef0",
-                                        "ResourceName": "web-server-prod-01",
-                                        "Issue": "Oversized instance with low CPU utilization",
-                                        "Type": "Cost",
-                                        "Severity": "High",
-                                        "Description": "Instance running at 5% CPU for 30 days"
-                                    }
-                                ]
-                            }
-                        },
-                        "s3": {
-                            "audit": {
-                                "count": 12,
-                                "items": [
-                                    {
-                                        "AccountId": "123456789012",
-                                        "Region": "us-east-1",
-                                        "Service": "S3",
-                                        "ResourceId": "company-logs-archive",
-                                        "ResourceName": "company-logs-archive",
-                                        "Issue": "Objects without lifecycle policy",
-                                        "Type": "Cost",
-                                        "Severity": "Medium",
-                                        "Description": "2.5TB of logs older than 90 days"
-                                    }
-                                ]
-                            }
-                        },
-                        "rds": {
-                            "audit": {
-                                "count": 6,
-                                "items": [
-                                    {
-                                        "AccountId": "123456789012",
-                                        "Region": "us-east-1",
-                                        "Service": "RDS",
-                                        "ResourceId": "prod-mysql-cluster",
-                                        "ResourceName": "prod-mysql-cluster",
-                                        "Issue": "Oversized RDS instance with low CPU",
-                                        "Type": "Cost",
-                                        "Severity": "High",
-                                        "Description": "db.r5.2xlarge running at 8% CPU"
-                                    }
-                                ]
-                            }
-                        },
-                        "iam": {
-                            "audit": {
-                                "count": 16,
-                                "items": [
-                                    {
-                                        "AccountId": "123456789012",
-                                        "Region": "us-east-1",
-                                        "Service": "IAM",
-                                        "ResourceId": "root",
-                                        "ResourceName": "root",
-                                        "Issue": "Root account has access keys",
-                                        "Type": "Security",
-                                        "Severity": "Critical",
-                                        "Description": "Root account with active access keys"
-                                    }
-                                ]
-                            }
+        // Accessible modal wrapper: role=dialog, Escape to close, focus trap,
+        // focus restore on close. Overlay click also closes.
+        const Modal = ({ labelledBy, onClose, children }) => {
+            const containerRef = useRef(null);
+            const previouslyFocused = useRef(null);
+
+            useEffect(() => {
+                previouslyFocused.current = document.activeElement;
+                const node = containerRef.current;
+
+                const focusable = () => Array.from(
+                    node.querySelectorAll('a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])')
+                ).filter(el => el.offsetParent !== null);
+
+                const first = focusable()[0];
+                if (first) first.focus(); else node.focus();
+
+                const onKeyDown = (e) => {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        onClose();
+                        return;
+                    }
+                    if (e.key === 'Tab') {
+                        const items = focusable();
+                        if (items.length === 0) { e.preventDefault(); return; }
+                        const firstEl = items[0];
+                        const lastEl = items[items.length - 1];
+                        if (e.shiftKey && document.activeElement === firstEl) {
+                            e.preventDefault();
+                            lastEl.focus();
+                        } else if (!e.shiftKey && document.activeElement === lastEl) {
+                            e.preventDefault();
+                            firstEl.focus();
                         }
                     }
-                }
-            };
+                };
+
+                document.addEventListener('keydown', onKeyDown);
+                return () => {
+                    document.removeEventListener('keydown', onKeyDown);
+                    if (previouslyFocused.current && previouslyFocused.current.focus) {
+                        previouslyFocused.current.focus();
+                    }
+                };
+            }, [onClose]);
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm"
+                     onClick={onClose}>
+                    <div ref={containerRef} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}
+                         className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden"
+                         onClick={(e) => e.stopPropagation()}>
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = () => {
+            const [data, setData] = useState(null);
             const [loading, setLoading] = useState(false);
+            const [loadError, setLoadError] = useState(null);
+            const [view, setView] = useState('overview'); // 'overview' | 'security' | 'cost'
             const [selectedIssue, setSelectedIssue] = useState(null);
             const [viewAllModal, setViewAllModal] = useState(null);
             const [filters, setFilters] = useState({
-                type: 'cost',
                 severity: 'all',
                 service: 'all'
             });
@@ -241,786 +223,550 @@
                 Low: 'bg-green-100 text-green-800'
             };
 
-            useEffect(() => {
-                const currentData = data || (showDemo ? demoData : null);
-                if (currentData && chartRef.current && pieChartRef.current && severityChartRef.current) {
-                    createCharts();
-                }
-            }, [data, showDemo, filters.type, chartRef.current, pieChartRef.current, severityChartRef.current]);
+            // --- Data helpers (accept a type filter so a view is coherent end-to-end) ---
 
-            const createCharts = () => {
-                const currentData = data || (showDemo ? demoData : null);
-                if (!currentData) return;
-                
-                // Clear existing charts
-                if (chartRef.current) {
-                    const existingChart = Chart.getChart(chartRef.current);
-                    if (existingChart) existingChart.destroy();
-                }
-                if (pieChartRef.current) {
-                    const existingChart = Chart.getChart(pieChartRef.current);
-                    if (existingChart) existingChart.destroy();
-                }
-                if (severityChartRef.current) {
-                    const existingChart = Chart.getChart(severityChartRef.current);
-                    if (existingChart) existingChart.destroy();
-                }
-                
-                // Services Chart
-                if (chartRef.current) {
-                    const ctx = chartRef.current.getContext('2d');
-                    const serviceData = getServiceData(currentData);
-                    
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: serviceData.labels,
-                            datasets: [{
-                                label: 'Issues Found',
-                                data: serviceData.values,
-                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                borderColor: 'rgba(99, 102, 241, 1)',
-                                borderWidth: 1,
-                                borderRadius: 8
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { 
-                                legend: { display: false },
-                                tooltip: {
-                                    callbacks: {
-                                        label: (context) => `${context.parsed.y} issues`
-                                    }
-                                }
-                            },
-                            scales: { 
-                                y: { beginAtZero: true },
-                                x: { ticks: { maxRotation: 45 } }
-                            }
-                        }
-                    });
-                }
+            const itemType = (item) => (item.type || item.Type || '').toLowerCase();
+            const itemSeverity = (item) => (item.severity || item.Severity || '').toLowerCase();
 
-                // Type Distribution Chart
-                if (pieChartRef.current) {
-                    const ctx = pieChartRef.current.getContext('2d');
-                    const typeData = getTypeDistribution(currentData);
-                    
-                    new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: typeData.labels,
-                            datasets: [{
-                                data: typeData.values,
-                                backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6'],
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { 
-                                legend: { position: 'bottom' },
-                                tooltip: {
-                                    callbacks: {
-                                        label: (context) => `${context.label}: ${context.parsed} issues`
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // Severity Chart
-                if (severityChartRef.current) {
-                    const ctx = severityChartRef.current.getContext('2d');
-                    const severityData = getSeverityData(currentData);
-                    
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: severityData.labels,
-                            datasets: [{
-                                label: 'Issues by Severity',
-                                data: severityData.values,
-                                backgroundColor: [
-                                    '#DC2626', // Critical - Red
-                                    '#EA580C', // High - Orange
-                                    '#D97706', // Medium - Yellow
-                                    '#059669'  // Low - Green
-                                ],
-                                borderRadius: 8
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: { y: { beginAtZero: true } }
-                        }
-                    });
-                }
-            };
-
-            // Helper function to normalize data format
+            // Normalize both the flat (results.<account>:[items]) and legacy nested
+            // formats into results.<account>.<service>.audit.{count,items}.
             const normalizeData = (currentData) => {
                 if (!currentData || !currentData.results) return { results: {} };
-                
+
                 const normalized = { ...currentData, results: {} };
-                
+
                 Object.entries(currentData.results).forEach(([accountId, account]) => {
-                    // Check if it's flat format (array) or nested format (object)
                     if (Array.isArray(account)) {
-                        // Flat format - convert to nested
                         normalized.results[accountId] = {};
                         account.forEach(item => {
-                            const service = (item.Service || 'unknown').toLowerCase();
+                            const service = (item.Service || item.service || 'unknown').toLowerCase();
                             if (!normalized.results[accountId][service]) {
-                                normalized.results[accountId][service] = {
-                                    audit: { count: 0, items: [] }
-                                };
+                                normalized.results[accountId][service] = { audit: { count: 0, items: [] } };
                             }
                             normalized.results[accountId][service].audit.items.push(item);
                             normalized.results[accountId][service].audit.count++;
                         });
                     } else {
-                        // Already nested format
                         normalized.results[accountId] = account;
                     }
                 });
-                
+
                 return normalized;
             };
 
-            const getServiceData = (currentData) => {
-                const services = {};
-                if (!currentData) return { labels: [], values: [] };
-                
-                const normalizedData = normalizeData(currentData);
-                const typeFilter = filters.type;
-                
-                Object.values(normalizedData.results).forEach(account => {
-                    Object.entries(account).forEach(([service, commands]) => {
-                        let totalIssues = 0;
+            // Flatten every finding item, optionally filtered by type ('cost'|'security'|'all').
+            const getItems = (currentData, typeFilter = 'all') => {
+                if (!currentData) return [];
+                const normalized = normalizeData(currentData);
+                const out = [];
+                Object.values(normalized.results).forEach(account => {
+                    Object.values(account).forEach(commands => {
                         Object.values(commands).forEach(cmd => {
                             if (cmd.items) {
                                 cmd.items.forEach(item => {
-                                    const itemType = (item.Type || item.type || 'other').toLowerCase();
-                                    if (typeFilter === 'all' || itemType === typeFilter) {
-                                        totalIssues++;
+                                    if (typeFilter === 'all' || itemType(item) === typeFilter) {
+                                        out.push(item);
                                     }
                                 });
-                            } else {
-                                totalIssues += cmd.count || 0;
                             }
                         });
-                        if (totalIssues > 0) {
-                            services[service.toUpperCase()] = (services[service.toUpperCase()] || 0) + totalIssues;
-                        }
                     });
                 });
-                
+                return out;
+            };
+
+            const getServiceData = (currentData, typeFilter) => {
+                const services = {};
+                getItems(currentData, typeFilter).forEach(item => {
+                    const svc = (item.Service || item.service || 'unknown').toUpperCase();
+                    services[svc] = (services[svc] || 0) + 1;
+                });
                 const sorted = Object.entries(services).sort(([,a], [,b]) => b - a);
+                return { labels: sorted.map(([s]) => s), values: sorted.map(([,c]) => c) };
+            };
+
+            const getSavingsByService = (currentData) => {
+                const services = {};
+                getItems(currentData, 'cost').forEach(item => {
+                    const svc = (item.Service || item.service || 'unknown').toUpperCase();
+                    services[svc] = (services[svc] || 0) + (item.monthly_savings || 0);
+                });
+                const sorted = Object.entries(services).filter(([,v]) => v > 0).sort(([,a], [,b]) => b - a);
+                return { labels: sorted.map(([s]) => s), values: sorted.map(([,v]) => Number(v.toFixed(2))) };
+            };
+
+            const getSeverityData = (currentData, typeFilter) => {
+                const severities = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+                getItems(currentData, typeFilter).forEach(item => {
+                    const sev = itemSeverity(item);
+                    if (sev === 'critical') severities.Critical++;
+                    else if (sev === 'high') severities.High++;
+                    else if (sev === 'medium') severities.Medium++;
+                    else severities.Low++;
+                });
                 return {
-                    labels: sorted.map(([service]) => service),
-                    values: sorted.map(([,count]) => count)
+                    labels: Object.keys(severities).filter(k => severities[k] > 0),
+                    values: Object.values(severities).filter(v => v > 0)
                 };
             };
 
-            const getTypeDistribution = (currentData) => {
-                const types = { 'Cost': 0, 'Security': 0, 'Other': 0 };
-                if (!currentData) return { labels: [], values: [] };
-                
-                const normalizedData = normalizeData(currentData);
-                
-                Object.values(normalizedData.results).forEach(account => {
-                    Object.entries(account).forEach(([service, commands]) => {
-                        Object.entries(commands).forEach(([command, details]) => {
-                            if (details.items) {
-                                details.items.forEach(item => {
-                                    // Handle both uppercase and lowercase type fields
-                                    const type = item.Type || item.type || 'Other';
-                                    const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-                                    
-                                    if (types.hasOwnProperty(normalizedType)) {
-                                        types[normalizedType]++;
-                                    } else {
-                                        types['Other']++;
-                                    }
-                                });
-                            }
-                        });
-                    });
+            const getStats = (currentData, typeFilter = 'all') => {
+                const empty = { total: 0, costIssues: 0, securityIssues: 0, criticalIssues: 0, highIssues: 0, mediumIssues: 0, lowIssues: 0, servicesWithIssues: 0, totalMonthlySavings: 0, topSavingsService: null };
+                if (!currentData) return empty;
+
+                const items = getItems(currentData, typeFilter);
+                const services = new Set();
+                const savingsByService = {};
+                let costIssues = 0, securityIssues = 0, criticalIssues = 0, highIssues = 0, mediumIssues = 0, lowIssues = 0, totalMonthlySavings = 0;
+
+                items.forEach(item => {
+                    const type = itemType(item);
+                    const sev = itemSeverity(item);
+                    const svc = (item.Service || item.service || 'unknown').toUpperCase();
+                    services.add(svc);
+                    if (type === 'cost') {
+                        costIssues++;
+                        const s = item.monthly_savings || 0;
+                        totalMonthlySavings += s;
+                        savingsByService[svc] = (savingsByService[svc] || 0) + s;
+                    }
+                    if (type === 'security') securityIssues++;
+                    if (sev === 'critical') criticalIssues++;
+                    else if (sev === 'high') highIssues++;
+                    else if (sev === 'medium') mediumIssues++;
+                    else lowIssues++;
                 });
 
+                let topSavingsService = null;
+                let topVal = 0;
+                Object.entries(savingsByService).forEach(([svc, v]) => { if (v > topVal) { topVal = v; topSavingsService = svc; } });
+
                 return {
-                    labels: Object.keys(types).filter(key => types[key] > 0),
-                    values: Object.values(types).filter(val => val > 0)
+                    total: items.length,
+                    costIssues, securityIssues, criticalIssues, highIssues, mediumIssues, lowIssues,
+                    servicesWithIssues: services.size,
+                    totalMonthlySavings,
+                    topSavingsService
                 };
             };
 
-            const getSeverityData = (currentData) => {
-                const severities = { 'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0 };
-                if (!currentData) return { labels: [], values: [] };
-                
-                const normalizedData = normalizeData(currentData);
-                const typeFilter = filters.type;
-                
-                Object.values(normalizedData.results).forEach(account => {
-                    Object.entries(account).forEach(([service, commands]) => {
-                        Object.entries(commands).forEach(([command, details]) => {
-                            if (details.items) {
-                                details.items.forEach(item => {
-                                    const itemType = (item.Type || item.type || 'other').toLowerCase();
-                                    if (typeFilter !== 'all' && itemType !== typeFilter) return;
-                                    
-                                    const severity = item.severity || item.Severity || 'low';
-                                    const normalizedSeverity = severity.toLowerCase();
-                                    
-                                    if (normalizedSeverity === 'critical') {
-                                        severities['Critical']++;
-                                    } else if (normalizedSeverity === 'high') {
-                                        severities['High']++;
-                                    } else if (normalizedSeverity === 'medium') {
-                                        severities['Medium']++;
-                                    } else {
-                                        severities['Low']++;
-                                    }
-                                });
-                            }
-                        });
-                    });
-                });
-
-                return {
-                    labels: Object.keys(severities).filter(key => severities[key] > 0),
-                    values: Object.values(severities).filter(val => val > 0)
-                };
-            };
-
-            const getGroupedIssues = () => {
+            // Group findings by service for the given view type.
+            const getGroupedIssues = (currentData, typeFilter) => {
                 const grouped = {};
-                const dataToUse = data || (showDemo ? demoData : null);
-                if (!dataToUse) return [];
-                
-                const normalizedData = normalizeData(dataToUse);
-                
-                Object.entries(normalizedData.results).forEach(([accountId, account]) => {
-                    Object.entries(account).forEach(([service, commands]) => {
-                        Object.entries(commands).forEach(([command, details]) => {
-                            if (details.count > 0 && details.items) {
-                                // Group by service and type
-                                const costItems = details.items.filter(item => {
-                                    const type = (item.Type || item.type || '').toLowerCase();
-                                    return type === 'cost';
-                                });
-                                const securityItems = details.items.filter(item => {
-                                    const type = (item.Type || item.type || '').toLowerCase();
-                                    return type === 'security';
-                                });
-
-                                if (costItems.length > 0) {
-                                    const key = `${service}-cost`;
-                                    if (!grouped[key]) {
-                                        grouped[key] = {
-                                            service,
-                                            type: 'Cost',
-                                            items: [],
-                                            count: 0,
-                                            totalMonthlySavings: 0
-                                        };
-                                    }
-                                    grouped[key].items.push(...costItems);
-                                    grouped[key].count += costItems.length;
-                                    grouped[key].totalMonthlySavings += costItems.reduce((sum, item) => sum + (item.monthly_savings || item.monthly_cost || 0), 0);
-                                }
-
-                                if (securityItems.length > 0) {
-                                    const key = `${service}-security`;
-                                    if (!grouped[key]) {
-                                        grouped[key] = {
-                                            service,
-                                            type: 'Security',
-                                            items: [],
-                                            count: 0,
-                                            totalMonthlySavings: 0
-                                        };
-                                    }
-                                    grouped[key].items.push(...securityItems);
-                                    grouped[key].count += securityItems.length;
-                                    grouped[key].totalMonthlySavings += securityItems.reduce((sum, item) => sum + (item.monthly_savings || item.monthly_cost || 0), 0);
-                                }
-                            }
-                        });
-                    });
+                getItems(currentData, typeFilter).forEach(item => {
+                    const service = (item.Service || item.service || 'unknown').toLowerCase();
+                    const type = itemType(item) === 'cost' ? 'Cost' : 'Security';
+                    const key = `${service}-${type.toLowerCase()}`;
+                    if (!grouped[key]) {
+                        grouped[key] = { service, type, items: [], count: 0, totalMonthlySavings: 0 };
+                    }
+                    grouped[key].items.push(item);
+                    grouped[key].count++;
+                    grouped[key].totalMonthlySavings += item.monthly_savings || 0;
                 });
-
                 return Object.values(grouped).sort((a, b) => b.count - a.count);
             };
 
             const getFilteredIssues = (issues) => {
                 return issues.filter(issue => {
-                    // Type filter
-                    if (filters.type !== 'all' && issue.type.toLowerCase() !== filters.type.toLowerCase()) {
-                        return false;
-                    }
-                    
-                    // Service filter
                     if (filters.service !== 'all' && issue.service.toLowerCase() !== filters.service.toLowerCase()) {
                         return false;
                     }
-                    
-                    // Severity filter
                     if (filters.severity !== 'all') {
-                        const hasSeverity = issue.items.some(item => {
-                            const severity = item.severity || item.Severity || '';
-                            return severity.toLowerCase() === filters.severity.toLowerCase();
-                        });
+                        const hasSeverity = issue.items.some(item => itemSeverity(item) === filters.severity.toLowerCase());
                         if (!hasSeverity) return false;
                     }
-                    
                     return true;
                 });
             };
 
-            const getAvailableServices = () => {
+            const getAvailableServices = (currentData, typeFilter) => {
                 const services = new Set();
-                const dataToUse = data || (showDemo ? demoData : null);
-                if (!dataToUse) return [];
-                
-                const normalizedData = normalizeData(dataToUse);
-                
-                Object.values(normalizedData.results).forEach(account => {
-                    Object.keys(account).forEach(service => {
-                        if (account[service].audit && account[service].audit.count > 0) {
-                            services.add(service.toUpperCase());
-                        }
-                    });
+                getItems(currentData, typeFilter).forEach(item => {
+                    services.add((item.Service || item.service || 'unknown').toUpperCase());
                 });
                 return Array.from(services).sort();
             };
 
-            const getStats = () => {
-                let costIssues = 0;
-                let securityIssues = 0;
-                let criticalIssues = 0;
-                let highIssues = 0;
-                let totalMonthlySavings = 0;
-                let servicesWithIssues = new Set();
-                const dataToUse = data || (showDemo ? demoData : null);
-                if (!dataToUse) return { costIssues: 0, securityIssues: 0, criticalIssues: 0, highIssues: 0, servicesWithIssues: 0, totalMonthlySavings: 0 };
-                
-                const normalizedData = normalizeData(dataToUse);
-                
-                Object.values(normalizedData.results).forEach(account => {
-                    Object.entries(account).forEach(([service, commands]) => {
-                        let serviceHasIssues = false;
-                        Object.entries(commands).forEach(([command, details]) => {
-                            if (details.items) {
-                                details.items.forEach(item => {
-                                    const type = (item.Type || item.type || '').toLowerCase();
-                                    const severity = (item.severity || item.Severity || '').toLowerCase();
-                                    
-                                    if (type === 'cost') {
-                                        costIssues++;
-                                        totalMonthlySavings += item.monthly_savings || item.monthly_cost || 0;
-                                    }
-                                    if (type === 'security') securityIssues++;
-                                    if (severity === 'critical') criticalIssues++;
-                                    if (severity === 'high') highIssues++;
-                                    serviceHasIssues = true;
-                                });
-                            }
-                        });
-                        if (serviceHasIssues) servicesWithIssues.add(service);
-                    });
+            // --- Charts: single effect keyed on data + view + filters ---
+
+            const createCharts = useCallback(() => {
+                if (!data || view === 'overview') return;
+                const typeFilter = view; // 'security' | 'cost'
+
+                [chartRef, pieChartRef, severityChartRef].forEach(ref => {
+                    if (ref.current) {
+                        const existing = Chart.getChart(ref.current);
+                        if (existing) existing.destroy();
+                    }
                 });
 
-                return { costIssues, securityIssues, criticalIssues, highIssues, servicesWithIssues: servicesWithIssues.size, totalMonthlySavings };
-            };
+                if (chartRef.current) {
+                    const serviceData = getServiceData(data, typeFilter);
+                    new Chart(chartRef.current.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: serviceData.labels,
+                            datasets: [{
+                                label: 'Findings',
+                                data: serviceData.values,
+                                backgroundColor: typeFilter === 'cost' ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)',
+                                borderWidth: 1,
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.parsed.y} findings` } } },
+                            scales: { y: { beginAtZero: true }, x: { ticks: { maxRotation: 45 } } }
+                        }
+                    });
+                }
+
+                if (pieChartRef.current) {
+                    if (typeFilter === 'cost') {
+                        const savings = getSavingsByService(data);
+                        new Chart(pieChartRef.current.getContext('2d'), {
+                            type: 'bar',
+                            data: {
+                                labels: savings.labels,
+                                datasets: [{ label: 'Monthly savings (USD)', data: savings.values, backgroundColor: 'rgba(5, 150, 105, 0.85)', borderRadius: 8 }]
+                            },
+                            options: {
+                                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `$${c.parsed.x.toFixed(2)}/mo` } } },
+                                scales: { x: { beginAtZero: true } }
+                            }
+                        });
+                    } else {
+                        const severityData = getSeverityData(data, 'security');
+                        new Chart(pieChartRef.current.getContext('2d'), {
+                            type: 'doughnut',
+                            data: {
+                                labels: severityData.labels,
+                                datasets: [{ data: severityData.values, backgroundColor: ['#DC2626', '#EA580C', '#D97706', '#059669'], borderWidth: 0 }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed} findings` } } }
+                            }
+                        });
+                    }
+                }
+
+                if (severityChartRef.current) {
+                    const severityData = getSeverityData(data, typeFilter);
+                    new Chart(severityChartRef.current.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: severityData.labels,
+                            datasets: [{
+                                label: 'Findings by severity',
+                                data: severityData.values,
+                                backgroundColor: ['#DC2626', '#EA580C', '#D97706', '#059669'],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                }
+            }, [data, view]);
+
+            useEffect(() => {
+                if (data && view !== 'overview') {
+                    createCharts();
+                }
+            }, [data, view, filters, createCharts]);
+
+            // --- Loading reports ---
 
             const loadJsonFile = (event) => {
                 const file = event.target.files[0];
-                if (file) {
-                    setLoading(true);
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const jsonData = JSON.parse(e.target.result);
-                            setData(jsonData);
-                            setTimeout(() => setLoading(false), 1000);
-                        } catch (error) {
-                            alert('Invalid JSON file. Please upload a valid Kosty report.');
-                            setLoading(false);
-                        }
-                    };
-                    reader.readAsText(file);
-                }
+                if (!file) return;
+                setLoading(true);
+                setLoadError(null);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const jsonData = JSON.parse(e.target.result);
+                        setData(jsonData);
+                        setView('overview');
+                        setFilters({ severity: 'all', service: 'all' });
+                        setTimeout(() => setLoading(false), 400);
+                    } catch (error) {
+                        setLoadError('Invalid JSON file. Please upload a valid Kosty report.');
+                        setLoading(false);
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const loadDemo = (filename) => {
+                setLoading(true);
+                setLoadError(null);
+                fetch(filename)
+                    .then(res => { if (!res.ok) throw new Error('fetch failed'); return res.json(); })
+                    .then(jsonData => {
+                        setData(jsonData);
+                        setView('overview');
+                        setFilters({ severity: 'all', service: 'all' });
+                        setTimeout(() => setLoading(false), 400);
+                    })
+                    .catch(() => {
+                        setLoadError('Could not load the demo file. Serve the dashboard over HTTP (e.g. python -m http.server) so the browser can fetch ' + filename + '.');
+                        setLoading(false);
+                    });
             };
 
             const formatDate = (timestamp) => {
-                return new Date(timestamp).toLocaleString();
+                if (!timestamp) return 'Unknown';
+                const d = new Date(timestamp);
+                return isNaN(d.getTime()) ? 'Unknown' : d.toLocaleString();
             };
 
-            if (!data && !showDemo) {
+            // --- Landing (no data loaded) ---
+
+            if (!data) {
                 return (
                     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                         <div className="text-center max-w-md">
                             <div className="gradient-bg text-white p-8 rounded-xl card-shadow mb-8">
-                                <i className="fas fa-chart-line text-6xl mb-4"></i>
-                                <h1 className="text-3xl font-bold mb-2">💰 Kosty Dashboard</h1>
-                                <p className="text-blue-100">AWS Cost Optimization Analysis</p>
+                                <i className="fas fa-shield-halved text-6xl mb-4" aria-hidden="true"></i>
+                                <h1 className="text-3xl font-bold mb-2">Kosty Dashboard</h1>
+                                <p className="text-blue-100">AWS Cost &amp; Security Audit Analysis</p>
                             </div>
-                            
+
                             <div className="space-y-4">
-                                <input
-                                    type="file"
-                                    accept=".json"
-                                    onChange={loadJsonFile}
-                                    className="hidden"
-                                    id="json-upload"
-                                />
-                                <label
-                                    htmlFor="json-upload"
-                                    className="bg-blue-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer hover:bg-blue-700 transition-colors inline-block shadow-lg w-full"
-                                >
-                                    <i className="fas fa-upload mr-2"></i>
+                                <input type="file" accept=".json" onChange={loadJsonFile} className="hidden" id="json-upload" />
+                                <label htmlFor="json-upload"
+                                       className="bg-blue-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer hover:bg-blue-700 transition-colors inline-block shadow-lg w-full">
+                                    <i className="fas fa-upload mr-2" aria-hidden="true"></i>
                                     Load JSON Report
                                 </label>
-                                
-                                <button
-                                    onClick={() => setShowDemo(true)}
-                                    className="bg-green-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer hover:bg-green-700 transition-colors shadow-lg w-full"
-                                >
-                                    <i className="fas fa-eye mr-2"></i>
-                                    View Demo Dashboard
+
+                                <button onClick={() => loadDemo('demo_full_audit.json')}
+                                        className="bg-green-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer hover:bg-green-700 transition-colors shadow-lg w-full">
+                                    <i className="fas fa-eye mr-2" aria-hidden="true"></i>
+                                    View Full Demo (Cost + Security)
+                                </button>
+
+                                <button onClick={() => loadDemo('demo_ai_audit.json')}
+                                        className="bg-purple-600 text-white px-8 py-4 rounded-lg font-medium cursor-pointer hover:bg-purple-700 transition-colors shadow-lg w-full">
+                                    <i className="fas fa-robot mr-2" aria-hidden="true"></i>
+                                    View AI Audit Demo
                                 </button>
                             </div>
-                            
+
+                            {loadError && (
+                                <p className="text-red-600 mt-4 text-sm" role="alert">{loadError}</p>
+                            )}
+
                             <p className="text-gray-600 mt-4">
                                 Upload your <code className="bg-gray-200 px-2 py-1 rounded">kosty audit --output json</code> file<br/>
-                                or view the demo to see how it works
+                                or load a demo to see how it works
                             </p>
                         </div>
                     </div>
                 );
             }
 
-            const currentData = data || (showDemo ? demoData : null);
-            if (!currentData) return null;
-            
-            const groupedIssues = getGroupedIssues();
-            const stats = getStats();
-            const totalAccounts = Object.keys(currentData.results).length;
+            const securityStats = getStats(data, 'security');
+            const costStats = getStats(data, 'cost');
+            const totalAccounts = Object.keys(data.results || {}).length;
 
-            return (
-                <div className="min-h-screen bg-gray-50">
-                    <div className="gradient-bg text-white">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h1 className="text-4xl font-bold flex items-center">
-                                        <i className="fas fa-chart-line mr-3"></i>
-                                        💰 Kosty Dashboard
-                                    </h1>
-                                    <p className="text-blue-100 mt-2">AWS Cost Optimization Analysis</p>
-                                    <p className="text-sm text-blue-200 mt-1">
-                                        <i className="fas fa-clock mr-1"></i>
-                                        Last scan: {formatDate(currentData.scan_timestamp)}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <input
-                                        type="file"
-                                        accept=".json"
-                                        onChange={loadJsonFile}
-                                        className="hidden"
-                                        id="json-upload"
-                                    />
-                                    <label
-                                        htmlFor="json-upload"
-                                        className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium cursor-pointer hover:bg-blue-50 transition-colors"
-                                    >
-                                        <i className="fas fa-upload mr-2"></i>
-                                        Load New Report
-                                    </label>
-                                </div>
+            // --- Header (shared across views) ---
+
+            const Header = () => (
+                <div className="gradient-bg text-white">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-4xl font-bold flex items-center">
+                                    <i className="fas fa-shield-halved mr-3" aria-hidden="true"></i>
+                                    Kosty Dashboard
+                                </h1>
+                                <p className="text-blue-100 mt-2">AWS Cost &amp; Security Audit Analysis</p>
+                                <p className="text-sm text-blue-200 mt-1">
+                                    <i className="fas fa-clock mr-1" aria-hidden="true"></i>
+                                    Last scan: {formatDate(data.scan_timestamp)}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <input type="file" accept=".json" onChange={loadJsonFile} className="hidden" id="json-upload-header" />
+                                <label htmlFor="json-upload-header"
+                                       className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium cursor-pointer hover:bg-blue-50 transition-colors">
+                                    <i className="fas fa-upload mr-2" aria-hidden="true"></i>
+                                    Load New Report
+                                </label>
                             </div>
                         </div>
                     </div>
+                </div>
+            );
 
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        {loading && (
-                            <div className="text-center py-12">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                                <p className="mt-4 text-gray-600">Analyzing your AWS infrastructure...</p>
-                            </div>
-                        )}
+            // --- Overview landing: two clickable summary cards ---
 
-                        {!loading && (
-                            <>
-                                {/* Cost Summary Card - Full Width */}
-                                {stats.totalMonthlySavings > 0 && (
+            if (view === 'overview') {
+                const enterView = (target) => { setFilters({ severity: 'all', service: 'all' }); setView(target); };
+                const annualSavings = costStats.totalMonthlySavings * 12;
+
+                return (
+                    <div className="min-h-screen bg-gray-50">
+                        <Header />
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                            {loading ? (
+                                <div className="text-center py-12">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                                    <p className="mt-4 text-gray-600">Loading report...</p>
+                                </div>
+                            ) : (
+                                <>
                                     <div className="mb-8">
-                                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-8 card-shadow text-white">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-6">
+                                        <h2 className="text-2xl font-bold text-gray-900">Overview</h2>
+                                        <p className="text-gray-600 mt-1">Select a dashboard to explore the findings.</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Security card */}
+                                        <button type="button"
+                                                onClick={() => enterView('security')}
+                                                aria-label={`Open the security dashboard, ${securityStats.total} findings`}
+                                                className="text-left bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl p-8 card-shadow text-white hover:scale-[1.02] transition-transform focus:outline-none focus:ring-4 focus:ring-red-300">
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className="flex items-center space-x-3">
                                                     <div className="bg-white bg-opacity-20 rounded-full p-4">
-                                                        <i className="fas fa-piggy-bank text-4xl"></i>
+                                                        <i className="fas fa-shield-alt text-3xl" aria-hidden="true"></i>
                                                     </div>
                                                     <div>
-                                                        <h2 className="text-3xl font-bold mb-2">💰 Total Estimated Savings</h2>
-                                                        <div className="flex items-center space-x-8">
-                                                            <div>
-                                                                <p className="text-green-100 text-sm font-medium">Monthly Savings</p>
-                                                                <p className="text-4xl font-bold">${stats.totalMonthlySavings.toFixed(2)}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-green-100 text-sm font-medium">Annual Savings</p>
-                                                                <p className="text-4xl font-bold">${(stats.totalMonthlySavings * 12).toFixed(2)}</p>
-                                                            </div>
-                                                        </div>
-                                                        <p className="text-green-100 text-sm mt-2">
-                                                            <i className="fas fa-chart-line mr-1"></i>
-                                                            Based on {stats.costIssues} cost optimization opportunities
-                                                        </p>
+                                                        <h3 className="text-2xl font-bold">Security</h3>
+                                                        <p className="text-red-100 text-sm">Risks &amp; misconfigurations</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="bg-white bg-opacity-20 rounded-lg p-4">
-                                                        <i className="fas fa-calculator text-3xl mb-2"></i>
-                                                        <p className="text-sm font-medium">ROI Calculator</p>
-                                                        <p className="text-xs text-green-100">Immediate impact</p>
-                                                    </div>
+                                                <i className="fas fa-arrow-right text-2xl" aria-hidden="true"></i>
+                                            </div>
+                                            <p className="text-5xl font-bold mb-1">{securityStats.total}</p>
+                                            <p className="text-red-100 mb-6">security findings</p>
+                                            <div className="grid grid-cols-4 gap-2 text-center">
+                                                <div className="bg-white bg-opacity-20 rounded-lg py-3">
+                                                    <p className="text-2xl font-bold">{securityStats.criticalIssues}</p>
+                                                    <p className="text-xs uppercase tracking-wide">Critical</p>
+                                                </div>
+                                                <div className="bg-white bg-opacity-10 rounded-lg py-3">
+                                                    <p className="text-2xl font-bold">{securityStats.highIssues}</p>
+                                                    <p className="text-xs uppercase tracking-wide">High</p>
+                                                </div>
+                                                <div className="bg-white bg-opacity-10 rounded-lg py-3">
+                                                    <p className="text-2xl font-bold">{securityStats.mediumIssues}</p>
+                                                    <p className="text-xs uppercase tracking-wide">Medium</p>
+                                                </div>
+                                                <div className="bg-white bg-opacity-10 rounded-lg py-3">
+                                                    <p className="text-2xl font-bold">{securityStats.lowIssues}</p>
+                                                    <p className="text-xs uppercase tracking-wide">Low</p>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                )}
+                                        </button>
 
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                                    <StatCard
-                                        title="Total Issues"
-                                        value={currentData.total_issues}
-                                        icon="fas fa-exclamation-triangle"
-                                        color="border-l-red-500"
-                                        subtitle="Optimization opportunities"
-                                    />
-                                    <StatCard
-                                        title="Cost Issues"
-                                        value={stats.costIssues}
-                                        icon="fas fa-dollar-sign"
-                                        color="border-l-orange-500"
-                                        subtitle="Potential savings"
-                                    />
-                                    <StatCard
-                                        title="Security Issues"
-                                        value={stats.securityIssues}
-                                        icon="fas fa-shield-alt"
-                                        color="border-l-red-500"
-                                        subtitle="Security risks"
-                                    />
-                                    <StatCard
-                                        title="Critical Issues"
-                                        value={stats.criticalIssues}
-                                        icon="fas fa-fire"
-                                        color="border-l-red-600"
-                                        subtitle="Immediate attention"
-                                    />
-                                    <StatCard
-                                        title="Services Affected"
-                                        value={stats.servicesWithIssues}
-                                        icon="fas fa-cogs"
-                                        color="border-l-blue-500"
-                                        subtitle={`of ${totalAccounts} accounts`}
-                                    />
-                                </div>
-
-                                {/* Charts */}
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                            <i className="fas fa-chart-bar mr-2"></i>
-                                            Issues by Service
-                                        </h3>
-                                        <div style={{ height: '300px' }}>
-                                            <canvas ref={(el) => {
-                                                chartRef.current = el;
-                                                if (el && data) {
-                                                    setTimeout(() => createCharts(), 100);
-                                                }
-                                            }}></canvas>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                            <i className="fas fa-chart-pie mr-2"></i>
-                                            Issue Types
-                                        </h3>
-                                        <div style={{ height: '300px' }}>
-                                            <canvas ref={pieChartRef}></canvas>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-6 card-shadow">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                            <i className="fas fa-exclamation-triangle mr-2"></i>
-                                            Severity Distribution
-                                        </h3>
-                                        <div style={{ height: '300px' }}>
-                                            <canvas ref={severityChartRef}></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Issues Grid */}
-                                <div className="bg-white rounded-xl card-shadow">
-                                    <div className="px-6 py-4 border-b border-gray-200">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    <i className="fas fa-list-ul mr-2"></i>
-                                                    Optimization Opportunities
-                                                </h3>
-                                                <p className="text-sm text-gray-600 mt-1">
-                                                    Issues grouped by service and type
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Filters */}
-                                        <div className="flex flex-wrap gap-4">
-                                            <div className="flex items-center space-x-2">
-                                                <label className="text-sm font-medium text-gray-700">Type:</label>
-                                                <select 
-                                                    value={filters.type} 
-                                                    onChange={(e) => setFilters({...filters, type: e.target.value})}
-                                                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                >
-                                                    <option value="all">All Types</option>
-                                                    <option value="cost">Cost</option>
-                                                    <option value="security">Security</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div className="flex items-center space-x-2">
-                                                <label className="text-sm font-medium text-gray-700">Severity:</label>
-                                                <select 
-                                                    value={filters.severity} 
-                                                    onChange={(e) => setFilters({...filters, severity: e.target.value})}
-                                                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                >
-                                                    <option value="all">All Severities</option>
-                                                    <option value="critical">Critical</option>
-                                                    <option value="high">High</option>
-                                                    <option value="medium">Medium</option>
-                                                    <option value="low">Low</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div className="flex items-center space-x-2">
-                                                <label className="text-sm font-medium text-gray-700">Service:</label>
-                                                <select 
-                                                    value={filters.service} 
-                                                    onChange={(e) => setFilters({...filters, service: e.target.value})}
-                                                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                >
-                                                    <option value="all">All Services</option>
-                                                    {currentData && getAvailableServices().map(service => (
-                                                        <option key={service} value={service.toLowerCase()}>{service}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            
-                                            {(filters.type !== 'cost' || filters.severity !== 'all' || filters.service !== 'all') && (
-                                                <button
-                                                    onClick={() => setFilters({type: 'cost', severity: 'all', service: 'all'})}
-                                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                                >
-                                                    <i className="fas fa-times mr-1"></i>
-                                                    Clear Filters
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="p-6">
-                                        {(() => {
-                                            const filteredIssues = getFilteredIssues(groupedIssues);
-                                            return filteredIssues.length > 0 ? (
-                                                <>
-                                                    <div className="mb-4 text-sm text-gray-600">
-                                                        Showing {filteredIssues.length} of {groupedIssues.length} issue groups
+                                        {/* Cost card */}
+                                        <button type="button"
+                                                onClick={() => enterView('cost')}
+                                                aria-label={`Open the cost dashboard, ${costStats.costIssues} optimizations, $${costStats.totalMonthlySavings.toFixed(2)} monthly savings`}
+                                                className="text-left bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-8 card-shadow text-white hover:scale-[1.02] transition-transform focus:outline-none focus:ring-4 focus:ring-green-300">
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="bg-white bg-opacity-20 rounded-full p-4">
+                                                        <i className="fas fa-piggy-bank text-3xl" aria-hidden="true"></i>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                        {filteredIssues.map((issue, idx) => (
-                                                            <IssueCard 
-                                                                key={idx} 
-                                                                {...issue} 
-                                                                onIssueClick={setSelectedIssue} 
-                                                                onViewAll={(service, type, items) => setViewAllModal({service, type, items})}
-                                                                severityColors={severityColors} 
-                                                            />
-                                                        ))}
+                                                    <div>
+                                                        <h3 className="text-2xl font-bold">Cost</h3>
+                                                        <p className="text-green-100 text-sm">Savings opportunities</p>
                                                     </div>
-                                                </>
-                                            ) : groupedIssues.length > 0 ? (
-                                                <div className="text-center py-12">
-                                                    <i className="fas fa-filter text-6xl text-gray-400 mb-4"></i>
-                                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                                        No Issues Match Filters
-                                                    </h3>
-                                                    <p className="text-gray-600 mb-4">
-                                                        Try adjusting your filter criteria.
-                                                    </p>
-                                                    <button
-                                                        onClick={() => setFilters({type: 'cost', severity: 'all', service: 'all'})}
-                                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                                                    >
-                                                        Clear All Filters
-                                                    </button>
                                                 </div>
-                                            ) : (
-                                                <div className="text-center py-12">
-                                                    <i className="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
-                                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                                        🎉 No Issues Found!
-                                                    </h3>
-                                                    <p className="text-gray-600">
-                                                        Your AWS infrastructure is well optimized.
-                                                    </p>
+                                                <i className="fas fa-arrow-right text-2xl" aria-hidden="true"></i>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-6 mb-6">
+                                                <div>
+                                                    <p className="text-green-100 text-sm font-medium">Monthly savings</p>
+                                                    <p className="text-4xl font-bold">${costStats.totalMonthlySavings.toFixed(2)}</p>
                                                 </div>
-                                            );
-                                        })()}
+                                                <div>
+                                                    <p className="text-green-100 text-sm font-medium">Annual savings</p>
+                                                    <p className="text-4xl font-bold">${annualSavings.toFixed(2)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="bg-white bg-opacity-20 rounded-lg px-3 py-2">
+                                                    {costStats.costIssues} cost optimizations
+                                                </span>
+                                                {costStats.topSavingsService && (
+                                                    <span className="bg-white bg-opacity-10 rounded-lg px-3 py-2">
+                                                        Top waste: {costStats.topSavingsService}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
                                     </div>
-                                </div>
-                            </>
-                        )}
+
+                                    <div className="mt-8 bg-white rounded-xl p-6 card-shadow flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm text-gray-600">Total findings</p>
+                                            <p className="text-2xl font-bold text-gray-900">{data.total_issues}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600">Accounts scanned</p>
+                                            <p className="text-2xl font-bold text-gray-900">{totalAccounts}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600">Services affected</p>
+                                            <p className="text-2xl font-bold text-gray-900">{getStats(data, 'all').servicesWithIssues}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        {renderModals()}
                     </div>
-                    
-                    {/* View All Issues Modal */}
-                    {viewAllModal && (
-                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" onClick={() => setViewAllModal(null)}>
-                            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                );
+            }
+
+            // --- Detail views (security | cost) ---
+
+            const typeFilter = view;
+            const stats = typeFilter === 'cost' ? costStats : securityStats;
+            const groupedIssues = getGroupedIssues(data, typeFilter);
+            const availableServices = getAvailableServices(data, typeFilter);
+            const filteredIssues = getFilteredIssues(groupedIssues);
+            const isCost = typeFilter === 'cost';
+
+            function renderModals() {
+                return (
+                    <>
+                        {viewAllModal && (
+                            <Modal labelledBy="viewall-title" onClose={() => setViewAllModal(null)}>
                                 <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-3">
                                             <ServiceIcon service={viewAllModal.service} />
                                             <div>
-                                                <h3 className="text-xl font-bold text-white uppercase">{viewAllModal.service}</h3>
+                                                <h3 id="viewall-title" className="text-xl font-bold text-white uppercase">{viewAllModal.service}</h3>
                                                 <p className="text-blue-100 text-sm capitalize">{viewAllModal.type} Issues ({viewAllModal.items.length})</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => setViewAllModal(null)} className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                                            <i className="fas fa-times text-xl"></i>
+                                        <button onClick={() => setViewAllModal(null)} aria-label="Close dialog"
+                                                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                                            <i className="fas fa-times text-xl" aria-hidden="true"></i>
                                         </button>
                                     </div>
                                 </div>
                                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {viewAllModal.items.map((item, idx) => (
-                                            <div key={idx} className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => setSelectedIssue(item)}>
+                                            <div key={idx} className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                                                 role="button" tabIndex={0}
+                                                 onClick={() => setSelectedIssue(item)}
+                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedIssue(item); } }}>
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="font-medium text-gray-900 text-sm">
                                                         {item.ResourceName || item.BucketName || item.ResourceId}
@@ -1034,69 +780,56 @@
                                                 <p className="text-xs text-gray-600 mb-2">{item.Issue}</p>
                                                 {item.Region && (
                                                     <p className="text-xs text-gray-500 mb-1">
-                                                        <i className="fas fa-map-marker-alt mr-1"></i>
+                                                        <i className="fas fa-map-marker-alt mr-1" aria-hidden="true"></i>
                                                         {item.Region}
                                                     </p>
                                                 )}
-                                                {(item.monthly_savings || item.monthly_cost) && (
+                                                {item.monthly_savings > 0 && (
                                                     <p className="text-xs text-green-600 font-semibold mb-1">
-                                                        <i className="fas fa-dollar-sign mr-1"></i>
-                                                        ${(item.monthly_savings || item.monthly_cost).toFixed(2)}/month
+                                                        <i className="fas fa-dollar-sign mr-1" aria-hidden="true"></i>
+                                                        ${item.monthly_savings.toFixed(2)}/month
                                                     </p>
                                                 )}
                                                 <p className="text-xs text-blue-600">
-                                                    <i className="fas fa-info-circle mr-1"></i>
+                                                    <i className="fas fa-info-circle mr-1" aria-hidden="true"></i>
                                                     Click for details
                                                 </p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
+                            </Modal>
+                        )}
 
-                    {/* Premium Modal for issue details */}
-                    {selectedIssue && (
-                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" onClick={() => setSelectedIssue(null)}>
-                            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                                {/* Header with gradient */}
+                        {selectedIssue && (
+                            <Modal labelledBy="issue-title" onClose={() => setSelectedIssue(null)}>
                                 <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-3">
                                             <div className="bg-white bg-opacity-20 rounded-lg p-2">
-                                                <i className="fas fa-exclamation-triangle text-white text-xl"></i>
+                                                <i className="fas fa-exclamation-triangle text-white text-xl" aria-hidden="true"></i>
                                             </div>
                                             <div>
-                                                <h3 className="text-xl font-bold text-white">Issue Details</h3>
-                                                <p className="text-blue-100 text-sm">{selectedIssue.Service} • {selectedIssue.Type}</p>
+                                                <h3 id="issue-title" className="text-xl font-bold text-white">Issue Details</h3>
+                                                <p className="text-blue-100 text-sm">{selectedIssue.Service} • {itemType(selectedIssue) === 'cost' ? 'Cost' : 'Security'}</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => {
-                                            setSelectedIssue(null);
-                                            if (!viewAllModal) setViewAllModal(null);
-                                        }} className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
-                                            <i className="fas fa-arrow-left text-xl"></i>
+                                        <button onClick={() => setSelectedIssue(null)} aria-label="Close dialog"
+                                                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors">
+                                            <i className="fas fa-arrow-left text-xl" aria-hidden="true"></i>
                                         </button>
                                     </div>
                                 </div>
-                                
-                                {/* Content */}
                                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                                    {/* Status Banner */}
-                                    <div className={`mb-6 p-4 rounded-xl border-l-4 ${
-                                        selectedIssue.Type === 'Security' ? 'bg-red-50 border-red-500' : 'bg-orange-50 border-orange-500'
-                                    }`}>
+                                    <div className={`mb-6 p-4 rounded-xl border-l-4 ${itemType(selectedIssue) === 'security' ? 'bg-red-50 border-red-500' : 'bg-orange-50 border-orange-500'}`}>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-3">
-                                                <i className={`fas ${
-                                                    selectedIssue.Type === 'Security' ? 'fa-shield-alt text-red-600' : 'fa-dollar-sign text-orange-600'
-                                                } text-2xl`}></i>
+                                                <i className={`fas ${itemType(selectedIssue) === 'security' ? 'fa-shield-alt text-red-600' : 'fa-dollar-sign text-orange-600'} text-2xl`} aria-hidden="true"></i>
                                                 <div>
                                                     <h4 className="font-semibold text-gray-900">{selectedIssue.Issue}</h4>
-                                                    <p className={`text-sm ${
-                                                        selectedIssue.Type === 'Security' ? 'text-red-700' : 'text-orange-700'
-                                                    }`}>{selectedIssue.Type} Issue</p>
+                                                    <p className={`text-sm ${itemType(selectedIssue) === 'security' ? 'text-red-700' : 'text-orange-700'}`}>
+                                                        {itemType(selectedIssue) === 'cost' ? 'Cost' : 'Security'} Issue
+                                                    </p>
                                                 </div>
                                             </div>
                                             <span className={`text-sm font-bold px-3 py-1 rounded-full ${severityColors[selectedIssue.severity || selectedIssue.Severity] || 'bg-gray-100 text-gray-800'}`}>
@@ -1104,62 +837,63 @@
                                             </span>
                                         </div>
                                     </div>
-                                    
-                                    {/* Resource Information */}
+
                                     <div className="bg-gray-50 rounded-xl p-5 mb-6">
                                         <h5 className="font-semibold text-gray-900 mb-4 flex items-center">
-                                            <i className="fas fa-server text-blue-600 mr-2"></i>
+                                            <i className="fas fa-server text-blue-600 mr-2" aria-hidden="true"></i>
                                             Resource Information
                                         </h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="bg-white rounded-lg p-3">
-                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Resource Name</label>
+                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Resource Name</span>
                                                 <p className="text-gray-900 font-semibold mt-1">{selectedIssue.ResourceName || selectedIssue.BucketName || selectedIssue.ResourceId || 'N/A'}</p>
                                             </div>
                                             <div className="bg-white rounded-lg p-3">
-                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Service</label>
-                                                <p className="text-gray-900 font-semibold mt-1 uppercase">{selectedIssue.Service || 'S3'}</p>
+                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Service</span>
+                                                <p className="text-gray-900 font-semibold mt-1 uppercase">{selectedIssue.Service || 'N/A'}</p>
                                             </div>
                                             <div className="bg-white rounded-lg p-3">
-                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Region</label>
+                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Region</span>
                                                 <p className="text-gray-900 font-semibold mt-1 flex items-center">
-                                                    <i className="fas fa-map-marker-alt text-green-600 mr-2"></i>
+                                                    <i className="fas fa-map-marker-alt text-green-600 mr-2" aria-hidden="true"></i>
                                                     {selectedIssue.Region || 'Global'}
                                                 </p>
                                             </div>
                                             <div className="bg-white rounded-lg p-3">
-                                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Account ID</label>
+                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Account ID</span>
                                                 <p className="text-gray-900 font-semibold mt-1 font-mono">{selectedIssue.AccountId || 'N/A'}</p>
+                                            </div>
+                                            <div className="bg-white rounded-lg p-3">
+                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Check</span>
+                                                <p className="text-gray-900 font-semibold mt-1 font-mono">{selectedIssue.check || 'N/A'}</p>
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    {/* Description */}
+
                                     <div className="bg-blue-50 rounded-xl p-5 mb-6">
                                         <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
-                                            <i className="fas fa-info-circle text-blue-600 mr-2"></i>
-                                            Description
+                                            <i className="fas fa-info-circle text-blue-600 mr-2" aria-hidden="true"></i>
+                                            Risk
                                         </h5>
-                                        <p className="text-gray-700 leading-relaxed">{selectedIssue.Description || selectedIssue.Risk || ''}</p>
-                                        {(selectedIssue.monthly_savings || selectedIssue.monthly_cost) && (
+                                        <p className="text-gray-700 leading-relaxed">{selectedIssue.Risk || selectedIssue.Description || ''}</p>
+                                        {selectedIssue.monthly_savings > 0 && (
                                             <div className="mt-4 bg-green-100 border-l-4 border-green-500 p-4 rounded">
                                                 <div className="flex items-center justify-between">
                                                     <div>
-                                                        <p className="text-sm font-semibold text-green-900">💰 Potential Monthly Savings</p>
-                                                        <p className="text-2xl font-bold text-green-700 mt-1">${(selectedIssue.monthly_savings || selectedIssue.monthly_cost).toFixed(2)}</p>
-                                                        <p className="text-xs text-green-600 mt-1">Annual: ${((selectedIssue.monthly_savings || selectedIssue.monthly_cost) * 12).toFixed(2)}</p>
+                                                        <p className="text-sm font-semibold text-green-900">Potential Monthly Savings</p>
+                                                        <p className="text-2xl font-bold text-green-700 mt-1">${selectedIssue.monthly_savings.toFixed(2)}</p>
+                                                        <p className="text-xs text-green-600 mt-1">Annual: ${(selectedIssue.monthly_savings * 12).toFixed(2)}</p>
                                                     </div>
-                                                    <i className="fas fa-piggy-bank text-4xl text-green-600"></i>
+                                                    <i className="fas fa-piggy-bank text-4xl text-green-600" aria-hidden="true"></i>
                                                 </div>
                                             </div>
                                         )}
                                     </div>
-                                    
-                                    {/* Technical Details */}
+
                                     {selectedIssue.ARN && (
-                                        <div className="bg-gray-900 rounded-xl p-5 mb-6">
+                                        <div className="bg-gray-900 rounded-xl p-5">
                                             <h5 className="font-semibold text-white mb-3 flex items-center">
-                                                <i className="fas fa-code text-green-400 mr-2"></i>
+                                                <i className="fas fa-code text-green-400 mr-2" aria-hidden="true"></i>
                                                 Amazon Resource Name (ARN)
                                             </h5>
                                             <div className="bg-gray-800 rounded-lg p-3">
@@ -1167,34 +901,196 @@
                                             </div>
                                         </div>
                                     )}
-                                    
-                                    {/* Additional Details */}
-                                    {selectedIssue.Details && (
-                                        <div className="bg-purple-50 rounded-xl p-5">
-                                            <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
-                                                <i className="fas fa-list-ul text-purple-600 mr-2"></i>
-                                                Additional Details
-                                            </h5>
-                                            <div className="text-gray-700 leading-relaxed">
-                                                {typeof selectedIssue.Details === 'object' ? (
-                                                    <div className="space-y-2">
-                                                        {Object.entries(selectedIssue.Details).map(([key, value]) => (
-                                                            <div key={key} className="flex justify-between py-1 border-b border-purple-200 last:border-b-0">
-                                                                <span className="font-medium text-purple-800">{key}:</span>
-                                                                <span className="text-gray-700">{String(value)}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p>{selectedIssue.Details}</p>
-                                                )}
-                                            </div>
+                                </div>
+                            </Modal>
+                        )}
+                    </>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Header />
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        {/* Breadcrumb / back control */}
+                        <nav className="mb-6 flex items-center space-x-2 text-sm" aria-label="Breadcrumb">
+                            <button onClick={() => setView('overview')}
+                                    className="text-blue-600 hover:text-blue-800 font-medium flex items-center">
+                                <i className="fas fa-arrow-left mr-2" aria-hidden="true"></i>
+                                Back to Overview
+                            </button>
+                            <span className="text-gray-400">/</span>
+                            <span className="text-gray-700 font-semibold capitalize">{isCost ? 'Cost' : 'Security'} Dashboard</span>
+                        </nav>
+
+                        {/* View title */}
+                        <div className="mb-8 flex items-center space-x-3">
+                            <div className={`rounded-full p-3 text-white ${isCost ? 'bg-green-600' : 'bg-red-600'}`}>
+                                <i className={`fas ${isCost ? 'fa-piggy-bank' : 'fa-shield-alt'} text-xl`} aria-hidden="true"></i>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">{isCost ? 'Cost Optimization' : 'Security'}</h2>
+                                <p className="text-gray-600">{isCost ? 'Opportunities to reduce AWS spend' : 'Risks and misconfigurations to remediate'}</p>
+                            </div>
+                        </div>
+
+                        {/* Cost-only savings banner */}
+                        {isCost && stats.totalMonthlySavings > 0 && (
+                            <div className="mb-8">
+                                <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-8 card-shadow text-white">
+                                    <div className="flex items-center space-x-6">
+                                        <div className="bg-white bg-opacity-20 rounded-full p-4">
+                                            <i className="fas fa-piggy-bank text-4xl" aria-hidden="true"></i>
                                         </div>
-                                    )}
+                                        <div>
+                                            <h3 className="text-3xl font-bold mb-2">Total Estimated Savings</h3>
+                                            <div className="flex items-center space-x-8">
+                                                <div>
+                                                    <p className="text-green-100 text-sm font-medium">Monthly Savings</p>
+                                                    <p className="text-4xl font-bold">${stats.totalMonthlySavings.toFixed(2)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-green-100 text-sm font-medium">Annual Savings</p>
+                                                    <p className="text-4xl font-bold">${(stats.totalMonthlySavings * 12).toFixed(2)}</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-green-100 text-sm mt-2">
+                                                Based on {stats.costIssues} cost optimization opportunities
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Stat cards (reflect the current view's type) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <StatCard title={isCost ? 'Cost Optimizations' : 'Security Findings'} value={stats.total}
+                                      icon={isCost ? 'fas fa-dollar-sign' : 'fas fa-shield-alt'}
+                                      color={isCost ? 'border-l-green-500' : 'border-l-red-500'}
+                                      subtitle={isCost ? 'Savings opportunities' : 'Risks detected'} />
+                            <StatCard title="Critical" value={stats.criticalIssues} icon="fas fa-fire" color="border-l-red-600" subtitle="Immediate attention" />
+                            <StatCard title="High" value={stats.highIssues} icon="fas fa-exclamation-triangle" color="border-l-orange-500" subtitle="High priority" />
+                            <StatCard title="Services Affected" value={stats.servicesWithIssues} icon="fas fa-cogs" color="border-l-blue-500" subtitle={`across ${totalAccounts} account(s)`} />
+                        </div>
+
+                        {/* Charts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-white rounded-xl p-6 card-shadow">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    <i className="fas fa-chart-bar mr-2" aria-hidden="true"></i>
+                                    Findings by Service
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <canvas ref={chartRef} role="img" aria-label={`Bar chart of ${isCost ? 'cost' : 'security'} findings per AWS service`}></canvas>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl p-6 card-shadow">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    <i className={`fas ${isCost ? 'fa-coins' : 'fa-chart-pie'} mr-2`} aria-hidden="true"></i>
+                                    {isCost ? 'Savings by Service' : 'Severity Distribution'}
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <canvas ref={pieChartRef} role="img" aria-label={isCost ? 'Horizontal bar chart of estimated monthly savings per service' : 'Doughnut chart of security findings by severity'}></canvas>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl p-6 card-shadow">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    <i className="fas fa-exclamation-triangle mr-2" aria-hidden="true"></i>
+                                    Findings by Severity
+                                </h3>
+                                <div style={{ height: '300px' }}>
+                                    <canvas ref={severityChartRef} role="img" aria-label={`Bar chart of ${isCost ? 'cost' : 'security'} findings grouped by severity`}></canvas>
                                 </div>
                             </div>
                         </div>
-                    )}
+
+                        {/* Issues grid */}
+                        <div className="bg-white rounded-xl card-shadow">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            <i className="fas fa-list-ul mr-2" aria-hidden="true"></i>
+                                            {isCost ? 'Optimization Opportunities' : 'Security Findings'}
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mt-1">Grouped by service</p>
+                                    </div>
+                                </div>
+
+                                {/* Filters (within the view) */}
+                                <div className="flex flex-wrap gap-4">
+                                    <div className="flex items-center space-x-2">
+                                        <label htmlFor="severity-filter" className="text-sm font-medium text-gray-700">Severity:</label>
+                                        <select id="severity-filter" value={filters.severity}
+                                                onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
+                                                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="all">All Severities</option>
+                                            <option value="critical">Critical</option>
+                                            <option value="high">High</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="low">Low</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2">
+                                        <label htmlFor="service-filter" className="text-sm font-medium text-gray-700">Service:</label>
+                                        <select id="service-filter" value={filters.service}
+                                                onChange={(e) => setFilters({ ...filters, service: e.target.value })}
+                                                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="all">All Services</option>
+                                            {availableServices.map(service => (
+                                                <option key={service} value={service.toLowerCase()}>{service}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {(filters.severity !== 'all' || filters.service !== 'all') && (
+                                        <button onClick={() => setFilters({ severity: 'all', service: 'all' })}
+                                                className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                            <i className="fas fa-times mr-1" aria-hidden="true"></i>
+                                            Clear Filters
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                {filteredIssues.length > 0 ? (
+                                    <>
+                                        <div className="mb-4 text-sm text-gray-600">
+                                            Showing {filteredIssues.length} of {groupedIssues.length} issue groups
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {filteredIssues.map((issue, idx) => (
+                                                <IssueCard key={idx} {...issue}
+                                                           onIssueClick={setSelectedIssue}
+                                                           onViewAll={(service, type, items) => setViewAllModal({ service, type, items })}
+                                                           severityColors={severityColors} />
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : groupedIssues.length > 0 ? (
+                                    <div className="text-center py-12">
+                                        <i className="fas fa-filter text-6xl text-gray-400 mb-4" aria-hidden="true"></i>
+                                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No Findings Match Filters</h3>
+                                        <p className="text-gray-600 mb-4">Try adjusting your filter criteria.</p>
+                                        <button onClick={() => setFilters({ severity: 'all', service: 'all' })}
+                                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                            Clear All Filters
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <i className="fas fa-check-circle text-6xl text-green-500 mb-4" aria-hidden="true"></i>
+                                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No {isCost ? 'Cost' : 'Security'} Findings</h3>
+                                        <p className="text-gray-600">Nothing to report in this view.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {renderModals()}
                 </div>
             );
         };

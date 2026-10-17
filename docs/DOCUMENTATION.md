@@ -525,10 +525,14 @@ open dashboard/index.html
 ```
 
 ### Dashboard Features
+- Overview landing page with Security and Cost summary cards
+- Dedicated Security and Cost views with their own stats, charts, and grid
+- Filter findings by service and severity within a view
 - Interactive charts and graphs
-- Filter by service, severity, type
-- Export capabilities
 - Mobile-responsive design
+
+See [`dashboard/README.md`](../dashboard/README.md) for the full walkthrough and
+the generated demo reports.
 
 ## 🛠️ Troubleshooting
 
