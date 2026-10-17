@@ -2,10 +2,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-ec2-008", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find public IPs on non-web instances")
-def check_public_non_web(session, region, **kwargs):
+def check_public_non_web(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances with public IPs that don't serve web traffic — unnecessary exposure."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -28,7 +30,8 @@ def check_public_non_web(session, region, **kwargs):
                             if any(fp <= p <= tp for p in web_ports):
                                 has_web = True
                                 break
-                    except Exception:
+                    except Exception as _exc:
+                        handle_check_error(_exc)
                         continue
                     if has_web:
                         break
@@ -40,6 +43,6 @@ def check_public_non_web(session, region, **kwargs):
                         severity=Severity.HIGH, finding_type=FindingType.SECURITY,
                         risk="Unnecessary attack surface",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

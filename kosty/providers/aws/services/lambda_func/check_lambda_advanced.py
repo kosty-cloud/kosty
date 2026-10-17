@@ -3,10 +3,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.config import resolve_threshold
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-lambda-004", service="Lambda", provider="aws", finding_type=FindingType.COST, description="Find over-provisioned Lambda memory")
-def check_over_provisioned_memory(session, region, days=30, **kwargs):
+def check_over_provisioned_memory(session: 'boto3.Session', region: str, days=30, **kwargs) -> List[Finding]:
     """Flag functions with high memory allocation but low duration — likely over-provisioned."""
     lam = session.client('lambda', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -40,15 +42,16 @@ def check_over_provisioned_memory(session, region, days=30, **kwargs):
                                 risk="Paying for unused memory allocation",
                                 arn=func['FunctionArn'],
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-lambda-005", service="Lambda", provider="aws", finding_type=FindingType.SECURITY, description="Find functions with timeout >5 minutes")
-def check_long_timeout(session, region, **kwargs):
+def check_long_timeout(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag functions with excessive timeout — consider ECS/Fargate for long-running tasks."""
     lam = session.client('lambda', region_name=region)
     account_id = get_account_id(session)
@@ -66,6 +69,6 @@ def check_long_timeout(session, region, **kwargs):
                         risk="Anti-pattern — Lambda not designed for long-running workloads",
                         arn=func['FunctionArn'],
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

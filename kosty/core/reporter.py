@@ -27,9 +27,28 @@ import asyncio
 import hashlib
 import json
 import csv
+import os
 from datetime import datetime
 from io import StringIO
 from typing import Dict, List, Any
+
+# Characters that trigger formula evaluation when a cell is opened in a
+# spreadsheet. A value starting with one of these is a CSV-injection vector.
+_CSV_FORMULA_PREFIXES = ('=', '+', '-', '@')
+
+
+def sanitize_csv_field(value: Any) -> str:
+    """Neutralize spreadsheet formula injection in a CSV cell.
+
+    AWS-provided strings (resource names, tags) are untrusted. A value whose
+    first character is one of = + - @ is prefixed with a single quote so a
+    spreadsheet treats it as text instead of evaluating it as a formula.
+    Non-string values are returned stringified and untouched.
+    """
+    text = value if isinstance(value, str) else str(value)
+    if text and text[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + text
+    return text
 
 
 def _write_with_hash(content: str, filename: str) -> None:
@@ -37,12 +56,16 @@ def _write_with_hash(content: str, filename: str) -> None:
 
     The sidecar uses the same format as sha256sum(1) so it can be verified
     with a single command:  sha256sum -c <filename>.sha256
+
+    The sidecar records the basename, not the full path, so verification
+    works when run from the report directory regardless of where the report
+    was written.
     """
     with open(filename, 'w') as f:
         f.write(content)
     digest = hashlib.sha256(content.encode('utf-8')).hexdigest()
     with open(f'{filename}.sha256', 'w') as f:
-        f.write(f'{digest}  {filename}\n')
+        f.write(f'{digest}  {os.path.basename(filename)}\n')
 
 
 class CostOptimizationReporter:
@@ -215,7 +238,8 @@ class CostOptimizationReporter:
         return "\n".join(report)
 
     def save_json_report(self, filename: str = None, organization: bool = False,
-                         org_admin_account_id: str = None, save_to: str = None) -> str:
+                         org_admin_account_id: str = None, save_to: str = None,
+                         allow_outside_cwd: bool = False) -> str:
         """Write findings to a JSON file consumable by the web dashboard.
 
         The dashboard expects a flat list of finding dicts per account, so we
@@ -264,13 +288,15 @@ class CostOptimizationReporter:
         content = json.dumps(report_data, indent=2, default=str)
 
         if save_to:
-            return asyncio.run(StorageManager().save_file(content, filename, save_to, 'json'))
+            return asyncio.run(StorageManager().save_file(
+                content, filename, save_to, 'json', allow_outside_cwd=allow_outside_cwd))
 
         _write_with_hash(content, filename)
         return filename
 
     def save_csv_report(self, filename: str = None, organization: bool = False,
-                        org_admin_account_id: str = None, save_to: str = None) -> str:
+                        org_admin_account_id: str = None, save_to: str = None,
+                        allow_outside_cwd: bool = False) -> str:
         """Write a summary CSV — one row per service/command, not per finding.
 
         Intentionally coarse-grained: the CSV is meant for a quick spreadsheet
@@ -304,17 +330,21 @@ class CostOptimizationReporter:
                     monthly = command_data.get('monthly_savings', 0)
                     annual = monthly * 12 if monthly > 0 else 0
                     writer.writerow([
-                        account_id, service, command, command_data['count'],
+                        sanitize_csv_field(account_id),
+                        sanitize_csv_field(service),
+                        sanitize_csv_field(command),
+                        command_data['count'],
                         f"${monthly:,.2f}" if monthly > 0 else "N/A",
                         f"${annual:,.2f}" if annual > 0 else "N/A",
-                        details,
+                        sanitize_csv_field(details),
                     ])
 
         csv_content = output.getvalue()
         output.close()
 
         if save_to:
-            return asyncio.run(StorageManager().save_file(csv_content, filename, save_to, 'csv'))
+            return asyncio.run(StorageManager().save_file(
+                csv_content, filename, save_to, 'csv', allow_outside_cwd=allow_outside_cwd))
 
         _write_with_hash(csv_content, filename)
         return filename

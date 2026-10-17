@@ -2,10 +2,12 @@ from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-lambda-001", service="Lambda", provider="aws", finding_type=FindingType.COST, description="Find Lambda functions with 0 invocations")
-def check_unused_functions(session, region, days=30, **kwargs):
+def check_unused_functions(session: 'boto3.Session', region: str, days=30, **kwargs) -> List[Finding]:
     """Flag functions generating no traffic."""
     lam = session.client('lambda', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -32,15 +34,16 @@ def check_unused_functions(session, region, days=30, **kwargs):
                             risk="Dead code — potential security surface with no business value",
                             arn=func['FunctionArn'],
                         ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-lambda-002", service="Lambda", provider="aws", finding_type=FindingType.SECURITY, description="Find publicly accessible Lambda functions")
-def check_public_functions(session, region, **kwargs):
+def check_public_functions(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag functions with resource policies allowing wildcard principals."""
     lam = session.client('lambda', region_name=region)
     account_id = get_account_id(session)
@@ -62,15 +65,16 @@ def check_public_functions(session, region, **kwargs):
                         ))
                 except lam.exceptions.ResourceNotFoundException:
                     continue
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-lambda-003", service="Lambda", provider="aws", finding_type=FindingType.SECURITY, description="Find functions using outdated runtimes")
-def check_outdated_runtime(session, region, **kwargs):
+def check_outdated_runtime(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag functions on EOL runtimes missing security patches."""
     lam = session.client('lambda', region_name=region)
     account_id = get_account_id(session)
@@ -89,6 +93,6 @@ def check_outdated_runtime(session, region, **kwargs):
                         risk="EOL runtime — no security patches",
                         arn=func['FunctionArn'],
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

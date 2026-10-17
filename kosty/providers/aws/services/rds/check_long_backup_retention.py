@@ -2,10 +2,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-rds-006", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find long backup retention on dev/test")
-def check_long_backup_retention(session, region, **kwargs):
+def check_long_backup_retention(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag excessive retention on non-production databases."""
     rds = session.client('rds', region_name=region)
     account_id = get_account_id(session)
@@ -25,6 +27,6 @@ def check_long_backup_retention(session, region, **kwargs):
                     issue=f"Backup retention {retention} days on dev/test", severity=Severity.LOW,
                     finding_type=FindingType.COST, risk="Unnecessary backup storage cost", arn=db['DBInstanceArn'],
                 ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

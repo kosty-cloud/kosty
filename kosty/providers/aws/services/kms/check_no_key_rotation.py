@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Find customer-managed keys without automatic rotation",
 )
-def check_no_key_rotation(session, region, **kwargs):
+def check_no_key_rotation(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag symmetric CMKs without annual rotation enabled."""
     kms = session.client('kms', region_name=region)
     account_id = get_account_id(session)
@@ -34,8 +36,8 @@ def check_no_key_rotation(session, region, **kwargs):
                             aliases = kms.list_aliases(KeyId=key['KeyId'])
                             if aliases['Aliases']:
                                 alias = aliases['Aliases'][0]['AliasName']
-                        except Exception:
-                            pass
+                        except Exception as _exc:
+                            handle_check_error(_exc)
                         findings.append(Finding(
                             check_id="aws-kms-001", service="KMS",
                             resource_id=alias or key['KeyId'],
@@ -45,9 +47,10 @@ def check_no_key_rotation(session, region, **kwargs):
                             risk="Long-lived keys increase exposure if compromised",
                             arn=meta['Arn'],
                         ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

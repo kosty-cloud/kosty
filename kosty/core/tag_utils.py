@@ -41,11 +41,10 @@ def excluded_by_tags(resource: Dict[str, Any], kwargs: Dict[str, Any]) -> bool:
     )
 
 
-def get_resource_tags(resource: Dict[str, Any], service_type: str = None) -> List[Dict[str, str]]:
+def get_resource_tags(resource: Dict[str, Any]) -> List[Dict[str, str]]:
     """Extract tags from a resource dict, handling the three formats AWS uses.
 
     EC2/RDS return 'Tags', IAM returns 'TagList', and some internal
-    representations use lowercase 'tags'. service_type is accepted for
-    backward compatibility but has no effect.
+    representations use lowercase 'tags'.
     """
     return resource.get('Tags') or resource.get('tags') or resource.get('TagList') or []

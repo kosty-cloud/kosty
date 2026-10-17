@@ -1,10 +1,12 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-iam-016", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find Lambda functions sharing execution roles", region_scope="global")
-def check_shared_lambda_roles(session, region, **kwargs):
+def check_shared_lambda_roles(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag functions sharing a role — blast radius expansion on compromise."""
     lam = session.client('lambda', region_name=region)
     account_id = get_account_id(session)
@@ -26,13 +28,13 @@ def check_shared_lambda_roles(session, region, **kwargs):
                         risk="Compromise of one function affects all sharing the role",
                         arn=role_arn,
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-iam-017", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find users with multiple active access keys", region_scope="global")
-def check_multiple_active_keys(session, region, **kwargs):
+def check_multiple_active_keys(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag users with more than one active key — increases attack surface."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -52,8 +54,9 @@ def check_multiple_active_keys(session, region, **kwargs):
                             severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                             risk="Harder key rotation and increased exposure", arn=user['Arn'],
                         ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

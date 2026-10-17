@@ -4,6 +4,8 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
 from kosty.core.config import resolve_threshold
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -13,7 +15,7 @@ from kosty.core.config import resolve_threshold
     finding_type=FindingType.COST,
     description="Find EBS snapshots older than old_snapshot_days (default 30)",
 )
-def check_old_snapshots(session, region, **kwargs):
+def check_old_snapshots(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag snapshots accumulating storage costs with no recent use."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -35,7 +37,7 @@ def check_old_snapshots(session, region, **kwargs):
                     risk="$0.05/GB/mo storage cost accumulating",
                     monthly_savings=snap['VolumeSize'] * 0.05,
                 ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

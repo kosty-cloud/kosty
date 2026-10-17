@@ -1,10 +1,12 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-iam-010", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find weak password policy", region_scope="global")
-def check_weak_password_policy(session, region, **kwargs):
+def check_weak_password_policy(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag accounts with insufficient password complexity requirements."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -38,13 +40,13 @@ def check_weak_password_policy(session, region, **kwargs):
                 severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                 risk="Allows easily guessable passwords",
             ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-iam-011", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find missing password rotation policy", region_scope="global")
-def check_no_password_rotation(session, region, **kwargs):
+def check_no_password_rotation(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag accounts without forced password expiration."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -69,6 +71,6 @@ def check_no_password_rotation(session, region, **kwargs):
                 severity=Severity.MEDIUM, finding_type=FindingType.SECURITY,
                 risk="Passwords never expire",
             ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

@@ -123,6 +123,36 @@ kosty audit --profile production
 | `aws_profile` | string | AWS CLI profile name | `null` |
 | `mfa_serial` | string | MFA device ARN | `null` |
 | `duration_seconds` | integer | AssumeRole session duration (max 43200) | `3600` |
+| `connect_timeout` | number | boto3 client connect timeout, seconds | `60` |
+| `read_timeout` | number | boto3 client read timeout, seconds | `60` |
+| `max_retries` | integer | boto3 retry attempts per API call | `3` |
+| `strict_plugins` | boolean | Refuse plugins absent from `plugins.sha256` | `false` |
+| `save_to_allow_outside` | boolean | Permit `--save-to` local paths outside the current directory | `false` |
+
+## boto3 Client Timeouts
+
+Each check builds its AWS clients with a botocore `Config` derived from these
+keys, so a slow or degraded account can be tuned from `kosty.yaml` instead of only
+the `AWS_DEFAULT_SOCKET_TIMEOUT` environment variable. The defaults preserve the
+historical boto3 behaviour.
+
+```yaml
+default:
+  connect_timeout: 60   # seconds to establish a connection
+  read_timeout: 60      # seconds to wait for a response
+  max_retries: 3        # retry attempts per API call
+```
+
+Lower the timeouts to fail faster on unresponsive endpoints, or raise them for
+regions that are consistently slow. A check that still times out is recorded as a
+scan error rather than crashing the run.
+
+## Save Location Confinement
+
+By default `--save-to` with a local path confines report writes to the current
+working directory (and its subdirectories). A destination that resolves outside is
+rejected. Set `save_to_allow_outside: true` (or pass `--allow-outside-cwd`) to write
+elsewhere. `s3://` destinations are unaffected.
 
 ## Exclusions
 

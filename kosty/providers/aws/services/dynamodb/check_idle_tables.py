@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.COST,
     description="Find DynamoDB tables with near-zero consumed capacity",
 )
-def check_idle_tables(session, region, days=7, **kwargs):
+def check_idle_tables(session: 'boto3.Session', region: str, days=7, **kwargs) -> List[Finding]:
     """Flag provisioned tables with minimal read/write activity."""
     from datetime import datetime, timedelta
     dynamodb = session.client('dynamodb', region_name=region)
@@ -45,9 +47,10 @@ def check_idle_tables(session, region, days=7, **kwargs):
                         risk="Consider switching to on-demand billing",
                         arn=table.get('TableArn', ''),
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

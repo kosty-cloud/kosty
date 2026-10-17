@@ -3,10 +3,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-ebs-007", service="EBS", provider="aws", finding_type=FindingType.COST, description="Find volumes with very low I/O")
-def check_low_io_volumes(session, region, days=7, iops_threshold=10, **kwargs):
+def check_low_io_volumes(session: 'boto3.Session', region: str, days=7, iops_threshold=10, **kwargs) -> List[Finding]:
     """Flag in-use volumes barely doing any I/O — likely oversized."""
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -41,8 +43,9 @@ def check_low_io_volumes(session, region, days=7, iops_threshold=10, **kwargs):
                         severity=Severity.MEDIUM, finding_type=FindingType.COST,
                         risk="Oversized — consider smaller volume or downgrade type",
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

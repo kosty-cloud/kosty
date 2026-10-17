@@ -1,6 +1,8 @@
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -10,7 +12,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Verify CloudTrail logs are encrypted with KMS",
 )
-def check_no_encryption(session, region, **kwargs):
+def check_no_encryption(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag trails relying on default S3 encryption instead of KMS CMK."""
     ct = session.client('cloudtrail', region_name=region)
     account_id = get_account_id(session)
@@ -29,7 +31,7 @@ def check_no_encryption(session, region, **kwargs):
                     risk="Audit logs readable if S3 bucket is compromised",
                     arn=trail.get('TrailARN', ''),
                 ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

@@ -3,10 +3,12 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-bedrock-012", service="Bedrock", provider="aws", finding_type=FindingType.COST, description="Detect On-Demand workloads eligible for Batch Inference", requires_deep=True)
-def check_on_demand_batch_eligible(session, region, days=7, deep=False, **kwargs):
+def check_on_demand_batch_eligible(session: 'boto3.Session', region: str, days=7, deep=False, **kwargs) -> List[Finding]:
     """Heuristic: flag burst invocation patterns that could use the 50%-cheaper Batch API."""
     account_id = get_account_id(session)
     findings = []
@@ -55,6 +57,6 @@ def check_on_demand_batch_eligible(session, region, days=7, deep=False, **kwargs
                     severity=Severity.MEDIUM, finding_type=FindingType.COST,
                     risk="Batch Inference API is 50% cheaper for non-real-time workloads",
                 ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-iam-005", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find access keys older than 90 days", region_scope="global")
-def check_old_access_keys(session, region, days=90, **kwargs):
+def check_old_access_keys(session: 'boto3.Session', region: str, days=90, **kwargs) -> List[Finding]:
     """Flag keys that haven't been rotated — stale credentials."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -25,15 +27,16 @@ def check_old_access_keys(session, region, days=90, **kwargs):
                                 severity=Severity.CRITICAL, finding_type=FindingType.SECURITY,
                                 risk="Stale credentials increase exposure window", arn=user['Arn'],
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-iam-006", service="IAM", provider="aws", finding_type=FindingType.SECURITY, description="Find active access keys unused for 90+ days", region_scope="global")
-def check_unused_access_keys(session, region, days=90, **kwargs):
+def check_unused_access_keys(session: 'boto3.Session', region: str, days=90, **kwargs) -> List[Finding]:
     """Flag dormant keys — attack surface with no business value."""
     iam = session.client('iam')
     account_id = get_account_id(session)
@@ -56,8 +59,9 @@ def check_unused_access_keys(session, region, days=90, **kwargs):
                                 severity=Severity.HIGH, finding_type=FindingType.SECURITY,
                                 risk="Dormant credentials increase attack surface", arn=user['Arn'],
                             ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

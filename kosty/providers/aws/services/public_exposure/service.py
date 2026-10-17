@@ -1,7 +1,9 @@
+import sys
 import boto3
 from typing import List, Dict, Any
 import json
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
 
 
 class PublicExposureService:
@@ -42,10 +44,11 @@ class PublicExposureService:
                         try:
                             resp = waf.list_resources_for_web_acl(WebACLArn=acl['ARN'], ResourceType=res_type)
                             protected.update(resp.get('ResourceArns', []))
-                        except Exception:
+                        except Exception as _exc:
+                            handle_check_error(_exc)
                             continue
-        except Exception:
-            pass
+        except Exception as _exc:
+            handle_check_error(_exc)
         return protected
 
     def _classify(self, protections: List[str]) -> dict:
@@ -114,7 +117,8 @@ class PublicExposureService:
                     {'DNSName': lb.get('DNSName'), 'Type': lb.get('Type'), 'ARN': lb['LoadBalancerArn']}
                 ))
         except Exception as e:
-            print(f"Error checking public load balancers: {e}")
+            handle_check_error(e)
+            print(f"Error checking public load balancers: {e}", file=sys.stderr)
         return results
 
     # --- EC2 Public IPs ---
@@ -142,7 +146,8 @@ class PublicExposureService:
                                     to_port = rule.get('ToPort', 0)
                                     if from_port and to_port:
                                         open_ports.update(range(from_port, to_port + 1))
-                        except Exception:
+                        except Exception as _exc:
+                            handle_check_error(_exc)
                             continue
 
                     only_web = open_ports.issubset({80, 443, 8080, 8443})
@@ -159,7 +164,8 @@ class PublicExposureService:
                         {'PublicIP': public_ip, 'InstanceType': inst['InstanceType']}
                     ))
         except Exception as e:
-            print(f"Error checking EC2 public IPs: {e}")
+            handle_check_error(e)
+            print(f"Error checking EC2 public IPs: {e}", file=sys.stderr)
         return results
 
     # --- S3 Public ---
@@ -202,8 +208,8 @@ class PublicExposureService:
                         ])
                         if bucket_blocked:
                             continue
-                    except Exception:
-                        pass
+                    except Exception as _exc:
+                        handle_check_error(_exc)
 
                     # Check ACL
                     acl = s3.get_bucket_acl(Bucket=bucket_name)
@@ -221,8 +227,8 @@ class PublicExposureService:
                                 if stmt.get('Effect') == 'Allow' and stmt.get('Principal') in ['*', {'AWS': '*'}]:
                                     is_public = True
                                     break
-                        except Exception:
-                            pass
+                        except Exception as _exc:
+                            handle_check_error(_exc)
 
                     if not is_public:
                         continue
@@ -244,8 +250,8 @@ class PublicExposureService:
                                         has_cf = True
                                         break
                         protections.append('CloudFront ✓' if has_cf else 'CloudFront ✗')
-                    except Exception:
-                        pass
+                    except Exception as _exc:
+                        handle_check_error(_exc)
 
                     location = s3.get_bucket_location(Bucket=bucket_name)
                     bucket_region = location['LocationConstraint'] or 'us-east-1'
@@ -253,10 +259,12 @@ class PublicExposureService:
                     results.append(self._build_finding(
                         account_id, bucket_region, bucket_name, 'S3', protections
                     ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            print(f"Error checking S3 public exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking S3 public exposure: {e}", file=sys.stderr)
         return results
 
     # --- RDS Public ---
@@ -280,7 +288,8 @@ class PublicExposureService:
                                 protections.append(f'SG {sg["VpcSecurityGroupId"]} open to 0.0.0.0/0 ✗')
                             else:
                                 protections.append(f'SG {sg["VpcSecurityGroupId"]} restricted ✓')
-                    except Exception:
+                    except Exception as _exc:
+                        handle_check_error(_exc)
                         continue
 
                 protections.append('Encrypted ✓' if db.get('StorageEncrypted') else 'Encrypted ✗')
@@ -290,7 +299,8 @@ class PublicExposureService:
                     {'Engine': db['Engine'], 'InstanceClass': db['DBInstanceClass']}
                 ))
         except Exception as e:
-            print(f"Error checking RDS public exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking RDS public exposure: {e}", file=sys.stderr)
         return results
 
     # --- RDS Snapshots Public ---
@@ -310,10 +320,12 @@ class PublicExposureService:
                                 {'Engine': snap.get('Engine'), 'SnapshotCreateTime': str(snap.get('SnapshotCreateTime', ''))}
                             ))
                             break
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            print(f"Error checking RDS public snapshots: {e}")
+            handle_check_error(e)
+            print(f"Error checking RDS public snapshots: {e}", file=sys.stderr)
         return results
 
     # --- EBS Snapshots Public ---
@@ -331,10 +343,12 @@ class PublicExposureService:
                             account_id, region, snap['SnapshotId'], 'EBS Snapshot', [],
                             {'VolumeSize': snap['VolumeSize'], 'Encrypted': snap.get('Encrypted', False)}
                         ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            print(f"Error checking EBS public snapshots: {e}")
+            handle_check_error(e)
+            print(f"Error checking EBS public snapshots: {e}", file=sys.stderr)
         return results
 
     # --- API Gateway ---
@@ -372,12 +386,13 @@ class PublicExposureService:
                                 if method.get('authorizationType') == 'NONE':
                                     has_unauth = True
                                     break
-                            except Exception:
+                            except Exception as _exc:
+                                handle_check_error(_exc)
                                 continue
                         if has_unauth:
                             break
-                except Exception:
-                    pass
+                except Exception as _exc:
+                    handle_check_error(_exc)
                 protections.append('Auth ✓' if not has_unauth else 'Auth ✗ (NONE endpoints)')
 
                 results.append(self._build_finding(
@@ -385,7 +400,8 @@ class PublicExposureService:
                     {'ApiId': api['id'], 'EndpointType': endpoint_types}
                 ))
         except Exception as e:
-            print(f"Error checking API Gateway exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking API Gateway exposure: {e}", file=sys.stderr)
         return results
 
     # --- Lambda Function URLs ---
@@ -415,10 +431,12 @@ class PublicExposureService:
                     ))
                 except lam.exceptions.ResourceNotFoundException:
                     continue
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            print(f"Error checking Lambda URLs: {e}")
+            handle_check_error(e)
+            print(f"Error checking Lambda URLs: {e}", file=sys.stderr)
         return results
 
     # --- CloudFront ---
@@ -453,7 +471,8 @@ class PublicExposureService:
                     {'DomainName': dist.get('DomainName'), 'Aliases': dist.get('Aliases', {}).get('Items', [])}
                 ))
         except Exception as e:
-            print(f"Error checking CloudFront exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking CloudFront exposure: {e}", file=sys.stderr)
         return results
 
     # --- OpenSearch / Elasticsearch ---
@@ -488,8 +507,8 @@ class PublicExposureService:
                             if stmt.get('Effect') == 'Allow'
                         )
                         protections.append('Access Policy ✗ (wildcard)' if has_wildcard else 'Access Policy ✓')
-                    except Exception:
-                        pass
+                    except Exception as _exc:
+                        handle_check_error(_exc)
 
                 encryption = domain.get('EncryptionAtRestOptions', {}).get('Enabled', False)
                 protections.append('Encryption ✓' if encryption else 'Encryption ✗')
@@ -503,8 +522,8 @@ class PublicExposureService:
                     {'Endpoint': endpoint, 'EngineVersion': domain.get('EngineVersion', '')}
                 ))
         except Exception as e:
-            if 'AccessDeniedException' not in str(e):
-                print(f"Error checking OpenSearch exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking OpenSearch exposure: {e}", file=sys.stderr)
         return results
 
     # --- Redshift ---
@@ -528,7 +547,8 @@ class PublicExposureService:
                                 protections.append('SG open to 0.0.0.0/0 ✗')
                             else:
                                 protections.append('SG restricted ✓')
-                    except Exception:
+                    except Exception as _exc:
+                        handle_check_error(_exc)
                         continue
 
                 protections.append('Encrypted ✓' if cluster.get('Encrypted') else 'Encrypted ✗')
@@ -538,8 +558,8 @@ class PublicExposureService:
                     {'NodeType': cluster.get('NodeType'), 'NumberOfNodes': cluster.get('NumberOfNodes')}
                 ))
         except Exception as e:
-            if 'AccessDeniedException' not in str(e):
-                print(f"Error checking Redshift exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking Redshift exposure: {e}", file=sys.stderr)
         return results
 
     # --- EKS ---
@@ -576,11 +596,12 @@ class PublicExposureService:
                         account_id, region, cluster_name, 'EKS', protections,
                         {'Version': cluster.get('version'), 'Endpoint': cluster.get('endpoint')}
                     ))
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            if 'AccessDeniedException' not in str(e):
-                print(f"Error checking EKS exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking EKS exposure: {e}", file=sys.stderr)
         return results
 
     # --- ECR Public ---
@@ -597,8 +618,8 @@ class PublicExposureService:
                     account_id, 'global', repo['repositoryName'], 'ECR Public', [],
                     {'RepositoryUri': repo.get('repositoryUri', '')}
                 ))
-        except Exception:
-            pass
+        except Exception as _exc:
+            handle_check_error(_exc)
         return results
 
     # --- SNS Public ---
@@ -622,11 +643,12 @@ class PublicExposureService:
                                     {'TopicArn': topic['TopicArn']}
                                 ))
                             break
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            if 'AccessDeniedException' not in str(e):
-                print(f"Error checking SNS exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking SNS exposure: {e}", file=sys.stderr)
         return results
 
     # --- SQS Public ---
@@ -651,9 +673,10 @@ class PublicExposureService:
                                     {'QueueUrl': queue_url}
                                 ))
                             break
-                except Exception:
+                except Exception as _exc:
+                    handle_check_error(_exc)
                     continue
         except Exception as e:
-            if 'AccessDeniedException' not in str(e):
-                print(f"Error checking SQS exposure: {e}")
+            handle_check_error(e)
+            print(f"Error checking SQS exposure: {e}", file=sys.stderr)
         return results

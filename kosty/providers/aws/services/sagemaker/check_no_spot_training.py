@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-sagemaker-003", service="SageMaker", provider="aws", finding_type=FindingType.COST, description="Find training jobs not using Spot instances")
-def check_no_spot_training(session, region, **kwargs):
+def check_no_spot_training(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag long training jobs paying full On-Demand price."""
     sm = session.client('sagemaker', region_name=region)
     account_id = get_account_id(session)
@@ -26,8 +28,9 @@ def check_no_spot_training(session, region, **kwargs):
                         risk="Up to 90% savings with managed Spot training",
                         arn=job.get('TrainingJobArn', ''),
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

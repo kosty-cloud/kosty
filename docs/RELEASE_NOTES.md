@@ -1,5 +1,49 @@
 # Kosty Release Notes
 
+## Version 3.3.0 — Security and quality fixes (2026)
+
+### Bugs / regressions
+
+- `PyYAML` is now declared as a runtime dependency in `setup.py` and
+  `pyproject.toml`. It was imported by the config layer but missing from the install
+  requirements, so a clean `pip install kosty` could fail to parse `kosty.yaml`.
+
+### Security / hardening
+
+- `--save-to` with a local path now confines report output to the current working
+  directory (and its subdirectories) by default. A destination that resolves
+  outside is rejected. Use `--allow-outside-cwd` (or set `save_to_allow_outside:
+  true` in `kosty.yaml`) to write elsewhere. `s3://` destinations are unaffected
+  (FEAT-003).
+- CSV reports neutralize spreadsheet formula injection: a cell whose value starts
+  with `=`, `+`, `-`, or `@` is prefixed with an apostrophe so AWS-provided strings
+  cannot execute as formulas (FEAT-003).
+- Report `.sha256` sidecars now record the file basename, so `sha256sum -c` works
+  from the report directory regardless of where the report was written (FEAT-003).
+- Per-service commands now surface a count of checks that could not complete (for
+  example, missing permissions) without requiring `--debug`; full per-check detail
+  stays under `--debug` (FEAT-003).
+- The plugin loader surfaces a warning (to stderr) for files not listed in
+  `plugins.sha256` but still loads them by default, so local contributors adding a
+  check are not blocked by a stale manifest. An opt-in strict mode (`strict_plugins:
+  true` in `kosty.yaml`) refuses unlisted files instead. A plugin whose hash does not
+  match the manifest is always refused (FEAT-002).
+- The S3 IAM policy in the documentation no longer requests `s3:PutObjectAcl`.
+  Uploads use SSE AES256 and set no ACL, so `s3:PutObject` alone is sufficient.
+- The PyPI publish workflow verifies the plugin manifest by regenerating it and
+  failing on any `git diff` in `plugins.sha256`, instead of silently regenerating
+  it at build time.
+
+### Quality
+
+- New configurable boto3 client timeout keys `connect_timeout`, `read_timeout`,
+  and `max_retries` in `kosty.yaml`, with defaults preserving the previous ~60s
+  behaviour. A `build_boto_config()` helper turns them into a botocore `Config`
+  for client construction (FEAT-003).
+- `pyproject.toml` metadata reconciled with `setup.py`: `requires-python` is
+  `>=3.10`, the Python classifiers cover 3.10–3.13, and the description matches the
+  32-service count.
+
 ## Version 3.2.0 — Region exclusion and thresholds restored (2026)
 
 Restores two documented `kosty.yaml` capabilities that had no effect in the v3 scan

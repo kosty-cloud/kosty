@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-sagemaker-001", service="SageMaker", provider="aws", finding_type=FindingType.COST, description="Find idle SageMaker endpoints (0 invocations)")
-def check_idle_endpoints(session, region, days=7, **kwargs):
+def check_idle_endpoints(session: 'boto3.Session', region: str, days=7, **kwargs) -> List[Finding]:
     """Flag GPU endpoints running 24/7 with zero traffic."""
     sm = session.client('sagemaker', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -34,8 +36,9 @@ def check_idle_endpoints(session, region, days=7, **kwargs):
                         risk=f"GPU running 24/7 for nothing — $500-5000/mo",
                         arn=ep.get('EndpointArn', ''),
                     ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

@@ -18,6 +18,7 @@ Usage:
         ...
 """
 
+import warnings
 from typing import Callable, Dict, List, Optional, Any
 from .models import CheckMetadata, FindingType
 
@@ -31,6 +32,7 @@ class CheckRegistry:
 
     def __init__(self):
         self._checks: Dict[str, Dict[str, Any]] = {}
+        self._warnings: List[str] = []
 
     def register(
         self,
@@ -61,6 +63,16 @@ class CheckRegistry:
         """
         def decorator(func: Callable) -> Callable:
             """Register func and return it unchanged so it stays callable directly."""
+            existing = self._checks.get(check_id)
+            if existing is not None:
+                prev_module = getattr(existing['func'], '__module__', 'unknown')
+                new_module = getattr(func, '__module__', 'unknown')
+                message = (
+                    f"Duplicate check_id '{check_id}': {new_module} overrides "
+                    f"{prev_module}"
+                )
+                self._warnings.append(message)
+                warnings.warn(message, stacklevel=2)
             self._checks[check_id] = {
                 'metadata': CheckMetadata(
                     check_id=check_id,
@@ -107,6 +119,11 @@ class CheckRegistry:
     def count(self) -> int:
         """Number of checks currently registered."""
         return len(self._checks)
+
+    @property
+    def warnings(self) -> List[str]:
+        """Registration warnings collected at import time (e.g. duplicate check_ids)."""
+        return list(self._warnings)
 
 
 # Global singleton — all plugins register against this instance.

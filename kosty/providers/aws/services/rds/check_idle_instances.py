@@ -4,10 +4,12 @@ from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
 from kosty.core.config import resolve_threshold
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-rds-001", service="RDS", provider="aws", finding_type=FindingType.COST, description="Find idle RDS instances (<5% CPU)")
-def check_idle_instances(session, region, cpu_threshold=5, **kwargs):
+def check_idle_instances(session: 'boto3.Session', region: str, cpu_threshold=5, **kwargs) -> List[Finding]:
     """Flag databases burning money with near-zero utilization."""
     rds = session.client('rds', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
@@ -39,8 +41,9 @@ def check_idle_instances(session, region, cpu_threshold=5, **kwargs):
                             risk="$100-1000/mo wasted on idle database",
                             arn=db['DBInstanceArn'],
                         ))
-            except Exception:
+            except Exception as _exc:
+                handle_check_error(_exc)
                 continue
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

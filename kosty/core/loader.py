@@ -52,16 +52,22 @@ class PluginLoader:
     def __init__(self):
         self._loaded_paths: List[str] = []
         self._errors: List[str] = []
+        self._warnings: List[str] = []
         self._loaded_modules: Dict[str, str] = {}  # module_name -> filepath
         self._manifest: Optional[Dict[str, str]] = None  # rel_path -> sha256
+        self._manifest_root: Optional[str] = None  # directory the manifest was loaded from
+        self._strict: bool = False
 
-    def load_directory(self, path: str, package_prefix: str = "kosty_plugins", debug: bool = False) -> int:
+    def load_directory(self, path: str, package_prefix: str = "kosty_plugins", debug: bool = False, strict: bool = False) -> int:
         """Recursively import all .py files from a directory.
 
         Args:
             path: Absolute or relative path to scan.
             package_prefix: Module namespace prefix for imported modules.
             debug: Print each loaded module and any integrity warnings to stderr.
+            strict: When True, refuse plugins that are present on disk but absent
+                    from the manifest. Default False keeps local contributors
+                    unblocked by a stale manifest (warn and allow).
 
         Returns:
             Number of modules successfully loaded.
@@ -75,7 +81,10 @@ class PluginLoader:
         if path in self._loaded_paths:
             return 0
 
+        self._strict = strict
         self._manifest = self._load_manifest(path)
+        if self._manifest is not None:
+            self._manifest_root = path
         if debug:
             if self._manifest is not None:
                 print(f"[DEBUG] loader: manifest loaded ({len(self._manifest)} entries) from {path}", file=sys.stderr)
@@ -102,7 +111,11 @@ class PluginLoader:
         self._detect_duplicates(registry)
 
         if debug:
-            print(f"[DEBUG] loader: {loaded} modules loaded, {len(self._errors)} errors", file=sys.stderr)
+            print(
+                f"[DEBUG] loader: {loaded} modules loaded, "
+                f"{len(self._errors)} errors, {len(self._warnings)} warnings",
+                file=sys.stderr,
+            )
 
         return loaded
 
@@ -124,9 +137,14 @@ class PluginLoader:
                     line = line.strip()
                     if not line:
                         continue
-                    parts = line.split('  ', 1)
+                    # Tolerant parsing: sha256sum emits "<digest>  <path>" (two
+                    # spaces) in text mode and "<digest> *<path>" in binary mode,
+                    # and some tools use a tab. Split on the first run of
+                    # whitespace and drop a leading '*' binary-mode marker.
+                    parts = line.split(None, 1)
                     if len(parts) == 2:
                         digest, rel_path = parts
+                        rel_path = rel_path.lstrip('*')
                         manifest[rel_path] = digest
         except Exception as e:
             self._errors.append(f"Failed to read manifest: {e}")
@@ -134,26 +152,38 @@ class PluginLoader:
 
         return manifest
 
-    def _verify_plugin(self, filepath: str, plugins_dir: str) -> bool:
+    def _verify_plugin(self, filepath: str) -> bool:
         """Check the plugin's SHA-256 against the manifest.
 
         Returns True if the plugin passes (or if no manifest is loaded).
-        Logs a warning for plugins not listed in the manifest, and an
-        error for hash mismatches — those are refused outright.
+        Surfaces a warning for plugins not listed in the manifest, and an
+        error for hash mismatches — those are refused outright. In strict
+        mode an unlisted plugin is refused as well.
+
+        The relative path is computed against the directory the manifest was
+        loaded from (self._manifest_root), so manifest lookups do not depend on
+        where in the tree an individual file lives.
         """
-        if self._manifest is None:
+        if self._manifest is None or self._manifest_root is None:
             return True
 
-        rel_path = os.path.relpath(filepath, plugins_dir)
+        rel_path = os.path.relpath(filepath, self._manifest_root)
         expected = self._manifest.get(rel_path)
 
         if expected is None:
             # Plugin exists on disk but isn't in the manifest.
-            # Warn but allow — contributors adding new checks locally
-            # shouldn't be blocked by a stale manifest.
-            self._errors.append(
-                f"Warning: {os.path.basename(filepath)} not in manifest — "
-                f"run scripts/generate_manifest.py before release"
+            name = os.path.basename(filepath)
+            if self._strict:
+                self._errors.append(
+                    f"Refused {name}: not in manifest (strict mode) — "
+                    f"run scripts/generate_manifest.py"
+                )
+                return False
+            # Default: warn but allow — contributors adding new checks locally
+            # shouldn't be blocked by a stale manifest. Surface it as a warning
+            # so the engine/CLI can show it, not just under --debug.
+            self._warnings.append(
+                f"{name} not in manifest — run scripts/generate_manifest.py before release"
             )
             return True
 
@@ -195,14 +225,10 @@ class PluginLoader:
         except OSError:
             return False
 
-        # Verify integrity against manifest before executing any code
-        plugins_dir = os.path.dirname(filepath)
-        while plugins_dir and not os.path.exists(os.path.join(plugins_dir, 'plugins.sha256')):
-            parent = os.path.dirname(plugins_dir)
-            if parent == plugins_dir:
-                break
-            plugins_dir = parent
-        if not self._verify_plugin(filepath, plugins_dir):
+        # Verify integrity against manifest before executing any code.
+        # rel_path is resolved against the manifest root recorded in
+        # load_directory, so we don't walk the tree to re-discover it.
+        if not self._verify_plugin(filepath):
             return False
 
         try:
@@ -254,6 +280,11 @@ class PluginLoader:
     def errors(self) -> List[str]:
         """Plugin loading errors (non-fatal)."""
         return self._errors
+
+    @property
+    def warnings(self) -> List[str]:
+        """Non-fatal plugin warnings (e.g. a file missing from the manifest)."""
+        return self._warnings
 
     @property
     def loaded_paths(self) -> List[str]:

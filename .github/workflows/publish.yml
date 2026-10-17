@@ -20,8 +20,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install build twine
     
-    - name: Generate plugin manifest
-      run: python scripts/generate_manifest.py
+    # Detects manifest drift/corruption (integrity), not a cryptographic signature.
+    - name: Verify plugin manifest
+      run: |
+        python scripts/generate_manifest.py
+        git diff --exit-code kosty/providers/aws/services/plugins.sha256
     
     - name: Build package
       run: python -m build

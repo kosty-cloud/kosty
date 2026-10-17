@@ -20,6 +20,7 @@ Usage (programmatic):
 from typing import List, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from .config import DEFAULT_MAX_WORKERS
 from .registry import registry
 from .loader import PluginLoader
 from .models import Finding, ScanResult
@@ -32,21 +33,22 @@ class ScanEngine:
     It delegates to registered checks and collects standardized Findings.
     """
 
-    def __init__(self, max_workers: int = 10):
+    def __init__(self, max_workers: int = DEFAULT_MAX_WORKERS):
         self._loader = PluginLoader()
         self._max_workers = max_workers
 
-    def load_plugins(self, path: str, debug: bool = False) -> int:
+    def load_plugins(self, path: str, debug: bool = False, strict: bool = False) -> int:
         """Load plugins from a directory. Checks self-register on import.
 
         Args:
             path: Directory containing plugin modules.
             debug: Forward to PluginLoader for per-module load output.
+            strict: When True, refuse plugins absent from the manifest.
 
         Returns:
             Number of modules loaded.
         """
-        return self._loader.load_directory(path, debug=debug)
+        return self._loader.load_directory(path, debug=debug, strict=strict)
 
 
     def run(
@@ -205,3 +207,8 @@ class ScanEngine:
     def loader_errors(self) -> List[str]:
         """Any errors encountered during plugin loading."""
         return self._loader.errors
+
+    @property
+    def loader_warnings(self) -> List[str]:
+        """Any non-fatal warnings from plugin loading (e.g. unlisted files)."""
+        return self._loader.warnings

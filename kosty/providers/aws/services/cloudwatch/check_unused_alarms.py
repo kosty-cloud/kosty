@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(
@@ -11,7 +13,7 @@ from kosty.providers.aws.session_utils import get_account_id
     finding_type=FindingType.SECURITY,
     description="Find alarms with no state changes in 30+ days",
 )
-def check_unused_alarms(session, region, days=30, **kwargs):
+def check_unused_alarms(session: 'boto3.Session', region: str, days=30, **kwargs) -> List[Finding]:
     """Flag alarms that haven't triggered — possibly misconfigured."""
     cw = session.client('cloudwatch', region_name=region)
     account_id = get_account_id(session)
@@ -32,7 +34,7 @@ def check_unused_alarms(session, region, days=30, **kwargs):
                         risk="Possibly stale or misconfigured alarm",
                         arn=alarm.get('AlarmArn', ''),
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
 
     return findings

@@ -2,10 +2,12 @@ from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
 from kosty.core.tag_utils import excluded_by_tags
+from kosty.providers.aws.error_utils import handle_check_error
+from typing import List
 
 
 @register_check(check_id="aws-ec2-005", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with SSH open to 0.0.0.0/0")
-def check_ssh_open(session, region, **kwargs):
+def check_ssh_open(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances reachable on port 22 from the entire internet."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -33,13 +35,13 @@ def check_ssh_open(session, region, **kwargs):
                         severity=Severity.CRITICAL, finding_type=FindingType.SECURITY,
                         risk="Brute force attacks (38k/day avg)",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-ec2-006", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with RDP open to 0.0.0.0/0")
-def check_rdp_open(session, region, **kwargs):
+def check_rdp_open(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances reachable on port 3389 from the entire internet."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -67,13 +69,13 @@ def check_rdp_open(session, region, **kwargs):
                         severity=Severity.CRITICAL, finding_type=FindingType.SECURITY,
                         risk="Brute force and ransomware vector",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings
 
 
 @register_check(check_id="aws-ec2-007", service="EC2", provider="aws", finding_type=FindingType.SECURITY, description="Find instances with database ports open to internet")
-def check_database_ports_open(session, region, **kwargs):
+def check_database_ports_open(session: 'boto3.Session', region: str, **kwargs) -> List[Finding]:
     """Flag instances exposing MySQL/PostgreSQL/MSSQL/MongoDB to the world."""
     ec2 = session.client('ec2', region_name=region)
     account_id = get_account_id(session)
@@ -103,6 +105,6 @@ def check_database_ports_open(session, region, **kwargs):
                         severity=Severity.CRITICAL, finding_type=FindingType.SECURITY,
                         risk="Unauthorized database access from internet",
                     ))
-    except Exception:
-        pass
+    except Exception as _exc:
+        handle_check_error(_exc)
     return findings

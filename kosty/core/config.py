@@ -17,12 +17,27 @@ configuration — role ARN, MFA serial, profile name — is part of the config.
 
 import os
 import re
+import sys
 import yaml
 import boto3
 import fnmatch
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .exceptions import ConfigValidationError, ConfigNotFoundError
+
+
+def _summarize_auth_error(exc: Exception) -> str:
+    """Return a short, filtered description of an auth exception.
+
+    Reports the exception class name and the first line of its message,
+    truncated, so a verbose boto3/botocore stack string (which can echo
+    request parameters) is not dumped wholesale into the output.
+    """
+    first_line = str(exc).strip().splitlines()[0] if str(exc).strip() else ''
+    if len(first_line) > 200:
+        first_line = first_line[:200] + '…'
+    name = type(exc).__name__
+    return f"{name}: {first_line}" if first_line else name
 
 
 # Valid AWS regions
@@ -45,11 +60,28 @@ VALID_SERVICES = [
     'publicexposure', 'public_exposure',
 ]
 
+# Canonical default worker count for the scan thread pools. Referenced by the
+# CLI group, common_options, ScanEngine, and DEFAULT_CONFIG so there is a single
+# source of truth instead of scattered literals.
+DEFAULT_MAX_WORKERS = 5
+
+# Opt-in fail-closed plugin loading. When True, a plugin file present on disk
+# but absent from plugins.sha256 is refused instead of warned-and-allowed.
+DEFAULT_STRICT_PLUGINS = False
+
+# boto3 client socket timeouts (seconds) and retry attempts. These preserve the
+# historical boto3 behaviour (60s connect, 60s read, 3 total attempts) while
+# letting kosty.yaml tune them for slow or degraded accounts. build_boto_config()
+# turns these into a botocore Config consumed at client-construction time.
+DEFAULT_CONNECT_TIMEOUT = 60
+DEFAULT_READ_TIMEOUT = 60
+DEFAULT_MAX_RETRIES = 3
+
 # Hardcoded defaults
 DEFAULT_CONFIG = {
     'organization': False,
     'regions': ['us-east-1'],
-    'max_workers': 5,
+    'max_workers': DEFAULT_MAX_WORKERS,
     'output': 'console',
     'cross_account_role': 'OrganizationAccountAccessRole',
     'org_admin_account_id': None,
@@ -57,7 +89,12 @@ DEFAULT_CONFIG = {
     'role_arn': None,
     'aws_profile': None,
     'mfa_serial': None,
-    'duration_seconds': 3600
+    'duration_seconds': 3600,
+    'strict_plugins': DEFAULT_STRICT_PLUGINS,
+    'save_to_allow_outside': False,
+    'connect_timeout': DEFAULT_CONNECT_TIMEOUT,
+    'read_timeout': DEFAULT_READ_TIMEOUT,
+    'max_retries': DEFAULT_MAX_RETRIES,
 }
 
 DEFAULT_THRESHOLDS = {
@@ -90,6 +127,33 @@ def resolve_threshold(kwargs: Dict[str, Any], kwarg_name: str, canonical_key: st
     if config_manager is not None:
         return config_manager.get_threshold(canonical_key, default)
     return default
+
+
+def build_boto_config(config_manager: Optional["ConfigManager"] = None) -> "Config":
+    """Build a botocore Config with the configured socket timeouts and retries.
+
+    Reads connect_timeout, read_timeout, and max_retries from the given
+    ConfigManager (falling back to the module defaults when no manager is
+    supplied or a key is unset). The result is passed as `config=` when a
+    service client is constructed so slow or degraded accounts can be tuned
+    through kosty.yaml instead of only the AWS_DEFAULT_SOCKET_TIMEOUT env var.
+    """
+    from botocore.config import Config
+
+    if config_manager is not None:
+        connect_timeout = config_manager.get('connect_timeout', DEFAULT_CONNECT_TIMEOUT)
+        read_timeout = config_manager.get('read_timeout', DEFAULT_READ_TIMEOUT)
+        max_retries = config_manager.get('max_retries', DEFAULT_MAX_RETRIES)
+    else:
+        connect_timeout = DEFAULT_CONNECT_TIMEOUT
+        read_timeout = DEFAULT_READ_TIMEOUT
+        max_retries = DEFAULT_MAX_RETRIES
+
+    return Config(
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        retries={'max_attempts': max_retries},
+    )
 
 
 class ConfigManager:
@@ -160,7 +224,7 @@ class ConfigManager:
             if self.profile in profiles:
                 self.config.update(profiles[self.profile])
             else:
-                print(f"⚠️  Profile '{self.profile}' not found, using 'default'")
+                print(f"⚠️  Profile '{self.profile}' not found, using 'default'", file=sys.stderr)
     
     def _validate_config(self) -> None:
         """Validate all config values and collect errors before raising.
@@ -198,6 +262,12 @@ class ConfigManager:
         
         if 'organization' in self.config and not isinstance(self.config['organization'], bool):
             errors.append("'organization' must be boolean")
+
+        if 'strict_plugins' in self.config and not isinstance(self.config['strict_plugins'], bool):
+            errors.append("'strict_plugins' must be boolean")
+
+        if 'save_to_allow_outside' in self.config and not isinstance(self.config['save_to_allow_outside'], bool):
+            errors.append("'save_to_allow_outside' must be boolean")
         
         if 'max_workers' in self.config:
             if not isinstance(self.config['max_workers'], int) or self.config['max_workers'] <= 0:
@@ -210,6 +280,17 @@ class ConfigManager:
                 errors.append("'duration_seconds' must be positive integer")
             elif self.config['duration_seconds'] > 43200:
                 errors.append("'duration_seconds' must be <= 43200 (12h AWS maximum)")
+
+        for timeout_key in ('connect_timeout', 'read_timeout'):
+            if timeout_key in self.config:
+                value = self.config[timeout_key]
+                if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+                    errors.append(f"'{timeout_key}' must be a positive number (seconds)")
+
+        if 'max_retries' in self.config:
+            value = self.config['max_retries']
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                errors.append("'max_retries' must be a non-negative integer")
         
         thresholds = self.get_thresholds()
         for key, value in thresholds.items():
@@ -217,10 +298,10 @@ class ConfigManager:
                 errors.append(f"Invalid threshold '{key}': {value}")
         
         if errors:
-            print("\n❌ Configuration validation failed:\n")
+            print("\n❌ Configuration validation failed:\n", file=sys.stderr)
             for error in errors:
-                print(f"  • {error}")
-            print("\n🛑 Fix errors before running Kosty.\n")
+                print(f"  • {error}", file=sys.stderr)
+            print("\n🛑 Fix errors before running Kosty.\n", file=sys.stderr)
             raise ConfigValidationError('\n'.join(errors))
     
     def get(self, key: str, default: Any = None) -> Any:
@@ -394,8 +475,8 @@ class ConfigManager:
             try:
                 response = sts.assume_role(**assume_role_params)
                 config_file = self._find_config_file() or 'no config file'
-                print(f"🔑 Auth: AssumeRole → {role_arn}")
-                print(f"   Config: {config_file} | Profile: {self.profile}")
+                print(f"🔑 Auth: AssumeRole → {role_arn}", file=sys.stderr)
+                print(f"   Config: {config_file} | Profile: {self.profile}", file=sys.stderr)
                 return boto3.Session(
                     aws_access_key_id=response['Credentials']['AccessKeyId'],
                     aws_secret_access_key=response['Credentials']['SecretAccessKey'],
@@ -403,33 +484,33 @@ class ConfigManager:
                 )
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
-                print(f"\nError: Failed to assume role")
-                print(f"  Profile: {self.profile}")
-                print(f"  Config: {config_file}")
-                print(f"  Role ARN: {role_arn}")
-                print(f"  Reason: {e}")
-                print("\nCannot proceed without valid role access. Aborting.\n")
+                print(f"\nError: Failed to assume role", file=sys.stderr)
+                print(f"  Profile: {self.profile}", file=sys.stderr)
+                print(f"  Config: {config_file}", file=sys.stderr)
+                print(f"  Role ARN: {role_arn}", file=sys.stderr)
+                print(f"  Reason: {_summarize_auth_error(e)}", file=sys.stderr)
+                print("\nCannot proceed without valid role access. Aborting.\n", file=sys.stderr)
                 raise SystemExit(1)
         
         elif aws_profile:
             try:
                 session = boto3.Session(profile_name=aws_profile)
                 config_file = self._find_config_file() or 'no config file'
-                print(f"🔑 Auth: AWS profile '{aws_profile}'")
-                print(f"   Config: {config_file} | Profile: {self.profile}")
+                print(f"🔑 Auth: AWS profile '{aws_profile}'", file=sys.stderr)
+                print(f"   Config: {config_file} | Profile: {self.profile}", file=sys.stderr)
                 return session
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
-                print(f"\nError: Failed to use AWS profile")
-                print(f"  Profile: {self.profile}")
-                print(f"  Config: {config_file}")
-                print(f"  AWS Profile: {aws_profile}")
-                print(f"  Reason: {e}")
-                print(f"\nMake sure '{aws_profile}' exists in ~/.aws/credentials or ~/.aws/config\n")
+                print(f"\nError: Failed to use AWS profile", file=sys.stderr)
+                print(f"  Profile: {self.profile}", file=sys.stderr)
+                print(f"  Config: {config_file}", file=sys.stderr)
+                print(f"  AWS Profile: {aws_profile}", file=sys.stderr)
+                print(f"  Reason: {_summarize_auth_error(e)}", file=sys.stderr)
+                print(f"\nMake sure '{aws_profile}' exists in ~/.aws/credentials or ~/.aws/config\n", file=sys.stderr)
                 raise SystemExit(1)
         
         else:
             config_file = self._find_config_file() or 'no config file'
-            print(f"🔑 Auth: default credential chain")
-            print(f"   Config: {config_file} | Profile: {self.profile}")
+            print(f"🔑 Auth: default credential chain", file=sys.stderr)
+            print(f"   Config: {config_file} | Profile: {self.profile}", file=sys.stderr)
             return boto3.Session()

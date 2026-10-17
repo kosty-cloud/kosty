@@ -15,3 +15,11 @@ class ConfigValidationError(Exception):
 
 class ConfigNotFoundError(Exception):
     """Raised when an explicit --config-file path doesn't exist on disk."""
+
+
+class SaveLocationError(Exception):
+    """Raised when a --save-to local path is rejected.
+
+    By default a destination that resolves outside the current working
+    directory is refused; the opt-out (--allow-outside-cwd) lifts the check.
+    """
