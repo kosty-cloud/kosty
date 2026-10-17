@@ -105,72 +105,23 @@ def _resolve_scan_params(ctx, profile, organization, region, max_workers, region
         return boto3.Session(), reg_list, max_workers or ctx.obj.get('max_workers', DEFAULT_MAX_WORKERS), None
 
 
-def _run_checks(checks, session, reg_list, workers, config_manager, debug=False, **kwargs):
-    """Execute a list of checks across regions and return (findings, errors).
-
-    Injects compliance_ids from check metadata into each finding so plugins
-    don't need to repeat the mapping in their Finding constructors.
-
-    A check that raises is recorded as an (check_id, region, exc_type, message)
-    tuple in the returned errors list instead of being silently swallowed, so
-    the caller can surface a count to the user without requiring --debug.
-    """
-    import sys
-    import time
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    all_findings = []
-    errors = []
-    for rgn in reg_list:
-        if debug:
-            print(f"[DEBUG] region={rgn} checks={len(checks)}", file=sys.stderr)
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {
-                executor.submit(c['func'], session=session, region=rgn,
-                                config_manager=config_manager, **kwargs): c
-                for c in checks
-            }
-            for future in as_completed(futures):
-                check = futures[future]
-                t0 = time.monotonic()
-                try:
-                    result = future.result()
-                    if isinstance(result, list):
-                        if check['metadata'].compliance_ids:
-                            for f in result:
-                                if hasattr(f, 'compliance_ids') and not f.compliance_ids:
-                                    f.compliance_ids = check['metadata'].compliance_ids
-                        all_findings.extend(result)
-                        if debug:
-                            elapsed = time.monotonic() - t0
-                            print(
-                                f"[DEBUG] {check['metadata'].check_id} {rgn}"
-                                f" findings={len(result)} t={elapsed:.2f}s",
-                                file=sys.stderr,
-                            )
-                except Exception as e:
-                    errors.append((check['metadata'].check_id, rgn, type(e).__name__, str(e)))
-                    if debug:
-                        elapsed = time.monotonic() - t0
-                        print(
-                            f"[DEBUG] {check['metadata'].check_id} {rgn}"
-                            f" ERROR {type(e).__name__}: {e} t={elapsed:.2f}s",
-                            file=sys.stderr,
-                        )
-    return all_findings, errors
-
-
 def execute_engine_command(ctx, service_name, method, output, organization, region,
                            max_workers, regions, cross_account_role=None,
                            org_admin_account_id=None, save_to=None, profile=None,
                            check_id=None, allow_outside_cwd=False, **kwargs):
-    """Resolve config, select checks, run them, and display results."""
+    """Resolve config, select checks, run them through the engine, and display.
+
+    Per-service commands run through the SAME ScanEngine path as `kosty audit`
+    (ScanEngine.run_service): they inherit the global/regional split (global
+    checks like IAM/S3 run once, not once per region) and error routing into
+    ScanResult.errors, and persist via StorageManager so --save-to s3:// works.
+    """
     import sys
     verbose = ctx.obj.get('verbose', False) if ctx.obj else False
     debug = ctx.obj.get('debug', False) if ctx.obj else False
     if ctx.obj and ctx.obj.get('allow_outside_cwd'):
         allow_outside_cwd = True
-    from ..core.registry import registry
+    from ..core.engine import ScanEngine
     from ..core.models import FindingType
 
     session, reg_list, workers, config_manager = _resolve_scan_params(
@@ -188,36 +139,38 @@ def execute_engine_command(ctx, service_name, method, output, organization, regi
     strict_plugins = bool(config_manager.get('strict_plugins', False)) if config_manager else False
     _ensure_plugins_loaded(strict=strict_plugins, debug=debug)
 
-    if check_id:
-        entry = registry.get_check(check_id)
-        checks = [entry] if entry else []
-    else:
-        checks = registry.get_checks_by_service(service_name)
-        if method == 'cost_audit':
-            checks = [c for c in checks if c['metadata'].finding_type == FindingType.COST]
-        elif method == 'security_audit':
-            checks = [c for c in checks if c['metadata'].finding_type == FindingType.SECURITY]
-
-    deep = kwargs.get('deep', False)
-    if not deep:
-        checks = [c for c in checks if not c['metadata'].requires_deep]
+    finding_type = None
+    if method == 'cost_audit':
+        finding_type = FindingType.COST
+    elif method == 'security_audit':
+        finding_type = FindingType.SECURITY
 
     if debug:
         print(
             f"[DEBUG] service={service_name} method={method or check_id}"
-            f" checks={len(checks)} regions={reg_list} workers={workers}",
+            f" regions={reg_list} workers={workers}",
             file=sys.stderr,
         )
 
-    findings, errors = _run_checks(checks, session, reg_list, workers, config_manager, debug=debug, **kwargs)
+    engine = ScanEngine(max_workers=workers)
+    result = engine.run_service(
+        session, reg_list,
+        service=service_name if not check_id else None,
+        check_id=check_id,
+        finding_type=finding_type,
+        config_manager=config_manager,
+        debug=debug,
+        **kwargs,
+    )
 
-    if errors:
+    if result.errors:
         print(
-            f"\n⚠️  {len(errors)} check(s) could not complete (e.g. missing"
+            f"\n⚠️  {len(result.errors)} check(s) could not complete (e.g. missing"
             f" permissions); re-run with --debug for per-check details.",
             file=sys.stderr,
         )
 
+    findings = result.findings
     if config_manager:
         findings = [
             f for f in findings
@@ -286,16 +239,67 @@ def render_finding_lines(item, service=None, verbose=False):
     return lines
 
 
+def _serialize_findings_json(items, service_name, total):
+    """Return the service-shaped JSON report as a string.
+
+    Shape is preserved from earlier releases
+    ({scan_timestamp, service, total_issues, results}) so existing consumers
+    and dashboards keep working; only the write mechanism moved to
+    StorageManager.
+    """
+    report = {
+        'scan_timestamp': datetime.now().isoformat(),
+        'service': service_name,
+        'total_issues': total,
+        'results': items,
+    }
+    return json.dumps(report, indent=2, default=str)
+
+
+def _serialize_findings_csv(items):
+    """Return the flat per-finding CSV report as a string, or '' when empty."""
+    import csv
+    import io
+    if not items:
+        return ''
+    from ..core.reporter import sanitize_csv_field
+    fieldnames = sorted(set().union(*(item.keys() for item in items)))
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction='ignore')
+    writer.writeheader()
+    for item in items:
+        writer.writerow({k: sanitize_csv_field(v) for k, v in item.items()})
+    return buf.getvalue()
+
+
+def _persist_report(content, filename, save_to, file_format, allow_outside_cwd):
+    """Write a serialized report through StorageManager and return the path/URL.
+
+    StorageManager handles s3:// uploads, network-share timeouts, and local-cwd
+    confinement (unless allow_outside_cwd is set). When save_to is empty the
+    report is written to filename in the current directory, matching the prior
+    per-service behavior.
+    """
+    import asyncio
+    from ..core.storage import StorageManager
+    return asyncio.run(
+        StorageManager().save_file(
+            content, filename, save_to or '', file_format,
+            allow_outside_cwd=allow_outside_cwd,
+        )
+    )
+
+
 def _output_findings(findings, service_name, output, save_to=None, verbose=False,
                      allow_outside_cwd=False):
     """Display findings in the requested format.
 
-    Local --save-to paths are confined to the current working directory
-    unless allow_outside_cwd is set (CLI --allow-outside-cwd or the
+    File writes go through StorageManager so --save-to accepts both s3://
+    URLs and local paths; local paths are confined to the current working
+    directory unless allow_outside_cwd is set (CLI --allow-outside-cwd or the
     save_to_allow_outside config key).
     """
     import sys
-    from ..core.storage import confine_local_path
     from ..core.exceptions import SaveLocationError
     items = [f.to_dict() for f in findings]
     total = len(items)
@@ -314,38 +318,23 @@ def _output_findings(findings, service_name, output, save_to=None, verbose=False
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_{service_name}_{account_id}_{timestamp}.json"
-        if save_to:
-            try:
-                dest = confine_local_path(save_to, allow_outside_cwd=allow_outside_cwd)
-            except SaveLocationError as e:
-                print(f"\n❌ {e}", file=sys.stderr)
-                return
-            dest.mkdir(parents=True, exist_ok=True)
-            filename = str(dest / filename)
-        report = {'scan_timestamp': datetime.now().isoformat(), 'service': service_name, 'total_issues': total, 'results': items}
-        with open(filename, 'w') as f:
-            json.dump(report, f, indent=2, default=str)
-        print(f"\n📄 JSON report saved: {filename}")
+        content = _serialize_findings_json(items, service_name, total)
+        try:
+            dest = _persist_report(content, filename, save_to, 'json', allow_outside_cwd)
+        except SaveLocationError as e:
+            print(f"\n❌ {e}", file=sys.stderr)
+            return
+        print(f"\n📄 JSON report saved: {dest}")
 
     if output in ['csv', 'all']:
-        import csv
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         account_id = items[0].get('AccountId', 'unknown') if items else 'unknown'
         filename = f"kosty_{service_name}_{account_id}_{timestamp}.csv"
-        if save_to:
+        if items:
+            content = _serialize_findings_csv(items)
             try:
-                dest = confine_local_path(save_to, allow_outside_cwd=allow_outside_cwd)
+                dest = _persist_report(content, filename, save_to, 'csv', allow_outside_cwd)
             except SaveLocationError as e:
                 print(f"\n❌ {e}", file=sys.stderr)
                 return
-            dest.mkdir(parents=True, exist_ok=True)
-            filename = str(dest / filename)
-        if items:
-            from ..core.reporter import sanitize_csv_field
-            fieldnames = sorted(set().union(*(item.keys() for item in items)))
-            with open(filename, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
-                writer.writeheader()
-                for item in items:
-                    writer.writerow({k: sanitize_csv_field(v) for k, v in item.items()})
-            print(f"📊 CSV report saved: {filename}")
+            print(f"📊 CSV report saved: {dest}")

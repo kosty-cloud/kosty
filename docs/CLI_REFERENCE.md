@@ -479,9 +479,9 @@ A flag passed on the command line always wins; otherwise the value comes from
 - `--organization` - Scan entire AWS organization
 - `--region TEXT` - AWS region to scan (default: current region)
 - `--regions TEXT` - Comma-separated regions
-- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 10)
+- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 5)
 - `--output [console|json|csv|all]` - Output format (default: console)
-- `--save-to TEXT` - S3, local path, or network share
+- `--save-to TEXT` - S3 bucket (s3://…), local path, or network share
 - `--profile TEXT` - Configuration profile from kosty.yaml
 - `--verbose` - Show full finding details: ARN, risk, monthly savings, check ID
 - `--debug` - Print check execution details, errors, and timing to stderr (for troubleshooting)

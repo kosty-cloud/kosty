@@ -13,20 +13,26 @@ Kosty v3 is a plugin-based scan engine. Each check is an independent Python func
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         CLI Layer                             │
-│  (kosty audit, kosty ai, kosty public-exposure)             │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                    EngineScanner                              │
-│  - Progress display (SingleAccount / MultiAccount)           │
-│  - Feeds results into CostOptimizationReporter               │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
+│  kosty audit            │  per-service commands               │
+│                         │  (kosty ec2/s3/iam/ai/...)          │
+└───────────┬─────────────┴──────────────┬────────────────────┘
+            │                            │
+┌───────────▼──────────────┐  ┌──────────▼────────────────────┐
+│      EngineScanner        │  │   cli/utils.execute_engine_    │
+│  - Progress display       │  │   command + StorageManager     │
+│  - Org / cross-account    │  │  - Per-service console output  │
+│  - Feeds the reporter     │  │  - s3:// / local file writes   │
+└───────────┬──────────────┘  └──────────┬────────────────────┘
+            │                            │
+    ScanEngine.run()            ScanEngine.run_service()
+            │                            │
+┌───────────▼────────────────────────────▼────────────────────┐
 │                      ScanEngine                               │
 │  - Loads plugins from one or more directories                │
 │  - Queries the CheckRegistry                                 │
 │  - Executes checks in parallel (ThreadPoolExecutor)          │
+│  - Applies the global/regional split and error routing       │
+│    in one shared helper (run() and run_service())            │
 │  - Returns ScanResult (list of Findings)                     │
 └──────────────────────────┬──────────────────────────────────┘
                            │
@@ -111,6 +117,26 @@ print(result.total_savings)
 for finding in result.findings:
     print(finding.to_dict())
 ```
+
+`run()` powers `kosty audit` (via `EngineScanner`). The per-service commands
+(`kosty ec2 …`, `kosty s3 …`, `kosty ai …`, etc.) call `run_service()`, which
+runs a filtered subset of checks — one service, a single `check_id`, or a
+cost/security slice — and returns the same `ScanResult`:
+
+```python
+result = engine.run_service(
+    session=boto3.Session(),
+    regions=['eu-west-3', 'us-east-1'],
+    service='EC2',                 # or check_id='aws-ec2-001'
+    finding_type=FindingType.COST, # optional cost/security filter
+)
+```
+
+`run()` and `run_service()` share one private region-iteration helper, so the
+global/regional split (global checks like IAM/S3 run once per scan, not once per
+region) and error routing into `ScanResult.errors` behave identically on every
+command. This is what "zero legacy execution paths" below refers to: there is a
+single executor and a single file-write path (`StorageManager`) across the CLI.
 
 ### Data Models (`kosty/core/models.py`)
 
@@ -229,13 +255,13 @@ engine.load_plugins('/opt/kosty-pro/plugins')
 
 Pro plugins follow the exact same format. They live in a private repo that's mounted/installed only in the Pro environment.
 
-## Current State (v3.2.0)
+## Current State (v3.4.0)
 
 - **151 native plugin checks** across 32 services
-- **CLI fully wired to engine** — zero legacy execution paths
+- **CLI fully wired to engine** — zero legacy execution paths. `kosty audit` uses `ScanEngine.run()`; every per-service command (and `kosty ai …`) uses `ScanEngine.run_service()`. There is a single executor and a single file-write path (`StorageManager`).
 - **1 STS call per scan** via `session_utils.get_account_id()` cache
 - **Progress bars** on TTY (silent when piped)
-- **Global checks run once** — IAM and S3 checks have `region_scope='global'` and execute only on the first region, avoiding N duplicate scans in multi-region mode
+- **Global checks run once** — IAM and S3 checks have `region_scope='global'` and execute only on the first region, avoiding N duplicate scans in multi-region mode. This now applies to per-service commands too, not just `kosty audit`.
 - **Plugin integrity** — SHA-256 manifest at `providers/aws/services/plugins.sha256` verified at load time
 - **Report integrity** — local JSON/CSV reports get a `.sha256` sidecar automatically
 - **All legacy code removed** — no `kosty/core/services/` (old monolithic classes), no adapter, no bridge
