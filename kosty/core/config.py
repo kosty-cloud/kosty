@@ -224,7 +224,7 @@ class ConfigManager:
             if self.profile in profiles:
                 self.config.update(profiles[self.profile])
             else:
-                print(f"⚠️  Profile '{self.profile}' not found, using 'default'")
+                print(f"⚠️  Profile '{self.profile}' not found, using 'default'", file=sys.stderr)
     
     def _validate_config(self) -> None:
         """Validate all config values and collect errors before raising.
@@ -298,10 +298,10 @@ class ConfigManager:
                 errors.append(f"Invalid threshold '{key}': {value}")
         
         if errors:
-            print("\n❌ Configuration validation failed:\n")
+            print("\n❌ Configuration validation failed:\n", file=sys.stderr)
             for error in errors:
-                print(f"  • {error}")
-            print("\n🛑 Fix errors before running Kosty.\n")
+                print(f"  • {error}", file=sys.stderr)
+            print("\n🛑 Fix errors before running Kosty.\n", file=sys.stderr)
             raise ConfigValidationError('\n'.join(errors))
     
     def get(self, key: str, default: Any = None) -> Any:
@@ -475,8 +475,8 @@ class ConfigManager:
             try:
                 response = sts.assume_role(**assume_role_params)
                 config_file = self._find_config_file() or 'no config file'
-                print(f"🔑 Auth: AssumeRole → {role_arn}")
-                print(f"   Config: {config_file} | Profile: {self.profile}")
+                print(f"🔑 Auth: AssumeRole → {role_arn}", file=sys.stderr)
+                print(f"   Config: {config_file} | Profile: {self.profile}", file=sys.stderr)
                 return boto3.Session(
                     aws_access_key_id=response['Credentials']['AccessKeyId'],
                     aws_secret_access_key=response['Credentials']['SecretAccessKey'],
@@ -496,8 +496,8 @@ class ConfigManager:
             try:
                 session = boto3.Session(profile_name=aws_profile)
                 config_file = self._find_config_file() or 'no config file'
-                print(f"🔑 Auth: AWS profile '{aws_profile}'")
-                print(f"   Config: {config_file} | Profile: {self.profile}")
+                print(f"🔑 Auth: AWS profile '{aws_profile}'", file=sys.stderr)
+                print(f"   Config: {config_file} | Profile: {self.profile}", file=sys.stderr)
                 return session
             except Exception as e:
                 config_file = self._find_config_file() or 'No config file'
@@ -511,6 +511,6 @@ class ConfigManager:
         
         else:
             config_file = self._find_config_file() or 'no config file'
-            print(f"🔑 Auth: default credential chain")
-            print(f"   Config: {config_file} | Profile: {self.profile}")
+            print(f"🔑 Auth: default credential chain", file=sys.stderr)
+            print(f"   Config: {config_file} | Profile: {self.profile}", file=sys.stderr)
             return boto3.Session()

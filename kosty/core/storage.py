@@ -14,6 +14,7 @@ to avoid hanging indefinitely on unreachable mounts.
 """
 
 import asyncio
+import sys
 import boto3
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -90,17 +91,17 @@ class StorageManager:
 
         except Exception as e:
             error_msg = str(e)
-            print("\n❌ S3 access validation failed:")
+            print("\n❌ S3 access validation failed:", file=sys.stderr)
             if "NoSuchBucket" in error_msg:
-                print(f"   • Bucket '{bucket}' does not exist")
+                print(f"   • Bucket '{bucket}' does not exist", file=sys.stderr)
             elif "AccessDenied" in error_msg:
-                print(f"   • Access denied to bucket '{bucket}'")
-                print("   • Ensure you have s3:PutObject permissions")
+                print(f"   • Access denied to bucket '{bucket}'", file=sys.stderr)
+                print("   • Ensure you have s3:PutObject permissions", file=sys.stderr)
             elif "InvalidBucketName" in error_msg:
-                print(f"   • Invalid bucket name '{bucket}'")
+                print(f"   • Invalid bucket name '{bucket}'", file=sys.stderr)
             else:
-                print(f"   • {error_msg}")
-            print("\n💡 S3 path format: s3://bucket-name/optional/path/")
+                print(f"   • {error_msg}", file=sys.stderr)
+            print("\n💡 S3 path format: s3://bucket-name/optional/path/", file=sys.stderr)
             return False
 
     async def _validate_local_path(self, file_path: str, allow_outside_cwd: bool = False) -> bool:
@@ -112,8 +113,8 @@ class StorageManager:
         try:
             is_network = self._is_network_path(file_path)
             if is_network:
-                print(f"🌐 Detected network path: {file_path}")
-                print("   • Testing network connectivity...")
+                print(f"🌐 Detected network path: {file_path}", file=sys.stderr)
+                print("   • Testing network connectivity...", file=sys.stderr)
 
             # resolve() normalizes the path; confinement to the working
             # directory is enforced separately by confine_local_path().
@@ -130,7 +131,7 @@ class StorageManager:
             if is_network:
                 await self._create_directory_with_timeout(directory)
                 await self._write_test_file_with_timeout(test_file)
-                print("   ✅ Network path accessible")
+                print("   ✅ Network path accessible", file=sys.stderr)
             else:
                 directory.mkdir(parents=True, exist_ok=True)
                 test_file.write_text('test')
@@ -139,27 +140,27 @@ class StorageManager:
             return True
 
         except SaveLocationError as e:
-            print(f"\n❌ Path access validation failed:")
-            print(f"   • {e}")
+            print(f"\n❌ Path access validation failed:", file=sys.stderr)
+            print(f"   • {e}", file=sys.stderr)
             return False
         except PermissionError:
-            print(f"\n❌ Path access validation failed:")
-            print(f"   • Permission denied to write to '{file_path}'")
+            print(f"\n❌ Path access validation failed:", file=sys.stderr)
+            print(f"   • Permission denied to write to '{file_path}'", file=sys.stderr)
             if self._is_network_path(file_path):
-                print("   • Check network share permissions and credentials")
+                print("   • Check network share permissions and credentials", file=sys.stderr)
             else:
-                print("   • Check file system permissions")
+                print("   • Check file system permissions", file=sys.stderr)
             return False
         except TimeoutError:
-            print(f"\n❌ Network path access timeout:")
-            print(f"   • Network path '{file_path}' is not accessible")
-            print("   • Check network connectivity and share availability")
+            print(f"\n❌ Network path access timeout:", file=sys.stderr)
+            print(f"   • Network path '{file_path}' is not accessible", file=sys.stderr)
+            print("   • Check network connectivity and share availability", file=sys.stderr)
             return False
         except Exception as e:
-            print(f"\n❌ Path access validation failed:")
-            print(f"   • {e}")
+            print(f"\n❌ Path access validation failed:", file=sys.stderr)
+            print(f"   • {e}", file=sys.stderr)
             if self._is_network_path(file_path):
-                print("   • Ensure network share is mounted and accessible")
+                print("   • Ensure network share is mounted and accessible", file=sys.stderr)
             return False
 
     def _is_network_path(self, file_path: str) -> bool:

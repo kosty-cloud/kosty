@@ -12,6 +12,7 @@ profiles are fully isolated, so a failure in one doesn't affect the others.
 import asyncio
 import json
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -50,7 +51,7 @@ class MultiProfileRunner:
         profile shouldn't abort the others.
         """
         try:
-            print(f"\n[{profile}] Starting audit...")
+            print(f"\n[{profile}] Starting audit...", file=sys.stderr)
 
             config_manager = ConfigManager(config_file=self.config_file, profile=profile)
             final_config = config_manager.merge_with_cli_args(cli_args)
@@ -91,7 +92,7 @@ class MultiProfileRunner:
                 for svc in acc.values()
             )
 
-            print(f"[{profile}] ✓ Completed: {total_issues} issues, ${total_savings:,.2f}/month")
+            print(f"[{profile}] ✓ Completed: {total_issues} issues, ${total_savings:,.2f}/month", file=sys.stderr)
 
             return {
                 'profile': profile,
@@ -103,7 +104,7 @@ class MultiProfileRunner:
             }
 
         except Exception as e:
-            print(f"[{profile}] ✗ Failed: {e}")
+            print(f"[{profile}] ✗ Failed: {e}", file=sys.stderr)
             return {
                 'profile': profile,
                 'status': 'error',
@@ -117,8 +118,8 @@ class MultiProfileRunner:
         max_parallel controls how many profiles run simultaneously. Keep it
         low (3-5) to avoid hitting AWS API rate limits across accounts.
         """
-        print(f"\n🚀 Running audits for {len(self.profiles)} profiles in parallel (max {max_parallel} concurrent)")
-        print(f"📋 Profiles: {', '.join(self.profiles)}\n")
+        print(f"\n🚀 Running audits for {len(self.profiles)} profiles in parallel (max {max_parallel} concurrent)", file=sys.stderr)
+        print(f"📋 Profiles: {', '.join(self.profiles)}\n", file=sys.stderr)
 
         with ThreadPoolExecutor(max_workers=max_parallel) as executor:
             futures = {

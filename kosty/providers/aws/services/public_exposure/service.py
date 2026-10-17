@@ -1,3 +1,4 @@
+import sys
 import boto3
 from typing import List, Dict, Any
 import json
@@ -117,7 +118,7 @@ class PublicExposureService:
                 ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking public load balancers: {e}")
+            print(f"Error checking public load balancers: {e}", file=sys.stderr)
         return results
 
     # --- EC2 Public IPs ---
@@ -164,7 +165,7 @@ class PublicExposureService:
                     ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking EC2 public IPs: {e}")
+            print(f"Error checking EC2 public IPs: {e}", file=sys.stderr)
         return results
 
     # --- S3 Public ---
@@ -263,7 +264,7 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking S3 public exposure: {e}")
+            print(f"Error checking S3 public exposure: {e}", file=sys.stderr)
         return results
 
     # --- RDS Public ---
@@ -299,7 +300,7 @@ class PublicExposureService:
                 ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking RDS public exposure: {e}")
+            print(f"Error checking RDS public exposure: {e}", file=sys.stderr)
         return results
 
     # --- RDS Snapshots Public ---
@@ -324,7 +325,7 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking RDS public snapshots: {e}")
+            print(f"Error checking RDS public snapshots: {e}", file=sys.stderr)
         return results
 
     # --- EBS Snapshots Public ---
@@ -347,7 +348,7 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking EBS public snapshots: {e}")
+            print(f"Error checking EBS public snapshots: {e}", file=sys.stderr)
         return results
 
     # --- API Gateway ---
@@ -400,7 +401,7 @@ class PublicExposureService:
                 ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking API Gateway exposure: {e}")
+            print(f"Error checking API Gateway exposure: {e}", file=sys.stderr)
         return results
 
     # --- Lambda Function URLs ---
@@ -435,7 +436,7 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking Lambda URLs: {e}")
+            print(f"Error checking Lambda URLs: {e}", file=sys.stderr)
         return results
 
     # --- CloudFront ---
@@ -471,7 +472,7 @@ class PublicExposureService:
                 ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking CloudFront exposure: {e}")
+            print(f"Error checking CloudFront exposure: {e}", file=sys.stderr)
         return results
 
     # --- OpenSearch / Elasticsearch ---
@@ -522,7 +523,7 @@ class PublicExposureService:
                 ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking OpenSearch exposure: {e}")
+            print(f"Error checking OpenSearch exposure: {e}", file=sys.stderr)
         return results
 
     # --- Redshift ---
@@ -558,7 +559,7 @@ class PublicExposureService:
                 ))
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking Redshift exposure: {e}")
+            print(f"Error checking Redshift exposure: {e}", file=sys.stderr)
         return results
 
     # --- EKS ---
@@ -600,7 +601,7 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking EKS exposure: {e}")
+            print(f"Error checking EKS exposure: {e}", file=sys.stderr)
         return results
 
     # --- ECR Public ---
@@ -647,7 +648,7 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking SNS exposure: {e}")
+            print(f"Error checking SNS exposure: {e}", file=sys.stderr)
         return results
 
     # --- SQS Public ---
@@ -677,5 +678,5 @@ class PublicExposureService:
                     continue
         except Exception as e:
             handle_check_error(e)
-            print(f"Error checking SQS exposure: {e}")
+            print(f"Error checking SQS exposure: {e}", file=sys.stderr)
         return results
