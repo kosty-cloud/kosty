@@ -7,7 +7,7 @@
 [![AWS](https://img.shields.io/badge/AWS-Compatible-orange?style=flat-square&logo=amazon-aws)](https://aws.amazon.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-> 🧩 **v3.4.0 — Modular Platform** — Plugin-based engine. 151 checks, 32 services, fully extensible. Every command — full audit and per-service — runs through one scan engine. [Architecture guide →](docs/ARCHITECTURE_V3.md)
+> 🧩 **v3.5.1 — Modular Platform** — Plugin-based engine. 151 checks, 32 services, fully extensible. Every command — full audit and per-service — runs through one scan engine. [Architecture guide →](docs/ARCHITECTURE_V3.md)
 
 **Scan 32 AWS services. Find cost waste. Detect security gaps. Audit GenAI workloads. One command.**
 
@@ -64,12 +64,12 @@ kosty audit --organization --max-workers 20 --output all
 
 <table>
 <tr>
-<td><img src="dashboard/kosty_dashboard.png" alt="Kosty Dashboard" width="400"/></td>
-<td><img src="dashboard/kosty-ai-audit-dashboard.png" alt="AI Audit Dashboard" width="400"/></td>
+<td><img src="dashboard/kosty_dashboard.png" alt="Kosty Security Dashboard" width="400"/></td>
+<td><img src="dashboard/kosty-ai-audit-dashboard.png" alt="Kosty Cost Dashboard" width="400"/></td>
 </tr>
 <tr>
-<td align="center"><em>Full Audit Dashboard</em></td>
-<td align="center"><em>AI/ML Audit Dashboard</em></td>
+<td align="center"><em>Security View</em></td>
+<td align="center"><em>Cost View</em></td>
 </tr>
 </table>
 
