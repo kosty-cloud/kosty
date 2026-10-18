@@ -217,6 +217,7 @@ kosty s3 audit --save-to ./reports/s3/
 - **Permission Validation**: Tests write access before starting scans
 - **Cross-Platform**: Works on Linux, macOS, and Windows
 - **Flexible Paths**: Support for both directory and specific file paths
+- **CWD Confinement**: Local `--save-to` paths are confined to the current working directory (and its subdirectories) by default; a destination resolving outside is rejected. Use `--allow-outside-cwd` (or set `save_to_allow_outside: true` in kosty.yaml) to opt out.
 
 ### Network Share Storage
 ```bash
@@ -379,9 +380,10 @@ All commands support:
 - `--organization` - Scan entire AWS organization
 - `--region TEXT` - Single AWS region to scan (default: us-east-1)
 - `--regions TEXT` - Multiple AWS regions (comma-separated, e.g., us-east-1,eu-west-1)
-- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 10)
+- `--max-workers INTEGER` - Parallel workers, 1–200 (default: 5)
 - `--output [console|json|csv|all]` - Output format (default: console)
 - `--save-to TEXT` - Save reports to S3, local path, or network share
+- `--allow-outside-cwd` - Allow `--save-to` to write outside the current working directory (local paths are confined to the CWD by default)
 - `--profile TEXT` - Configuration profile from kosty.yaml
 - `--cross-account-role TEXT` - Role name for cross-account access (default: OrganizationAccountAccessRole)
 - `--org-admin-account-id TEXT` - Organization admin account ID
