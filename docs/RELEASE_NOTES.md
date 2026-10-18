@@ -1,5 +1,16 @@
 # Kosty Release Notes
 
+## Version 3.5.1 — Documentation and asset patch (2026)
+
+A documentation-only patch with no code or behavior change.
+
+- Fixed the README version banner, which was still stuck at v3.4.0 and now reads
+  v3.5.1.
+- Replaced the three dashboard screenshots in the README with captures of the
+  redesigned 3.5.0 UI: the Overview landing page (header image) and the Security
+  and Cost drill-down views. The two caption labels and image alt text were updated
+  to match ("Security View" and "Cost View").
+
 ## Version 3.5.0 — Dashboard redesign (2026)
 
 Reworks the web dashboard (`dashboard/index.html`) around an overview landing
