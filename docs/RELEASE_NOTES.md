@@ -1,5 +1,61 @@
 # Kosty Release Notes
 
+## Version 3.5.0 — Dashboard redesign (2026)
+
+Reworks the web dashboard (`dashboard/index.html`) around an overview landing
+page with two drill-down views, rewrites the UI in English, regenerates the demo
+data from a new offline generator, and fixes a set of accessibility gaps. No
+Python model, engine, check, or plugin manifest changes — the cost/security split
+is a frontend concern driven by the existing `type` field on each finding.
+
+### Dashboard
+
+- Loading a report now lands on an Overview page with two large clickable summary
+  cards: a Security card (total findings with a critical/high/medium/low breakdown)
+  and a Cost card (estimated monthly and annual savings, number of optimizations,
+  top wasteful service). Selecting a card opens the matching view with a "Back to
+  Overview" breadcrumb. Navigation is modeled as a `view` state
+  (`overview` | `security` | `cost`).
+- Each view is coherent end to end: its stat cards, charts, and findings grid all
+  reflect that view's finding type. This fixes the previous behavior where the stat
+  cards counted everything while the grid showed a single type. The green "Total
+  Estimated Savings" banner now appears only in the Cost view.
+- The UI is now entirely in English (`<html lang="en">`).
+
+### Demo data
+
+- Added `scripts/generate_demo_dashboard.py`, a fully offline generator (no boto3,
+  no network) that builds finding dicts matching `Finding.to_dict` and wraps them in
+  the `save_json_report` envelope, so the demos match real audit output by
+  construction.
+- Regenerated `dashboard/demo_full_audit.json` (mixed cost and security across many
+  services; every cost finding now carries a coherent `monthly_savings`) and
+  `dashboard/demo_ai_audit.json` (Bedrock/SageMaker focus). Both use real
+  `check` = `check_id` values, generic anonymized resource names, fixed fake ARN
+  suffixes, and a fixed neutral scan timestamp.
+- Removed the undocumented `dashboard/test_dashboard_costs.json` (it used the
+  non-emitted `monthly_cost` key).
+- The "View Demo" buttons now fetch a generated demo file instead of an embedded
+  data block, which has been removed.
+
+### Accessibility
+
+- The two overview cards are real buttons with keyboard focus and Enter/Space
+  activation.
+- Modals use `role="dialog"` with `aria-modal`, close on Escape, trap focus, and
+  restore focus to the triggering element on close.
+- Icon-only buttons carry `aria-label`; decorative icons are marked `aria-hidden`;
+  Chart.js canvases expose an `aria-label` text alternative.
+- `formatDate` now guards against a missing or invalid `scan_timestamp` instead of
+  rendering "Invalid Date".
+
+### Quality
+
+- Chart creation is consolidated into a single effect keyed on the current data,
+  view, and filters, removing the previous double-instantiation path.
+- React and ReactDOM are loaded from the production CDN builds (still no build
+  step).
+
 ## Version 3.4.0 — Single scan execution path (2026)
 
 Unifies the two scan execution paths. Before 3.4.0, `kosty audit` ran through
