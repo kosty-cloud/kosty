@@ -12,7 +12,7 @@ The Finding model is designed to be consumed by:
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -114,7 +114,7 @@ class CheckMetadata:
 class ScanResult:
     """Aggregated results from a scan run."""
 
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     findings: List[Finding] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
 

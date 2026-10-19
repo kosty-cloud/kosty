@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -15,7 +15,7 @@ def check_unused_read_replicas(session: 'boto3.Session', region: str, days=7, **
     account_id = get_account_id(session)
     findings = []
     try:
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
         for db in rds.describe_db_instances()['DBInstances']:
             if excluded_by_tags(db, kwargs):

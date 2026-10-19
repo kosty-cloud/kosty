@@ -11,23 +11,9 @@ at its boundary (never hitting real S3).
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from kosty.core.engine import ScanEngine
 from kosty.core.registry import registry
 from kosty.core.models import CheckMetadata, Finding, Severity, FindingType
-
-
-@pytest.fixture
-def clean_registry():
-    """Snapshot and restore the global registry so tests don't leak checks."""
-    saved = dict(registry._checks)
-    registry._checks.clear()
-    try:
-        yield registry
-    finally:
-        registry._checks.clear()
-        registry._checks.update(saved)
 
 
 def _register(reg, check_id, func, service="EC2", provider="aws",

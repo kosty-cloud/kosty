@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -31,8 +31,8 @@ def check_premium_model_for_simple_tasks(session: 'boto3.Session', region: str, 
         if not log_group:
             return findings
 
-        end_ms = int(datetime.utcnow().timestamp() * 1000)
-        start_ms = int((datetime.utcnow() - timedelta(days=days)).timestamp() * 1000)
+        end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        start_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
         premium = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet']
 
         query = logs.start_query(

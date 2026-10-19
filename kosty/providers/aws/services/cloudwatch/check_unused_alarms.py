@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -20,12 +20,14 @@ def check_unused_alarms(session: 'boto3.Session', region: str, days=30, **kwargs
     findings = []
 
     try:
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         paginator = cw.get_paginator('describe_alarms')
         for page in paginator.paginate():
             for alarm in page['MetricAlarms']:
                 updated = alarm.get('StateUpdatedTimestamp')
-                if updated and updated.replace(tzinfo=None) < cutoff:
+                # StateUpdatedTimestamp from boto3 is timezone-aware (UTC);
+                # compare directly against the aware cutoff.
+                if updated and updated < cutoff:
                     findings.append(Finding(
                         check_id="aws-cloudwatch-002", service="CloudWatch",
                         resource_id=alarm['AlarmName'], region=region, account_id=account_id,

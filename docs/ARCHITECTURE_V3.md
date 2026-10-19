@@ -84,7 +84,7 @@ def check_public_read(session, region, **kwargs):
 
 ### PluginLoader (`kosty/core/loader.py`)
 
-Recursively imports `.py` files from a directory. On import, decorated functions register themselves. Supports multiple paths for OSS/Pro gating.
+Recursively imports `.py` files from a directory. On import, decorated functions register themselves. Supports multiple paths for OSS/Pro gating. In-tree checks are imported under their real package path (e.g. `kosty.providers.aws.services.ebs.check_orphan_volumes`), so a directory load and a direct import share one module identity and register once; out-of-tree plugin directories keep a synthetic prefix.
 
 ```python
 from kosty.core.engine import ScanEngine

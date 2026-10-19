@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -27,8 +27,8 @@ def check_tpm_quota_high_usage(session: 'boto3.Session', region: str, threshold=
                         Namespace=usage.get('MetricNamespace', ''),
                         MetricName=usage.get('MetricName', ''),
                         Dimensions=[{'Name': k, 'Value': v} for k, v in usage.get('MetricDimensions', {}).items()],
-                        StartTime=datetime.utcnow() - timedelta(hours=24),
-                        EndTime=datetime.utcnow(), Period=3600, Statistics=['Maximum']
+                        StartTime=datetime.now(timezone.utc) - timedelta(hours=24),
+                        EndTime=datetime.now(timezone.utc), Period=3600, Statistics=['Maximum']
                     )
                     if metrics['Datapoints']:
                         peak = max(dp['Maximum'] for dp in metrics['Datapoints'])

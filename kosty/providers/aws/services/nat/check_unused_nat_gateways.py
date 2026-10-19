@@ -15,7 +15,7 @@ from typing import List
 )
 def check_unused_nat_gateways(session: 'boto3.Session', region: str, days=7, **kwargs) -> List[Finding]:
     """Flag NAT Gateways processing no bytes over the analysis period."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     ec2 = session.client('ec2', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
     account_id = get_account_id(session)
@@ -25,7 +25,7 @@ def check_unused_nat_gateways(session: 'boto3.Session', region: str, days=7, **k
         gateways = ec2.describe_nat_gateways(
             Filters=[{'Name': 'state', 'Values': ['available']}]
         )['NatGateways']
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
         for gw in gateways:

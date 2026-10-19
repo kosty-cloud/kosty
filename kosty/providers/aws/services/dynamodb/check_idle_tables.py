@@ -14,7 +14,7 @@ from typing import List
 )
 def check_idle_tables(session: 'boto3.Session', region: str, days=7, **kwargs) -> List[Finding]:
     """Flag provisioned tables with minimal read/write activity."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     dynamodb = session.client('dynamodb', region_name=region)
     cw = session.client('cloudwatch', region_name=region)
     account_id = get_account_id(session)
@@ -22,7 +22,7 @@ def check_idle_tables(session: 'boto3.Session', region: str, days=7, **kwargs) -
 
     try:
         tables = dynamodb.list_tables().get('TableNames', [])
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
         for table_name in tables:

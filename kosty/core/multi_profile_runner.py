@@ -13,7 +13,7 @@ import asyncio
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -100,7 +100,7 @@ class MultiProfileRunner:
                 'reporter': reporter,
                 'total_issues': total_issues,
                 'total_savings': total_savings,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -109,7 +109,7 @@ class MultiProfileRunner:
                 'profile': profile,
                 'status': 'error',
                 'error': str(e),
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
 
     def run_parallel(self, cli_args: Dict[str, Any], max_parallel: int = 3) -> Dict[str, Any]:
@@ -139,7 +139,7 @@ class MultiProfileRunner:
                         'profile': profile,
                         'status': 'error',
                         'error': str(e),
-                        'timestamp': datetime.utcnow().isoformat(),
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
                     }
 
         return self._generate_summary()
@@ -150,7 +150,7 @@ class MultiProfileRunner:
         total_savings = sum(r['total_savings'] for r in self.results.values())
 
         return {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'total_profiles': len(self.profiles),
             'successful_profiles': len(self.results),
             'failed_profiles': len(self.errors),
@@ -176,7 +176,7 @@ class MultiProfileRunner:
         """
         Path(output_dir).resolve().mkdir(parents=True, exist_ok=True)
         saved_files = []
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
         output_dir = str(Path(output_dir).resolve())
 
         for profile, result in self.results.items():

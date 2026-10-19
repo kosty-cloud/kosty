@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -14,7 +14,7 @@ def check_idle_endpoints(session: 'boto3.Session', region: str, days=7, **kwargs
     account_id = get_account_id(session)
     findings = []
     try:
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
         for ep in sm.list_endpoints(StatusEquals='InService').get('Endpoints', []):
             try:
