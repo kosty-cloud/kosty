@@ -1,8 +1,15 @@
 # Kosty Release Notes
 
-## Version 3.6.0 — Report integrity and scan-path fixes (2026)
+## Version 3.6.0 — Timeout wiring, report integrity, and scan-path fixes (2026)
 
 ### Engine and reports
+- The `connect_timeout`, `read_timeout`, and `max_retries` keys from `kosty.yaml`
+  are now applied at boto3 client construction. They were parsed and documented
+  since 3.4.0 but never passed to any `session.client(...)` call, so they had no
+  effect. A session proxy injected once at the engine's per-check boundary now
+  supplies the botocore `Config` to every check's clients, without touching any of
+  the ~150 check functions. Unconfigured runs keep the historical 60s/60s/3
+  defaults, so behavior is unchanged unless the keys are set.
 - Per-service commands (`kosty ec2`, `kosty s3`, …) now surface plugin
   load/integrity errors in their results, matching the full `kosty audit` path.
   A broken or tampered plugin is no longer silently invisible on the per-service
@@ -15,6 +22,26 @@
 - Multi-profile audit (`kosty audit --profiles`) now writes its per-profile and
   summary report-path notices to stderr instead of stdout, so piping the summary
   stays clean. The cross-profile summary table remains on stdout.
+
+### Testing
+- Added a fully offline regression suite built on `botocore.stub.Stubber`. Stubber
+  ships with boto3/botocore, so the suite adds no new runtime dependency (moto was
+  deliberately not introduced). It covers the timeout seam, the service-path
+  sidecar and loader-error symmetry, and a representative sample of real checks by
+  pattern: one cost check, one security check, and one `AccessDenied` response that
+  must surface in `ScanResult.errors` rather than be swallowed.
+- Added `tests/README.md` documenting the suite: the offline guarantee (no STS, no
+  boto3-live, no network), the Stubber-over-moto rationale, what is and is not
+  covered, how to run it, and the rule that every new test stays offline.
+
+### Developer notes
+- Reviewed the remaining business-layer `print()` calls (C18) and the
+  multi-profile CSV schema (C20). The multi-profile file-path notices moved to
+  stderr (above); the cross-profile summary table stays on stdout as the
+  command's intended output, and `kosty audit`'s scan banner and completion
+  summary stay on stdout as user-facing output. The multi-profile CSV keeps its
+  extra leading `Profile` column on purpose and is not unified with the
+  single-profile CSV schema.
 
 ## Version 3.5.1 — Documentation and asset patch (2026)
 
