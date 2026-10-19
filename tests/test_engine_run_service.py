@@ -65,6 +65,16 @@ def _finding(check_id="aws-ec2-001", service="EC2", region="us-east-1"):
 # (1) a failing check routes its error into ScanResult.errors
 # ---------------------------------------------------------------------------
 
+def test_run_service_surfaces_loader_errors(clean_registry):
+    """Loader errors appear in run_service().errors, matching run()."""
+    engine = ScanEngine(max_workers=2)
+    engine._loader._errors.append("Integrity check failed: check_boom.py")
+
+    result = engine.run_service(MagicMock(), ["us-east-1"], service="EC2")
+
+    assert "Integrity check failed: check_boom.py" in result.errors
+
+
 def test_run_service_routes_check_error_into_errors(clean_registry):
     """A raising check is recorded in result.errors, not swallowed."""
     def boom(session, region, **kwargs):

@@ -200,7 +200,7 @@ class MultiProfileRunner:
                 with open(filename, 'w') as f:
                     json.dump(report_data, f, indent=2, default=str)
                 saved_files.append(filename)
-                print(f"📄 [{profile}] JSON report: {filename}")
+                print(f"📄 [{profile}] JSON report: {filename}", file=sys.stderr)
 
             if output_format in ('csv', 'all'):
                 filename = f"{output_dir}/kosty_audit_{safe_profile}_{timestamp}.csv"
@@ -208,13 +208,13 @@ class MultiProfileRunner:
                 with open(filename, 'w') as f:
                     f.write(csv_content)
                 saved_files.append(filename)
-                print(f"📊 [{profile}] CSV report: {filename}")
+                print(f"📊 [{profile}] CSV report: {filename}", file=sys.stderr)
 
         summary_file = f"{output_dir}/kosty_summary_{timestamp}.json"
         with open(summary_file, 'w') as f:
             json.dump(self._generate_summary(), f, indent=2, default=str)
         saved_files.append(summary_file)
-        print(f"\n📋 Summary report: {summary_file}")
+        print(f"\n📋 Summary report: {summary_file}", file=sys.stderr)
 
         return saved_files
 

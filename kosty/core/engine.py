@@ -167,6 +167,8 @@ class ScanEngine:
         )
         result.findings.extend(findings)
         result.errors.extend(errors)
+
+        result.errors.extend(self._loader.errors)
         return result
 
     def _run_over_regions(

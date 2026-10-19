@@ -1,5 +1,21 @@
 # Kosty Release Notes
 
+## Version 3.6.0 — Report integrity and scan-path fixes (2026)
+
+### Engine and reports
+- Per-service commands (`kosty ec2`, `kosty s3`, …) now surface plugin
+  load/integrity errors in their results, matching the full `kosty audit` path.
+  A broken or tampered plugin is no longer silently invisible on the per-service
+  path.
+- A per-service report saved to a local path now gets the same `.sha256` sidecar
+  that full-audit reports already wrote (e.g. `kosty_ec2_*.json` alongside
+  `kosty_ec2_*.json.sha256`). The sidecar records the file basename and verifies
+  with `sha256sum -c`. Reports saved to S3 or network shares keep no sidecar,
+  unchanged. Report JSON/CSV content is byte-for-byte identical to before.
+- Multi-profile audit (`kosty audit --profiles`) now writes its per-profile and
+  summary report-path notices to stderr instead of stdout, so piping the summary
+  stays clean. The cross-profile summary table remains on stdout.
+
 ## Version 3.5.1 — Documentation and asset patch (2026)
 
 A documentation-only patch with no code or behavior change.

@@ -191,10 +191,16 @@ class StorageManager:
 
     async def save_file(self, content: str, filename: str, save_to: str,
                         file_format: str, allow_outside_cwd: bool = False) -> str:
-        """Persist content to the target location and return the final path/URL."""
+        """Persist content to the target location and return the final path/URL.
+
+        The empty-save_to branch is the per-service default write: a local file
+        in the current directory. It gets the same .sha256 sidecar as the
+        full-audit reports (reporter._write_with_hash). S3 and network-share
+        writes keep no sidecar, matching the documented policy.
+        """
         if not save_to:
-            with open(filename, 'w') as f:
-                f.write(content)
+            from .reporter import _write_with_hash
+            _write_with_hash(content, filename)
             return filename
 
         if save_to.startswith('s3://'):
