@@ -19,9 +19,16 @@ warning it removes was only observable inside a pytest session.
   and skips re-running a file already loaded under another module name. Two
   different files that declare the same `check_id` still have different real
   paths, so a genuine conflict still warns.
+- When a check file is already imported (native import or an earlier load in
+  the same process), the loader reuses that single module identity and counts
+  it toward `loaded_count` instead of silently skipping it, so a directory load
+  reports the modules whose checks are present as a result of the call.
 - Added `tests/conftest.py` with offline, opt-in fixtures (a session-scoped
   directory load and a registry snapshot/restore) and a regression test that
-  loads the real services directory and asserts no duplicate registration.
+  loads the real services directory and asserts no duplicate registration. The
+  `clean_registry` fixture clears both `registry._checks` and
+  `registry._warnings` and evicts the native check modules from `sys.modules`,
+  so a subsequent load re-executes them and repopulates the empty registry.
 
 ### Deprecation cleanup
 - Replaced deprecated `datetime.datetime.utcnow()` with timezone-aware
@@ -30,6 +37,11 @@ warning it removes was only observable inside a pytest session.
   CloudWatch Logs query window (`.timestamp()`) and the multi-profile report
   timestamps (`.isoformat()` now ends with `+00:00`). The previous naive form
   treated UTC wall-clock as local time, so this is a correctness fix.
+- The `ScanResult.timestamp` default factory was the last remaining
+  `datetime.utcnow()` call; it is now timezone-aware, so `ScanResult.to_dict()`
+  reports `scan_timestamp` with a `+00:00` offset. The warning it emitted
+  surfaced as `<string>:3` because the factory runs inside the dataclass-
+  synthesized `__init__`.
 
 ## Version 3.6.0 — Timeout wiring, report integrity, and scan-path fixes (2026)
 

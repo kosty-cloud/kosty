@@ -263,8 +263,18 @@ class PluginLoader:
         Returns:
             True if import succeeded, False otherwise.
         """
-        # Skip if already loaded under this module name
+        real = os.path.realpath(filepath)
+
+        # Skip re-executing a module that is already imported under this exact
+        # name (e.g. a native `import kosty.providers.aws.services...` ran
+        # earlier, or a prior load_directory call in the same process). Its
+        # @register_check already ran against the live registry, so re-running
+        # the file would only risk a spurious duplicate warning. Count it as
+        # loaded so loaded_count reflects a module whose checks are present as a
+        # result of this call, not just freshly exec'd files.
         if module_name in sys.modules:
+            self._loaded_modules.setdefault(module_name, filepath)
+            self._loaded_files.add(real)
             return True
 
         # Defensive net: if this exact source file was already executed under
@@ -273,8 +283,8 @@ class PluginLoader:
         # genuine cross-file conflict intact — two DIFFERENT files declaring the
         # same check_id have different realpaths, so both still execute and the
         # registry's duplicate-check_id warning still fires.
-        real = os.path.realpath(filepath)
         if real in self._loaded_files:
+            self._loaded_modules.setdefault(module_name, filepath)
             return True
 
         # Skip if file is empty or too small to contain a check
