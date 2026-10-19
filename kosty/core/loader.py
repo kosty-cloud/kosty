@@ -7,6 +7,11 @@ Supports multiple search paths for OSS/Pro gating:
 Plugin loading failures are isolated. A broken plugin logs a warning
 but does not crash the scan. Duplicate check_ids are detected and reported.
 
+In-tree check files are imported under their real package path (e.g.
+kosty.providers.aws.services.ebs.check_orphan_volumes) so they share a single
+module identity with the native import and register exactly once. Out-of-tree
+plugin directories (no __init__.py) keep a synthetic prefix.
+
 Security note — plugin execution model:
     exec_module() runs arbitrary Python code with the same privileges as the
     Kosty process, which typically holds live AWS credentials. This is
@@ -54,16 +59,23 @@ class PluginLoader:
         self._errors: List[str] = []
         self._warnings: List[str] = []
         self._loaded_modules: Dict[str, str] = {}  # module_name -> filepath
+        self._loaded_files: set = set()  # realpath(filepath) already executed
         self._manifest: Optional[Dict[str, str]] = None  # rel_path -> sha256
         self._manifest_root: Optional[str] = None  # directory the manifest was loaded from
         self._strict: bool = False
 
-    def load_directory(self, path: str, package_prefix: str = "kosty_plugins", debug: bool = False, strict: bool = False) -> int:
+    def load_directory(self, path: str, package_prefix: Optional[str] = None, debug: bool = False, strict: bool = False) -> int:
         """Recursively import all .py files from a directory.
 
         Args:
             path: Absolute or relative path to scan.
-            package_prefix: Module namespace prefix for imported modules.
+            package_prefix: Fallback module-namespace prefix used ONLY for
+                    out-of-tree plugins (a dir without __init__.py, e.g. an
+                    external/Pro plugin dir). In-tree check files are imported
+                    under their real package path (e.g.
+                    kosty.providers.aws.services.ebs.check_orphan_volumes) so a
+                    single module identity matches the native import and no
+                    duplicate registration occurs. Defaults to "kosty_plugins".
             debug: Print each loaded module and any integrity warnings to stderr.
             strict: When True, refuse plugins that are present on disk but absent
                     from the manifest. Default False keeps local contributors
@@ -100,7 +112,7 @@ class PluginLoader:
 
                 filepath = os.path.join(root, filename)
                 rel_path = os.path.relpath(filepath, path)
-                module_name = f"{package_prefix}.{rel_path[:-3].replace(os.sep, '.')}"
+                module_name = self._derive_module_name(filepath, path, package_prefix)
 
                 if self._import_module(filepath, module_name, debug=debug):
                     loaded += 1
@@ -118,6 +130,44 @@ class PluginLoader:
             )
 
         return loaded
+
+
+    def _derive_module_name(self, filepath: str, path: str, package_prefix: Optional[str]) -> str:
+        """Compute the module name under which to import a check file.
+
+        In-tree files (those whose directory chain is a real Python package,
+        marked by __init__.py at every level) get their native importable name,
+        e.g. kosty.providers.aws.services.ebs.check_orphan_volumes. That is the
+        same name the test suite uses for a direct import, so the
+        `if module_name in sys.modules` guard absorbs the duplicate and the
+        decorator runs once.
+
+        Out-of-tree files (a dir without __init__.py — an external/Pro plugin
+        directory) keep a synthetic prefix derived from package_prefix, so those
+        plugins are unaffected.
+        """
+        module_stem = os.path.basename(filepath)[:-3]  # strip ".py"
+        parts = [module_stem]
+        current = os.path.dirname(os.path.abspath(filepath))
+
+        # Walk up while each directory is a package (has __init__.py), building
+        # the dotted chain from the top-most package down to the file.
+        while os.path.isfile(os.path.join(current, '__init__.py')):
+            parts.insert(0, os.path.basename(current))
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+
+        if len(parts) > 1:
+            # At least one ancestor is a package: this is an in-tree file, so
+            # its native import path is the right single identity.
+            return '.'.join(parts)
+
+        # No package ancestor: out-of-tree plugin, keep a synthetic prefix.
+        rel_path = os.path.relpath(filepath, path)
+        prefix = package_prefix or "kosty_plugins"
+        return f"{prefix}.{rel_path[:-3].replace(os.sep, '.')}"
 
 
     def _load_manifest(self, plugins_dir: str) -> Optional[Dict[str, str]]:
@@ -213,8 +263,18 @@ class PluginLoader:
         Returns:
             True if import succeeded, False otherwise.
         """
-        # Skip if already loaded
+        # Skip if already loaded under this module name
         if module_name in sys.modules:
+            return True
+
+        # Defensive net: if this exact source file was already executed under
+        # any module name, do not run it again. This neutralizes the
+        # same-file-under-two-names case regardless of naming, while leaving a
+        # genuine cross-file conflict intact — two DIFFERENT files declaring the
+        # same check_id have different realpaths, so both still execute and the
+        # registry's duplicate-check_id warning still fires.
+        real = os.path.realpath(filepath)
+        if real in self._loaded_files:
             return True
 
         # Skip if file is empty or too small to contain a check
@@ -249,6 +309,7 @@ class PluginLoader:
                 return False
 
             self._loaded_modules[module_name] = filepath
+            self._loaded_files.add(real)
             return True
 
         except Exception as e:

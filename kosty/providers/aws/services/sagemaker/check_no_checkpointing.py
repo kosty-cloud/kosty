@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -13,7 +13,7 @@ def check_no_checkpointing(session: 'boto3.Session', region: str, **kwargs) -> L
     account_id = get_account_id(session)
     findings = []
     try:
-        cutoff = datetime.utcnow() - timedelta(days=30)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
         jobs = sm.list_training_jobs(CreationTimeAfter=cutoff, StatusEquals='Completed', SortBy='CreationTime', SortOrder='Descending', MaxResults=20)
         for job in jobs.get('TrainingJobSummaries', []):
             try:

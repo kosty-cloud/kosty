@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -17,7 +17,7 @@ def check_idle_instances(session: 'boto3.Session', region: str, cpu_threshold=5,
     days = resolve_threshold(kwargs, 'days', 'idle_days', 7)
     findings = []
     try:
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
         for db in rds.describe_db_instances()['DBInstances']:
             if excluded_by_tags(db, kwargs):

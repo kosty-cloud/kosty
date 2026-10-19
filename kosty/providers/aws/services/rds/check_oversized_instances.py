@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from kosty.core.registry import register_check
 from kosty.core.models import Finding, FindingType, Severity
 from kosty.providers.aws.session_utils import get_account_id
@@ -20,7 +20,7 @@ def check_oversized_instances(session: 'boto3.Session', region: str, days=14, **
     size_order = ['micro', 'small', 'medium', 'large', 'xlarge', '2xlarge', '4xlarge', '8xlarge', '12xlarge', '16xlarge']
     min_cache = {}
     try:
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
         for db in rds.describe_db_instances()['DBInstances']:
             if excluded_by_tags(db, kwargs):
