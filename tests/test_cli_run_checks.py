@@ -109,3 +109,26 @@ def test_serialize_findings_csv_has_header_and_row():
     lines = [l for l in content.splitlines() if l.strip()]
     assert len(lines) == 2
     assert "Issue" in lines[0]
+
+
+# ---------------------------------------------------------------------------
+# local per-service write gets a .sha256 sidecar; s3:// write does not
+# ---------------------------------------------------------------------------
+
+def test_local_service_write_produces_sidecar(tmp_path, monkeypatch):
+    """A local (empty save_to) write produces a sidecar with the basename."""
+    import asyncio
+    from kosty.core.storage import StorageManager
+
+    monkeypatch.chdir(tmp_path)
+    dest = asyncio.run(
+        StorageManager().save_file("payload", "report.json", "", "json")
+    )
+
+    assert (tmp_path / "report.json").read_text() == "payload"
+    sidecar = tmp_path / "report.json.sha256"
+    assert sidecar.exists()
+    digest, name = sidecar.read_text().strip().split("  ", 1)
+    assert name == "report.json"
+    assert "/" not in name
+    assert dest == "report.json"

@@ -131,10 +131,11 @@ kosty audit --profile production
 
 ## boto3 Client Timeouts
 
-Each check builds its AWS clients with a botocore `Config` derived from these
-keys, so a slow or degraded account can be tuned from `kosty.yaml` instead of only
-the `AWS_DEFAULT_SOCKET_TIMEOUT` environment variable. The defaults preserve the
-historical boto3 behaviour.
+Kosty builds a botocore `Config` from these keys and applies it at client
+construction: the scan engine wraps the session so every check's AWS clients are
+created with that `Config`. A slow or degraded account can therefore be tuned from
+`kosty.yaml` instead of only the `AWS_DEFAULT_SOCKET_TIMEOUT` environment variable.
+The defaults preserve the historical boto3 behaviour.
 
 ```yaml
 default:

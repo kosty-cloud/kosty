@@ -167,6 +167,8 @@ class ScanEngine:
         )
         result.findings.extend(findings)
         result.errors.extend(errors)
+
+        result.errors.extend(self._loader.errors)
         return result
 
     def _run_over_regions(
@@ -291,6 +293,8 @@ class ScanEngine:
         """
         func = check['func']
         metadata = check['metadata']
+        from kosty.providers.aws.boto_session import wrap_session
+        session = wrap_session(session, kwargs.get('config_manager'))
         result = func(session=session, region=region, **kwargs)
         if isinstance(result, list):
             if metadata.compliance_ids:
