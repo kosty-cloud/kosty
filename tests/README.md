@@ -17,17 +17,8 @@ Stubber queues canned responses (or client errors) on a real boto3 client and
 validates every queued payload against the service's own API model, so a stubbed
 response that does not match the real API shape fails the test.
 
-### Why Stubber and not moto
-
-`Stubber` ships inside **botocore**, which is already a dependency of boto3 — the
-official AWS SDK. Using it adds **zero new runtime or test dependency**.
-
-`moto` is a separate third-party package that re-implements AWS services. It is
-widely used and capable, but adopting it would add a dependency to install,
-pin, and keep in step with boto3. For Kosty's needs — parsing known response
-shapes and permission errors through the check functions — Stubber covers the
-cases without that extra surface. The suite therefore standardises on Stubber
-and does **not** introduce moto.
+`Stubber` ships inside **botocore**, which is already a dependency of boto3, so
+it adds no new dependency.
 
 ## What is covered
 
@@ -92,4 +83,4 @@ Every new test **must stay offline**. In practice:
 - Use a `MagicMock` where a boto3 `Session` is expected, and have its `.client`
   return a stubbed client when a real response shape is needed.
 - **Never** reach for STS, a live boto3 call, or the network, and **never** add a
-  new runtime dependency (no moto).
+  new runtime dependency.
